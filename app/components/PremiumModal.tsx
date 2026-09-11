@@ -47,7 +47,7 @@ if (parent) parent.innerHTML = '<span style="color:#999;font-size:12px;padding:1
 </div>
 
 <p className="text-center text-xs text-[#7A6E5D] mb-6">
-Amount: <span className="text-[#C9A24B] font-medium">20,000 MMK</span> (~$20 USD)
+Amount: <span className="text-[#C9A24B] font-medium">85,000 MMK</span> (~$20 USD)
 </p>
 
 <button

@@ -9,6 +9,7 @@ import Progress from './components/Progress';
 import Marketplace from './components/Marketplace';
 import PremiumModal from './components/PremiumModal';
 import Leaderboard from './components/Leaderboard';
+import Friends from './components/Friends';
 
 const XP_PER_LEVEL = 270;
 const levelForXP = (xp: number) => Math.floor(xp / XP_PER_LEVEL) + 1;
@@ -334,7 +335,7 @@ Log out
 </div>
 
 <div className="flex gap-10 mb-14">
-{['dashboard', 'scan', 'progress', 'rankings', 'marketplace'].map(tab => (
+{['dashboard', 'scan', 'progress', 'rankings', 'friends', 'marketplace'].map(tab => (
 <button
 key={tab}
 onClick={() => setActiveTab(tab)}
@@ -354,6 +355,8 @@ activeTab === tab ? 'text-[#C9A24B]' : 'text-[#7A6E5D] hover:text-[#B0A48F]'
 <Progress totalXP={totalXP} level={level} streak={streak} />
 ) : activeTab === 'rankings' ? (
 <Leaderboard />
+) : activeTab === 'friends' ? (
+<Friends myStats={{ totalXP, level, streak }} />
 ) : activeTab === 'marketplace' ? (
 <Marketplace />
 ) : (

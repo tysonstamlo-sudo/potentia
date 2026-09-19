@@ -8,6 +8,7 @@ import FaceScan from './components/FaceScan';
 import Progress from './components/Progress';
 import Marketplace from './components/Marketplace';
 import PremiumModal from './components/PremiumModal';
+import Leaderboard from './components/Leaderboard';
 
 const XP_PER_LEVEL = 270;
 const levelForXP = (xp: number) => Math.floor(xp / XP_PER_LEVEL) + 1;
@@ -195,11 +196,11 @@ const goPremium = async () => {
 setShowPremiumModal(true);
 };
 
-const submitPaymentClaim = async () => {
+const submitPaymentClaim = async (plan: string) => {
 if (!userId) return;
 setSubmittingPayment(true);
 try {
-await supabase.from('premium_requests').insert({ user_id: userId, status: 'pending' });
+await supabase.from('premium_requests').insert({ user_id: userId, status: 'pending', plan });
 setPremiumStatus('pending');
 setShowPremiumModal(false);
 } catch (err) {
@@ -333,7 +334,7 @@ Log out
 </div>
 
 <div className="flex gap-10 mb-14">
-{['dashboard', 'scan', 'progress', 'marketplace'].map(tab => (
+{['dashboard', 'scan', 'progress', 'rankings', 'marketplace'].map(tab => (
 <button
 key={tab}
 onClick={() => setActiveTab(tab)}
@@ -351,6 +352,8 @@ activeTab === tab ? 'text-[#C9A24B]' : 'text-[#7A6E5D] hover:text-[#B0A48F]'
 <FaceScan isPremium={isPremium} onGoPremium={goPremium} />
 ) : activeTab === 'progress' ? (
 <Progress totalXP={totalXP} level={level} streak={streak} />
+) : activeTab === 'rankings' ? (
+<Leaderboard />
 ) : activeTab === 'marketplace' ? (
 <Marketplace />
 ) : (

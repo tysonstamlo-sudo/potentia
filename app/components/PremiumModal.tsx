@@ -1,15 +1,26 @@
 'use client';
 
-import React from 'react';
-import { X, Crown, Loader2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Crown, Loader2, Check } from 'lucide-react';
 
 type PremiumModalProps = {
 onClose: () => void;
-onConfirm: () => void;
+onConfirm: (plan: string) => void;
 submitting: boolean;
 };
 
+const PLANS = [
+{ id: '1month', label: '1 Month', priceMMK: '85,000', priceUSD: '$20', note: '' },
+{ id: '6months', label: '6 Months', priceMMK: '450,000', priceUSD: '$105', note: 'Save ~12%' },
+{ id: '1year', label: '1 Year', priceMMK: '800,000', priceUSD: '$188', note: 'Save ~22%' },
+];
+
 export default function PremiumModal({ onClose, onConfirm, submitting }: PremiumModalProps) {
+const [selectedPlan, setSelectedPlan] = useState('1month');
+const [step, setStep] = useState<'select' | 'pay'>('select');
+
+const plan = PLANS.find(p => p.id === selectedPlan)!;
+
 return (
 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
 <div className="w-full max-w-sm border border-[#C9A24B]/30 bg-[#0D0D0D] rounded-sm p-8 relative font-body">
@@ -25,9 +36,47 @@ className="absolute top-4 right-4 text-[#7A6E5D] hover:text-[#C9A24B] transition
 <span className="text-[10px] tracking-[0.25em] text-[#C9A24B] uppercase">Go Premium</span>
 </div>
 
+{step === 'select' ? (
+<>
 <p className="text-sm text-[#B0A48F] mb-6 leading-relaxed">
-Scan the QR code below with your banking app to send payment. Once done, tap
-&quot;I&apos;ve Sent Payment&quot; and your account will be upgraded once we confirm the transfer.
+Choose your plan.
+</p>
+<div className="space-y-3 mb-8">
+{PLANS.map(p => (
+<button
+key={p.id}
+onClick={() => setSelectedPlan(p.id)}
+className={`w-full flex items-center justify-between p-4 rounded-sm border transition-all text-left ${
+selectedPlan === p.id
+? 'border-[#C9A24B] bg-[#C9A24B]/[0.06]'
+: 'border-[#7A6E5D]/30 hover:border-[#7A6E5D]/60'
+}`}
+>
+<div>
+<div className="flex items-center gap-2">
+<span className="text-sm text-[#C9A24B] font-medium">{p.label}</span>
+{p.note && (
+<span className="text-[9px] text-[#7A6E5D] border border-[#7A6E5D]/30 rounded-full px-2 py-0.5">{p.note}</span>
+)}
+</div>
+<span className="text-xs text-[#7A6E5D]">{p.priceMMK} MMK (~{p.priceUSD})</span>
+</div>
+{selectedPlan === p.id && <Check className="w-4 h-4 text-[#C9A24B] flex-shrink-0" />}
+</button>
+))}
+</div>
+<button
+onClick={() => setStep('pay')}
+className="w-full border border-[#C9A24B]/50 hover:border-[#C9A24B] hover:bg-[#C9A24B]/[0.08] text-[#C9A24B] font-medium py-3.5 rounded-sm transition-all text-[13px] tracking-[0.05em] uppercase"
+>
+Continue
+</button>
+</>
+) : (
+<>
+<p className="text-sm text-[#B0A48F] mb-6 leading-relaxed">
+Scan with your banking app to pay for the <span className="text-[#C9A24B]">{plan.label}</span> plan.
+Once done, tap &quot;I&apos;ve Sent Payment&quot; below.
 </p>
 
 {/* Replace this image with your real bank QR — place the file at
@@ -47,11 +96,11 @@ if (parent) parent.innerHTML = '<span style="color:#999;font-size:12px;padding:1
 </div>
 
 <p className="text-center text-xs text-[#7A6E5D] mb-6">
-Amount: <span className="text-[#C9A24B] font-medium">85,000 MMK</span> (~$20 USD)
+Amount: <span className="text-[#C9A24B] font-medium">{plan.priceMMK} MMK</span> (~{plan.priceUSD} USD)
 </p>
 
 <button
-onClick={onConfirm}
+onClick={() => onConfirm(selectedPlan)}
 disabled={submitting}
 className="w-full flex items-center justify-center gap-2 border border-[#C9A24B]/50 hover:border-[#C9A24B] hover:bg-[#C9A24B]/[0.08] disabled:opacity-50 text-[#C9A24B] font-medium py-3.5 rounded-sm transition-all text-[13px] tracking-[0.05em] uppercase"
 >
@@ -59,11 +108,13 @@ className="w-full flex items-center justify-center gap-2 border border-[#C9A24B]
 </button>
 
 <button
-onClick={onClose}
+onClick={() => setStep('select')}
 className="w-full text-center text-xs text-[#7A6E5D] hover:text-[#B0A48F] mt-4 transition-colors"
 >
-Cancel
+Back
 </button>
+</>
+)}
 </div>
 </div>
 );

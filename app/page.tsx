@@ -250,11 +250,12 @@ return (
 }
 
 return (
-<div className="min-h-screen bg-[#050505] text-[#C9A24B]">
+<div className="min-h-screen bg-[#050505] text-[#C9A24B] overflow-x-hidden">
 <style>{`
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
 .font-display { font-family: 'Fraunces', serif; }
 .font-body { font-family: 'Inter', sans-serif; }
+* { -webkit-text-size-adjust: 100%; }
 .relief {
 background:
 radial-gradient(circle at 30% 20%, rgba(184,135,79,0.06), transparent 45%),
@@ -269,7 +270,7 @@ to { opacity: 1; transform: translateY(0); filter: blur(0); }
 `}</style>
 
 <div className="relief min-h-screen">
-<div className="max-w-6xl mx-auto px-6 py-12 md:py-16">
+<div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 md:py-16 w-full">
 
 <div className="flex items-center justify-between mb-14">
 <div className="flex items-center gap-3">
@@ -292,12 +293,12 @@ Premium
 )}
 </div>
 
-<div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-10 mb-16 pb-10 border-b border-[#7A6E5D]/20">
-<div>
+<div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-10 mb-16 pb-10 border-b border-[#7A6E5D]/20 w-full">
+<div className="min-w-0">
 <div className="flex items-center gap-2 mb-5">
 <span className="font-body text-[10px] tracking-[0.25em] text-[#7A6E5D] uppercase">Rank {level}</span>
 </div>
-<h1 className="font-display text-5xl md:text-7xl font-light tracking-tight mb-3 text-[#C9A24B]">
+<h1 className="font-display text-3xl sm:text-5xl md:text-7xl font-semibold tracking-tight mb-3 text-[#C9A24B] break-words">
 {(username ? `Welcome back, ${username}` : 'Your Ascent').split(' ').map((word, idx) => (
 <span key={idx} className="word-reveal mr-[0.25em]" style={{ animationDelay: `${idx * 0.12}s` }}>
 {word}
@@ -323,7 +324,7 @@ style={{ transition: 'stroke-dashoffset 0.6s ease' }}
 />
 </svg>
 <div className="absolute inset-0 flex flex-col items-center justify-center">
-<span className="font-display text-4xl text-[#C9A24B] leading-none">{level}</span>
+<span className="font-display text-4xl font-semibold text-[#C9A24B] leading-none">{level}</span>
 <span className="font-body text-[8px] tracking-[0.2em] text-[#7A6E5D] uppercase mt-2">Rank</span>
 </div>
 </div>
@@ -365,7 +366,7 @@ activeTab === tab ? 'text-[#C9A24B]' : 'text-[#7A6E5D] hover:text-[#B0A48F]'
 
 <div className="relative pl-8 border-l border-[#C9A24B]/40">
 <span className="font-body text-[10px] tracking-[0.35em] text-[#C9A24B] uppercase block mb-4">Counsel</span>
-<p className="font-display text-xl leading-relaxed text-[#C9A24B] font-light mb-6">
+<p className="font-display text-xl leading-relaxed text-[#C9A24B] font-medium mb-6">
 Start with morning skincare to prep your skin, then hit your workout. Stay consistent to keep your streak alive.
 </p>
 <div className="flex items-center justify-between">
@@ -394,7 +395,7 @@ className={`cursor-pointer border-b border-[#7A6E5D]/20 group ${saving ? 'pointe
 </span>
 <HabitIcon className={`w-4 h-4 flex-shrink-0 transition-colors ${done ? 'text-[#C9A24B]' : 'text-[#7A6E5D] group-hover:text-[#B0A48F]'}`} />
 <div className="flex-1 min-w-0">
-<h3 className={`font-body text-sm transition-colors ${done ? 'text-[#7A6E5D] line-through' : 'text-[#C9A24B]'}`}>{habit.name}</h3>
+<h3 className={`font-body text-sm font-medium transition-colors ${done ? "text-[#7A6E5D] line-through" : "text-[#C9A24B]"}`}>{habit.name}</h3>
 <p className="font-body text-[11px] text-[#7A6E5D] capitalize mt-0.5">{habit.category}</p>
 </div>
 <span className="font-display text-sm text-[#C9A24B]">+{habit.xp}</span>
@@ -436,14 +437,14 @@ className={`cursor-pointer border-b border-[#7A6E5D]/20 group ${saving ? 'pointe
 <span className="font-body text-[10px] tracking-[0.2em] text-[#7A6E5D] uppercase block mb-2">Current Streak</span>
 <div className="flex items-baseline gap-2">
 <Flame className="w-4 h-4 text-[#C9A24B] mb-1" />
-<span className="font-display text-4xl text-[#C9A24B]">{streak}</span>
+<span className="font-display text-4xl font-semibold text-[#C9A24B]">{streak}</span>
 <span className="font-body text-xs text-[#7A6E5D]">days</span>
 </div>
 </div>
 <div className="h-px bg-[#7A6E5D]/20" />
 <div>
 <span className="font-body text-[10px] tracking-[0.2em] text-[#7A6E5D] uppercase block mb-2">Total XP</span>
-<div className="font-display text-3xl text-[#C9A24B]">{totalXP}</div>
+<div className="font-display text-3xl font-semibold text-[#C9A24B]">{totalXP}</div>
 </div>
 <div className="h-px bg-[#7A6E5D]/20" />
 <div>

@@ -24,3 +24,52 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+html, body {
+overscroll-behavior-y: none;
+-webkit-overflow-scrolling: touch;
+-webkit-tap-highlight-color: transparent;
+touch-action: manipulation;
+}
+
+/* kills the browser "pull down to refresh" rubber-band bounce */
+body {
+overscroll-behavior: none;
+}
+
+/* inputs/buttons can still be selected/typed into even with body select-none */
+input, textarea, [contenteditable="true"] {
+-webkit-user-select: text;
+user-select: text;
+}
+
+/* hide scrollbars everywhere but keep scrolling working */
+* {
+scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+display: none;
+}
+
+/* native-style press feedback instead of browser hover states */
+button, a, [role="button"] {
+-webkit-tap-highlight-color: transparent;
+transition: transform 0.12s ease, opacity 0.12s ease;
+}
+button:active, a:active, [role="button"]:active {
+transform: scale(0.96);
+opacity: 0.85;
+}
+
+/* safe-area padding so content clears the iPhone notch/home-bar */
+.safe-top {
+padding-top: env(safe-area-inset-top);
+}
+.safe-bottom {
+padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* fixed bottom nav sits above the home-bar instead of under it */
+.bottom-nav-safe {
+padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+}
+

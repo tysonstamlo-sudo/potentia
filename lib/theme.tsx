@@ -41,48 +41,40 @@ return { theme, toggle };
 }
 
 /* Colors are stored as "R G B" channels so Tailwind opacity works:
-text-[rgb(var(--gold))] border-[rgb(var(--gold)/0.5)] */
+text-[rgb(var(--gold))] border-[rgb(var(--gold)/0.5)]
+
+Biometric Lab palette: graphite surfaces, one electric-cyan accent.
+(Variable names kept as --gold/--muted/etc. from the old marble theme
+so nothing importing these tokens elsewhere needs to change — only
+the values moved.) */
 export function ThemeStyles() {
 return (
 <style>{`
 :root, :root[data-theme="dark"] {
 color-scheme: dark;
---bg: 5 5 5;
---surface: 13 13 13;
---gold: 201 162 75;
---gold-hover: 240 201 74;
---muted: 122 110 93;
---muted-hover: 176 164 143;
---err: 208 138 120;
---glow: 212 175 110;
---glow-a: 0.07;
---vein-a: 0.55;
+--bg: 6 7 8;
+--surface: 15 17 19;
+--gold: 79 216 255;
+--gold-hover: 130 232 255;
+--muted: 107 118 128;
+--muted-hover: 155 166 175;
+--err: 255 107 107;
+--glow: 79 216 255;
+--glow-a: 0.09;
 }
 :root[data-theme="light"] {
 color-scheme: light;
---bg: 255 255 255;
---surface: 250 248 243;
---gold: 138 106 31;
---gold-hover: 107 80 21;
---muted: 110 100 83;
---muted-hover: 80 72 58;
---err: 179 64 46;
---glow: 201 162 75;
+--bg: 244 247 248;
+--surface: 255 255 255;
+--gold: 11 122 158;
+--gold-hover: 8 94 122;
+--muted: 100 110 118;
+--muted-hover: 70 80 88;
+--err: 200 50 50;
+--glow: 59 158 255;
 --glow-a: 0.12;
---vein-a: 0.45;
 }
 html { background: rgb(var(--bg)); }
-.marble-img {
-position: fixed; inset: 0; pointer-events: none;
-background-size: cover; background-position: center; background-repeat: no-repeat;
-}
-:root[data-theme="dark"] .marble-img,
-:root:not([data-theme]) .marble-img {
-background-image: linear-gradient(rgb(0 0 0 / 0.15), rgb(0 0 0 / 0.15)), url('/marble-dark.jpg');
-}
-:root[data-theme="light"] .marble-img {
-background-image: linear-gradient(rgb(255 255 255 / 0.2), rgb(255 255 255 / 0.2)), url('/marble-light.jpg');
-}
 `}</style>
 );
 }
@@ -101,37 +93,37 @@ className={`p-2 rounded-full border border-[rgb(var(--muted)/0.3)] text-[rgb(var
 );
 }
 
-/* Marble veins drawn as an inline SVG, colored by the theme */
+/* Ambient lab grid + corner glows, colored by the theme accent.
+Replaces the old marble veins — same export name so existing imports
+(e.g. login/page.tsx) keep working untouched. */
 export function MarbleBackground() {
-const layer = (id: string, freq: string, seed: number, opacity: string) => (
-<>
-<filter id={id} x="0" y="0" width="100%" height="100%">
-<feTurbulence type="fractalNoise" baseFrequency={freq} numOctaves={5} seed={seed} result="n" />
-<feColorMatrix in="n" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0" result="a" />
-<feComponentTransfer in="a" result="v">
-<feFuncA type="table" tableValues="0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0" />
-</feComponentTransfer>
-<feFlood style={{ floodColor: 'rgb(var(--gold))' }} result="c" />
-<feComposite in="c" in2="v" operator="in" />
-</filter>
-<rect width="100%" height="100%" filter={`url(#${id})`} style={{ opacity }} />
-</>
-);
 return (
-<svg
+<>
+<div
 aria-hidden="true"
-className="fixed inset-0 w-full h-full pointer-events-none"
-xmlns="http://www.w3.org/2000/svg"
->
-{layer('marble-a', '0.006 0.010', 7, 'var(--vein-a)')}
-{layer('marble-b', '0.004 0.007', 23, 'calc(var(--vein-a) * 0.5)')}
-</svg>
+className="fixed inset-0 pointer-events-none"
+style={{
+backgroundImage:
+'linear-gradient(rgb(var(--gold) / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--gold) / 0.05) 1px, transparent 1px)',
+backgroundSize: '28px 28px',
+}}
+/>
+<div
+aria-hidden="true"
+className="fixed inset-0 pointer-events-none"
+style={{
+background:
+'radial-gradient(circle at 15% 0%, rgb(var(--glow) / var(--glow-a)), transparent 55%), radial-gradient(circle at 100% 30%, rgb(var(--glow) / calc(var(--glow-a) * 0.6)), transparent 50%)',
+}}
+/>
+</>
 );
 }
 
-/* Real marble photos: public/marble-dark.jpg and public/marble-light.jpg.
-If a file is missing, the drawn veins above stay visible instead. */
+/* No photographic texture in the Lab theme — the grid above carries it.
+Kept as a real (no-op) component so `<MarbleImage />` in pages you've
+already shipped (like login) doesn't need to be touched or removed. */
 export function MarbleImage() {
-return <div className="marble-img" aria-hidden="true" />;
+return null;
 }
 

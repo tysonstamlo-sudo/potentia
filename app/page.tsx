@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabase';
+import { ThemeStyles, ThemeToggle, MarbleBackground, MarbleImage } from '../lib/theme';
 import { Flame, Trophy, Target, Star, CheckCircle2, ArrowRight, Droplets, Dumbbell, Sparkles, LogOut, Crown } from 'lucide-react';
 import FaceScan from './components/FaceScan';
 import Progress from './components/Progress';
@@ -10,6 +11,7 @@ import Marketplace from './components/Marketplace';
 import PremiumModal from './components/PremiumModal';
 import Leaderboard from './components/Leaderboard';
 import Friends from './components/Friends';
+import BottomNav, { TabKey } from './components/BottomNav';
 
 const XP_PER_LEVEL = 270;
 const levelForXP = (xp: number) => Math.floor(xp / XP_PER_LEVEL) + 1;
@@ -28,10 +30,23 @@ const habits = [
 { id: 5, name: 'Cold Exposure', icon: Target, xp: 50, category: 'confidence' },
 ];
 
+// Shared glass-card look used throughout the Biometric Lab theme
+const cardStyle: React.CSSProperties = {
+background: 'rgb(var(--surface) / 0.55)',
+border: '1px solid rgb(var(--muted) / 0.14)',
+backdropFilter: 'blur(10px)',
+};
+
+const accentCardStyle: React.CSSProperties = {
+background: 'linear-gradient(160deg, rgb(var(--gold) / 0.08), rgb(var(--surface) / 0.3))',
+border: '1px solid rgb(var(--gold) / 0.2)',
+backdropFilter: 'blur(10px)',
+};
+
 export default function Dashboard() {
 const router = useRouter();
 const [checkingAuth, setCheckingAuth] = useState(true);
-const [activeTab, setActiveTab] = useState('dashboard');
+const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
 const [username, setUsername] = useState('');
 const [userId, setUserId] = useState<string | null>(null);
 
@@ -225,43 +240,47 @@ const achievements = [
 
 if (checkingAuth) {
 return (
-<div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center gap-6">
+<div className="min-h-screen bg-[rgb(var(--bg))] flex flex-col items-center justify-center gap-6 relative overflow-hidden transition-colors">
+<ThemeStyles />
+<MarbleBackground />
+<MarbleImage />
 <style>{`
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&display=swap');
-.font-display { font-family: 'Fraunces', serif; }
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap');
+.font-display { font-family: 'Space Grotesk', system-ui, sans-serif; }
 @keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
 @keyframes glowPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
 .float-seal { animation: float 3s ease-in-out infinite; }
 .glow-pulse { animation: glowPulse 3s ease-in-out infinite; }
 `}</style>
-<div className="relative w-20 h-20 float-seal">
-<div className="absolute inset-0 rounded-full glow-pulse" style={{ boxShadow: '0 0 30px 6px rgba(201,162,75,0.35)' }} />
+<div className="relative w-20 h-20 float-seal z-10">
+<div
+className="absolute inset-0 rounded-full glow-pulse"
+style={{ boxShadow: '0 0 30px 6px rgb(var(--glow) / 0.35)' }}
+/>
 <svg className="w-20 h-20" viewBox="0 0 108 108">
-<circle cx="54" cy="54" r="52" fill="none" stroke="#7A6E5D" strokeOpacity="0.3" strokeWidth="1.5" />
-<circle cx="54" cy="54" r="40" fill="none" stroke="#C9A24B" strokeWidth="1.5" />
+<circle cx="54" cy="54" r="52" fill="none" style={{ stroke: 'rgb(var(--muted) / 0.3)' }} strokeWidth="1.5" />
+<circle cx="54" cy="54" r="40" fill="none" style={{ stroke: 'rgb(var(--gold))' }} strokeWidth="1.5" />
 </svg>
 <div className="absolute inset-0 flex items-center justify-center">
-<span className="font-display text-2xl text-[#C9A24B]">P</span>
+<span className="font-display text-2xl font-bold text-[rgb(var(--gold))]">P</span>
 </div>
 </div>
-<span className="font-display text-xs tracking-[0.3em] text-[#7A6E5D] uppercase">Potentia</span>
+<span className="font-display text-xs tracking-[0.3em] text-[rgb(var(--muted))] uppercase z-10">Potentia</span>
 </div>
 );
 }
 
 return (
-<div className="min-h-screen bg-[#050505] text-[#C9A24B] overflow-x-hidden">
+<div className="min-h-screen bg-[rgb(var(--bg))] text-[rgb(var(--gold))] overflow-x-hidden relative transition-colors">
+<ThemeStyles />
+<MarbleBackground />
+<MarbleImage />
 <style>{`
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
-.font-display { font-family: 'Fraunces', serif; }
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+.font-display { font-family: 'Space Grotesk', system-ui, sans-serif; }
 .font-body { font-family: 'Inter', sans-serif; }
 * { -webkit-text-size-adjust: 100%; }
-.relief {
-background:
-radial-gradient(circle at 30% 20%, rgba(184,135,79,0.06), transparent 45%),
-radial-gradient(circle at 80% 80%, rgba(74,93,83,0.05), transparent 50%);
-}
-.seal-ring { filter: drop-shadow(0 0 14px rgba(184,135,79,0.15)); }
+.seal-ring { filter: drop-shadow(0 0 14px rgb(var(--glow) / 0.25)); }
 @keyframes wordReveal {
 from { opacity: 0; transform: translateY(0.4em); filter: blur(4px); }
 to { opacity: 1; transform: translateY(0); filter: blur(0); }
@@ -269,83 +288,96 @@ to { opacity: 1; transform: translateY(0); filter: blur(0); }
 .word-reveal { display: inline-block; opacity: 0; animation: wordReveal 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
 `}</style>
 
-<div className="relief min-h-screen">
-<div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 md:py-16 w-full">
+<ThemeToggle className="fixed top-4 right-4 z-40" />
+
+<div className="relative z-10">
+<div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 md:py-16 w-full pb-28 md:pb-16">
 
 <div className="flex items-center justify-between mb-14">
 <div className="flex items-center gap-3">
-<div className="relative w-8 h-8 flex-shrink-0">
-<svg className="w-8 h-8" viewBox="0 0 108 108">
-<circle cx="54" cy="54" r="52" fill="none" stroke="#7A6E5D" strokeOpacity="0.3" strokeWidth="2" />
-<circle cx="54" cy="54" r="40" fill="none" stroke="#C9A24B" strokeWidth="2" />
-</svg>
-<div className="absolute inset-0 flex items-center justify-center">
-<span className="font-display text-xs text-[#C9A24B]">P</span>
+<div
+className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+style={{ background: 'linear-gradient(145deg, rgb(var(--gold)), rgb(var(--bg)))' }}
+>
+<span className="font-display text-xs font-bold" style={{ color: 'rgb(var(--bg))' }}>P</span>
 </div>
-</div>
-<span className="font-display text-lg tracking-[0.15em] text-[#C9A24B] uppercase">Potentia</span>
+<span className="font-display text-lg tracking-[0.1em] text-[rgb(var(--gold))] uppercase">Potentia</span>
 </div>
 {isPremium && (
-<div className="flex items-center gap-1.5 border border-[#C9A24B]/40 rounded-sm px-3 py-1.5 text-[10px] tracking-[0.15em] text-[#C9A24B] uppercase">
+<div
+className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] tracking-[0.15em] text-[rgb(var(--gold))] uppercase"
+style={{ background: 'rgb(var(--gold) / 0.12)', border: '1px solid rgb(var(--gold) / 0.3)' }}
+>
 <Crown className="w-3 h-3" />
 Premium
 </div>
 )}
 </div>
 
-<div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-10 mb-16 pb-10 border-b border-[#7A6E5D]/20 w-full">
+<div
+className="flex flex-col md:flex-row items-start md:items-center justify-between gap-10 mb-10 p-6 sm:p-8 rounded-2xl w-full"
+style={cardStyle}
+>
 <div className="min-w-0">
 <div className="flex items-center gap-2 mb-5">
-<span className="font-body text-[10px] tracking-[0.25em] text-[#7A6E5D] uppercase">Rank {level}</span>
+<span
+className="w-1.5 h-1.5 rounded-full"
+style={{ background: 'rgb(var(--gold))', boxShadow: '0 0 8px rgb(var(--gold))' }}
+/>
+<span className="font-body text-[10px] tracking-[0.25em] text-[rgb(var(--muted))] uppercase">Readout · Today</span>
 </div>
-<h1 className="font-display text-3xl sm:text-5xl md:text-7xl font-semibold tracking-tight mb-3 text-[#C9A24B] break-words">
+<h1 className="font-display text-3xl sm:text-5xl md:text-6xl font-semibold tracking-tight mb-3 text-[rgb(var(--gold))] break-words">
 {(username ? `Welcome back, ${username}` : 'Your Ascent').split(' ').map((word, idx) => (
 <span key={idx} className="word-reveal mr-[0.25em]" style={{ animationDelay: `${idx * 0.12}s` }}>
 {word}
 </span>
 ))}
 </h1>
-<p className="font-body text-[#7A6E5D] text-sm max-w-sm">
+<p className="font-body text-[rgb(var(--muted))] text-sm max-w-sm">
 Guided by AI. Measured in what you actually do.
 </p>
 </div>
 
 <div className="flex flex-col items-center gap-4 flex-shrink-0">
-<div className="relative w-36 h-36 seal-ring">
-<svg className="w-36 h-36 -rotate-90" viewBox="0 0 108 108">
-<circle cx="54" cy="54" r="52" fill="none" stroke="#7A6E5D" strokeOpacity="0.15" strokeWidth="1" />
-<circle cx="54" cy="54" r="44" fill="#0D0D0D" stroke="#7A6E5D" strokeOpacity="0.25" strokeWidth="1" />
+<div className="relative w-32 h-32 seal-ring">
+<svg className="w-32 h-32 -rotate-90" viewBox="0 0 108 108">
+<circle cx="54" cy="54" r="44" fill="none" style={{ stroke: 'rgb(var(--muted) / 0.15)' }} strokeWidth="7" />
 <circle
 cx="54" cy="54" r="44" fill="none"
-stroke="#C9A24B" strokeWidth="1.5"
+style={{ stroke: 'rgb(var(--gold))' }} strokeWidth="7"
 strokeDasharray={circumference}
 strokeDashoffset={dashOffset}
-style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+strokeLinecap="round"
 />
 </svg>
 <div className="absolute inset-0 flex flex-col items-center justify-center">
-<span className="font-display text-4xl font-semibold text-[#C9A24B] leading-none">{level}</span>
-<span className="font-body text-[8px] tracking-[0.2em] text-[#7A6E5D] uppercase mt-2">Rank</span>
+<span className="font-display text-4xl font-bold text-[rgb(var(--gold))] leading-none">{level}</span>
+<span className="font-body text-[8px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase mt-2">Level</span>
 </div>
 </div>
-<button onClick={handleLogout} className="font-body flex items-center gap-1.5 text-[11px] text-[#7A6E5D] hover:text-[#C9A24B] transition-colors">
+<button
+onClick={handleLogout}
+className="font-body flex items-center gap-1.5 text-[11px] text-[rgb(var(--muted))] hover:text-[rgb(var(--gold))] transition-colors"
+>
 <LogOut className="w-3 h-3" />
 Log out
 </button>
 </div>
 </div>
 
-<div className="flex gap-10 mb-14">
+{/* Top tabs stay for desktop; BottomNav takes over on phone (rendered below, fixed) */}
+<div className="hidden md:flex gap-2 mb-10 p-1.5 rounded-xl" style={cardStyle}>
 {['dashboard', 'scan', 'progress', 'rankings', 'friends', 'marketplace'].map(tab => (
 <button
 key={tab}
-onClick={() => setActiveTab(tab)}
-className={`font-body pb-2 text-[13px] tracking-[0.05em] transition-all relative ${
-activeTab === tab ? 'text-[#C9A24B]' : 'text-[#7A6E5D] hover:text-[#B0A48F]'
-}`}
+onClick={() => setActiveTab(tab as TabKey)}
+className="font-body px-4 py-2 text-[13px] tracking-[0.03em] transition-all rounded-lg"
+style={{
+color: activeTab === tab ? 'rgb(var(--bg))' : 'rgb(var(--muted))',
+background: activeTab === tab ? 'rgb(var(--gold))' : 'transparent',
+}}
 >
 {tab.charAt(0).toUpperCase() + tab.slice(1)}
-{activeTab === tab && <div className="absolute -bottom-px left-0 right-0 h-px bg-[#C9A24B]" />}
 </button>
 ))}
 </div>
@@ -361,25 +393,28 @@ activeTab === tab ? 'text-[#C9A24B]' : 'text-[#7A6E5D] hover:text-[#B0A48F]'
 ) : activeTab === 'marketplace' ? (
 <Marketplace />
 ) : (
-<div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-<div className="lg:col-span-2 space-y-12">
+<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div className="lg:col-span-2 space-y-6">
 
-<div className="relative pl-8 border-l border-[#C9A24B]/40">
-<span className="font-body text-[10px] tracking-[0.35em] text-[#C9A24B] uppercase block mb-4">Counsel</span>
-<p className="font-display text-xl leading-relaxed text-[#C9A24B] font-medium mb-6">
+<div className="relative p-6 rounded-2xl" style={accentCardStyle}>
+<span className="font-body text-[10px] tracking-[0.3em] text-[rgb(var(--gold))] uppercase block mb-4">Counsel</span>
+<p className="font-display text-xl leading-relaxed text-[rgb(var(--gold))] font-medium mb-6">
 Start with morning skincare to prep your skin, then hit your workout. Stay consistent to keep your streak alive.
 </p>
 <div className="flex items-center justify-between">
-<span className="font-body text-[11px] text-[#7A6E5D] tracking-wide">Confidence 94%</span>
-<button className="font-body flex items-center gap-1.5 text-[11px] text-[#C9A24B] hover:gap-2.5 transition-all">
+<span className="font-body text-[11px] text-[rgb(var(--muted))] tracking-wide">Confidence 94%</span>
+<button className="font-body flex items-center gap-1.5 text-[11px] text-[rgb(var(--gold))] hover:gap-2.5 transition-all">
 Full plan <ArrowRight className="w-3 h-3" />
 </button>
 </div>
 </div>
 
-<div>
-<span className="font-body text-[10px] tracking-[0.35em] text-[#7A6E5D] uppercase block mb-6">Today&apos;s Ledger</span>
-<div className="border-t border-[#7A6E5D]/20">
+<div className="p-6 rounded-2xl" style={cardStyle}>
+<div className="flex items-center justify-between mb-5">
+<span className="font-body text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase">Today&apos;s Protocol</span>
+<span className="font-display text-sm text-[rgb(var(--gold))]">{completedCount}/5</span>
+</div>
+<div className="space-y-2">
 {habits.map((habit, idx) => {
 const HabitIcon = habit.icon;
 const done = habit.id in completedToday;
@@ -387,20 +422,40 @@ return (
 <div
 key={habit.id}
 onClick={() => toggleHabit(habit)}
-className={`cursor-pointer border-b border-[#7A6E5D]/20 group ${saving ? 'pointer-events-none opacity-60' : ''}`}
+className={`cursor-pointer rounded-xl transition-all ${saving ? 'pointer-events-none opacity-60' : ''}`}
+style={{
+background: done ? 'rgb(var(--gold) / 0.05)' : 'rgb(var(--muted) / 0.04)',
+border: `1px solid ${done ? 'rgb(var(--gold) / 0.15)' : 'rgb(var(--muted) / 0.1)'}`,
+}}
 >
-<div className="py-5 flex items-center gap-5">
-<span className={`font-display text-sm w-6 flex-shrink-0 ${done ? 'text-[#C9A24B]' : 'text-[#7A6E5D]/50'}`}>
-{idx + 1}
-</span>
-<HabitIcon className={`w-4 h-4 flex-shrink-0 transition-colors ${done ? 'text-[#C9A24B]' : 'text-[#7A6E5D] group-hover:text-[#B0A48F]'}`} />
-<div className="flex-1 min-w-0">
-<h3 className={`font-body text-sm font-medium transition-colors ${done ? "text-[#7A6E5D] line-through" : "text-[#C9A24B]"}`}>{habit.name}</h3>
-<p className="font-body text-[11px] text-[#7A6E5D] capitalize mt-0.5">{habit.category}</p>
+<div className="py-3.5 px-4 flex items-center gap-4">
+<div
+className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+style={{ background: done ? 'rgb(var(--gold) / 0.14)' : 'rgb(var(--muted) / 0.1)' }}
+>
+<HabitIcon
+className="w-4 h-4 transition-colors"
+style={{ color: done ? 'rgb(var(--gold))' : 'rgb(var(--muted))' }}
+/>
 </div>
-<span className="font-display text-sm text-[#C9A24B]">+{habit.xp}</span>
-<div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 transition-all ${done ? 'bg-[#C9A24B] border-[#C9A24B]' : 'border-[#7A6E5D]/40'}`}>
-{done && <CheckCircle2 className="w-2.5 h-2.5 text-[#050505]" />}
+<div className="flex-1 min-w-0">
+<h3
+className={`font-body text-sm font-medium transition-colors ${done ? 'line-through' : ''}`}
+style={{ color: done ? 'rgb(var(--muted))' : 'rgb(var(--gold))' }}
+>
+{habit.name}
+</h3>
+<p className="font-body text-[11px] text-[rgb(var(--muted))] capitalize mt-0.5">{habit.category}</p>
+</div>
+<span className="font-display text-sm text-[rgb(var(--gold))]">+{habit.xp}</span>
+<div
+className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
+style={{
+background: done ? 'rgb(var(--gold))' : 'transparent',
+border: done ? '1px solid rgb(var(--gold))' : '1px solid rgb(var(--muted) / 0.35)',
+}}
+>
+{done && <CheckCircle2 className="w-3 h-3" style={{ color: 'rgb(var(--bg))' }} />}
 </div>
 </div>
 </div>
@@ -409,61 +464,66 @@ className={`cursor-pointer border-b border-[#7A6E5D]/20 group ${saving ? 'pointe
 </div>
 </div>
 
-<div className="grid grid-cols-2 gap-8 pt-2">
-<div>
+<div className="grid grid-cols-2 gap-4">
+<div className="p-5 rounded-2xl" style={cardStyle}>
 <div className="flex justify-between items-baseline mb-3">
-<span className="font-body text-[10px] tracking-[0.2em] text-[#7A6E5D] uppercase">Missions</span>
-<span className="font-display text-[#C9A24B]">{completedCount}<span className="text-[#7A6E5D] text-sm">/5</span></span>
+<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">Missions</span>
+<span className="font-display text-[rgb(var(--gold))]">{completedCount}<span className="text-[rgb(var(--muted))] text-sm">/5</span></span>
 </div>
-<div className="h-px bg-[#7A6E5D]/20">
-<div className="h-px bg-[#C9A24B] transition-all duration-500" style={{ width: `${(completedCount / 5) * 100}%` }} />
+<div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--muted) / 0.15)' }}>
+<div className="h-full rounded-full transition-all duration-500" style={{ width: `${(completedCount / 5) * 100}%`, background: 'rgb(var(--gold))' }} />
 </div>
 </div>
-<div>
+<div className="p-5 rounded-2xl" style={cardStyle}>
 <div className="flex justify-between items-baseline mb-3">
-<span className="font-body text-[10px] tracking-[0.2em] text-[#7A6E5D] uppercase">XP to Next Rank</span>
-<span className="font-display text-[#C9A24B]">{xpIntoLevel}<span className="text-[#7A6E5D] text-sm">/{XP_PER_LEVEL}</span></span>
+<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">XP to Next Level</span>
+<span className="font-display text-[rgb(var(--gold))]">{xpIntoLevel}<span className="text-[rgb(var(--muted))] text-sm">/{XP_PER_LEVEL}</span></span>
 </div>
-<div className="h-px bg-[#7A6E5D]/20">
-<div className="h-px bg-[#C9A24B] transition-all duration-500" style={{ width: `${ringPct}%` }} />
+<div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--muted) / 0.15)' }}>
+<div className="h-full rounded-full transition-all duration-500" style={{ width: `${ringPct}%`, background: 'rgb(var(--gold))' }} />
 </div>
 </div>
 </div>
 </div>
 
-<div className="space-y-10">
-<div className="space-y-6">
+<div className="space-y-4">
+<div className="p-6 rounded-2xl space-y-5" style={cardStyle}>
 <div>
-<span className="font-body text-[10px] tracking-[0.2em] text-[#7A6E5D] uppercase block mb-2">Current Streak</span>
+<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-2">Current Streak</span>
 <div className="flex items-baseline gap-2">
-<Flame className="w-4 h-4 text-[#C9A24B] mb-1" />
-<span className="font-display text-4xl font-semibold text-[#C9A24B]">{streak}</span>
-<span className="font-body text-xs text-[#7A6E5D]">days</span>
+<Flame className="w-4 h-4 text-[rgb(var(--gold))] mb-1" />
+<span className="font-display text-4xl font-bold text-[rgb(var(--gold))]">{streak}</span>
+<span className="font-body text-xs text-[rgb(var(--muted))]">days</span>
 </div>
 </div>
-<div className="h-px bg-[#7A6E5D]/20" />
+<div className="h-px" style={{ background: 'rgb(var(--muted) / 0.15)' }} />
 <div>
-<span className="font-body text-[10px] tracking-[0.2em] text-[#7A6E5D] uppercase block mb-2">Total XP</span>
-<div className="font-display text-3xl font-semibold text-[#C9A24B]">{totalXP}</div>
+<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-2">Total XP</span>
+<div className="font-display text-3xl font-bold text-[rgb(var(--gold))]">{totalXP}</div>
 </div>
-<div className="h-px bg-[#7A6E5D]/20" />
+<div className="h-px" style={{ background: 'rgb(var(--muted) / 0.15)' }} />
 <div>
-<span className="font-body text-[10px] tracking-[0.2em] text-[#7A6E5D] uppercase block mb-2">Next Milestone</span>
-<div className="font-display text-3xl text-[#C9A24B]">Rank <span>{level + 1}</span></div>
+<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-2">Next Milestone</span>
+<div className="font-display text-3xl font-bold text-[rgb(var(--gold))]">Level <span>{level + 1}</span></div>
 </div>
 </div>
 
-<div>
-<span className="font-body text-[10px] tracking-[0.2em] text-[#7A6E5D] uppercase block mb-5">Honors</span>
+<div className="p-6 rounded-2xl" style={cardStyle}>
+<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-5">Honors</span>
 <div className="space-y-4">
 {achievements.map((ach, idx) => {
 const AchIcon = ach.icon;
 return (
 <div key={idx} className="flex items-start gap-3">
-<AchIcon className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${ach.unlocked ? 'text-[#C9A24B]' : 'text-[#7A6E5D]/40'}`} />
+<AchIcon
+className="w-3.5 h-3.5 mt-0.5 flex-shrink-0"
+style={{ color: ach.unlocked ? 'rgb(var(--gold))' : 'rgb(var(--muted) / 0.4)' }}
+/>
 <div className="flex-1 min-w-0">
-<p className={`font-body text-[13px] ${ach.unlocked ? 'text-[#C9A24B]' : 'text-[#7A6E5D]/60'}`}>{ach.name}</p>
-<p className="font-body text-[11px] text-[#7A6E5D] mt-0.5">{ach.desc}</p>
+<p className="font-body text-[13px]" style={{ color: ach.unlocked ? 'rgb(var(--gold))' : 'rgb(var(--muted) / 0.6)' }}>
+{ach.name}
+</p>
+<p className="font-body text-[11px] text-[rgb(var(--muted))] mt-0.5">{ach.desc}</p>
 </div>
 </div>
 );
@@ -474,18 +534,23 @@ return (
 {isPremium ? (
 <button
 onClick={() => setActiveTab('marketplace')}
-className="font-body w-full border border-[#C9A24B]/40 hover:border-[#C9A24B] hover:bg-[#C9A24B]/[0.06] text-[#C9A24B] font-medium py-3.5 rounded-sm transition-all text-[13px] tracking-[0.05em]"
+className="font-body w-full text-[rgb(var(--gold))] font-medium py-3.5 rounded-2xl transition-all text-[13px] tracking-[0.05em]"
+style={cardStyle}
 >
 Enter the Marketplace
 </button>
 ) : premiumStatus === 'pending' ? (
-<div className="w-full border border-[#7A6E5D]/30 text-[#7A6E5D] font-medium py-3.5 rounded-sm text-[13px] tracking-[0.05em] text-center">
+<div
+className="w-full text-[rgb(var(--muted))] font-medium py-3.5 rounded-2xl text-[13px] tracking-[0.05em] text-center"
+style={cardStyle}
+>
 Payment Pending Review
 </div>
 ) : (
 <button
 onClick={goPremium}
-className="font-body w-full flex items-center justify-center gap-2 border border-[#C9A24B]/50 hover:border-[#C9A24B] hover:bg-[#C9A24B]/[0.08] text-[#C9A24B] font-medium py-3.5 rounded-sm transition-all text-[13px] tracking-[0.05em]"
+className="font-body w-full flex items-center justify-center gap-2 font-medium py-3.5 rounded-2xl transition-all text-[13px] tracking-[0.05em]"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 >
 <Crown className="w-4 h-4" />
 Go Premium
@@ -504,6 +569,8 @@ onConfirm={submitPaymentClaim}
 submitting={submittingPayment}
 />
 )}
+
+<BottomNav activeTab={activeTab} onChange={setActiveTab} />
 </div>
 );
 }

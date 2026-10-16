@@ -28,6 +28,12 @@ const products: Product[] = [
 
 const categories = ['all', 'skincare', 'fitness', 'nutrition', 'grooming', 'style'];
 
+const cardStyle: React.CSSProperties = {
+background: 'rgb(var(--surface) / 0.5)',
+border: '1px solid rgb(var(--muted) / 0.14)',
+backdropFilter: 'blur(10px)',
+};
+
 export default function Marketplace() {
 const [activeCategory, setActiveCategory] = useState('all');
 
@@ -38,61 +44,71 @@ const filteredProducts = activeCategory === 'all'
 const recommendedProducts = products.filter(p => p.aiRecommended);
 
 return (
-<div className="space-y-12 font-body">
-{/* Header */}
-<div className="pb-6 border-b border-[#7A6E5D]/20">
-<span className="text-[10px] tracking-[0.35em] text-[#C9A24B] uppercase block mb-2">Provisions</span>
-<h2 className="font-display text-2xl text-[#C9A24B] font-light">Marketplace</h2>
+<div className="space-y-6 font-body">
+<div className="p-5 rounded-2xl" style={cardStyle}>
+<span className="text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block mb-1.5">Provisions</span>
+<h2 className="font-display text-xl text-[rgb(var(--gold))] font-semibold">Marketplace</h2>
 </div>
 
-{/* AI Recommended strip */}
-<div>
-<div className="flex items-center gap-2 mb-6">
-<Sparkles className="w-3.5 h-3.5 text-[#C9A24B]" />
-<span className="text-[10px] tracking-[0.2em] text-[#C9A24B] uppercase">Recommended for You</span>
+{/* Recommended strip */}
+<div
+className="rounded-2xl p-5"
+style={{
+background: 'linear-gradient(160deg, rgb(var(--gold) / 0.08), rgb(var(--surface) / 0.3))',
+border: '1px solid rgb(var(--gold) / 0.22)',
+backdropFilter: 'blur(10px)',
+}}
+>
+<div className="flex items-center gap-2 mb-4">
+<Sparkles className="w-3.5 h-3.5 text-[rgb(var(--gold))]" />
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--gold))] uppercase">Recommended for You</span>
 </div>
-<div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+<div className="flex gap-3 overflow-x-auto -mx-1 px-1 pb-1">
 {recommendedProducts.map(product => (
-<div key={product.id} className="border border-[#7A6E5D]/20 hover:border-[#C9A24B]/40 transition-all cursor-pointer">
+<div
+key={product.id}
+className="w-32 flex-shrink-0 rounded-xl overflow-hidden"
+style={{ background: 'rgb(var(--surface) / 0.6)', border: '1px solid rgb(var(--muted) / 0.14)' }}
+>
 <div className="aspect-square overflow-hidden">
 {/* eslint-disable-next-line @next/next/no-img-element */}
 <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
 </div>
-<div className="p-3">
-<p className="text-xs text-[#C9A24B] mb-1 line-clamp-1">{product.name}</p>
-<p className="text-[11px] text-[#7A6E5D]">${product.price}</p>
+<div className="p-2.5">
+<p className="text-xs text-[rgb(var(--muted-hover))] mb-0.5 line-clamp-1">{product.name}</p>
+<p className="text-[11px] font-display text-[rgb(var(--gold))]">${product.price}</p>
 </div>
 </div>
 ))}
 </div>
 </div>
 
-{/* Category filters */}
-<div className="flex gap-6 overflow-x-auto border-b border-[#7A6E5D]/20 pb-4">
-{categories.map(cat => (
+{/* Category chips */}
+<div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1">
+{categories.map(cat => {
+const active = activeCategory === cat;
+return (
 <button
 key={cat}
 onClick={() => setActiveCategory(cat)}
-className={`text-[11px] tracking-[0.1em] uppercase whitespace-nowrap transition-all pb-1 relative ${
-activeCategory === cat ? 'text-[#C9A24B]' : 'text-[#7A6E5D] hover:text-[#B0A48F]'
-}`}
+className="text-[11px] tracking-wide uppercase whitespace-nowrap rounded-full px-4 py-2 transition-all"
+style={{
+background: active ? 'rgb(var(--gold))' : 'rgb(var(--muted) / 0.1)',
+color: active ? 'rgb(var(--bg))' : 'rgb(var(--muted-hover))',
+fontWeight: active ? 600 : 400,
+}}
 >
 {cat}
-{activeCategory === cat && (
-<div className="absolute -bottom-4 left-0 right-0 h-px bg-[#C9A24B]" />
-)}
 </button>
-))}
+);
+})}
 </div>
 
 {/* Product grid */}
-<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
 {filteredProducts.map(product => (
-<div
-key={product.id}
-className="border border-[#7A6E5D]/20 hover:border-[#C9A24B]/40 transition-all cursor-pointer group"
->
-<div className="aspect-square bg-[#0D0D0D] relative overflow-hidden">
+<div key={product.id} className="rounded-2xl overflow-hidden group" style={cardStyle}>
+<div className="aspect-square relative overflow-hidden" style={{ background: 'rgb(var(--bg))' }}>
 {/* eslint-disable-next-line @next/next/no-img-element */}
 <img
 src={product.image}
@@ -100,23 +116,30 @@ alt={product.name}
 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
 />
 {product.aiRecommended && (
-<div className="absolute top-2 right-2 bg-[#050505]/80 backdrop-blur-sm border border-[#C9A24B]/40 rounded-full p-1.5">
-<Sparkles className="w-3 h-3 text-[#C9A24B]" />
+<div
+className="absolute top-2 right-2 backdrop-blur-md rounded-full p-1.5"
+style={{ background: 'rgb(var(--bg) / 0.75)', border: '1px solid rgb(var(--gold) / 0.4)' }}
+>
+<Sparkles className="w-3 h-3 text-[rgb(var(--gold))]" />
 </div>
 )}
 </div>
 <div className="p-4">
-<p className="text-[11px] text-[#7A6E5D] mb-1">{product.brand}</p>
-<h4 className="text-sm text-[#C9A24B] mb-2 line-clamp-1">{product.name}</h4>
+<p className="text-[11px] text-[rgb(var(--muted))] mb-1">{product.brand}</p>
+<h4 className="text-sm text-[rgb(var(--muted-hover))] mb-2 line-clamp-1">{product.name}</h4>
 <div className="flex items-center gap-1 mb-3">
-<Star className="w-3 h-3 text-[#C9A24B] fill-[#C9A24B]" />
-<span className="text-xs text-[#B0A48F]">{product.rating}</span>
-<span className="text-xs text-[#7A6E5D]">({product.reviews})</span>
+<Star className="w-3 h-3 text-[rgb(var(--gold))] fill-[rgb(var(--gold))]" />
+<span className="text-xs text-[rgb(var(--muted-hover))]">{product.rating}</span>
+<span className="text-xs text-[rgb(var(--muted))]">({product.reviews})</span>
 </div>
 <div className="flex items-center justify-between">
-<span className="font-display text-sm text-[#C9A24B]">${product.price}</span>
-<button className="p-2 border border-[#7A6E5D]/30 hover:border-[#C9A24B]/50 rounded-sm transition-all">
-<ShoppingBag className="w-3.5 h-3.5 text-[#C9A24B]" />
+<span className="font-display text-base font-semibold text-[rgb(var(--gold))]">${product.price}</span>
+<button
+className="w-9 h-9 rounded-xl flex items-center justify-center"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
+aria-label="Add to bag"
+>
+<ShoppingBag className="w-4 h-4" />
 </button>
 </div>
 </div>
@@ -124,16 +147,24 @@ className="w-full h-full object-cover group-hover:scale-105 transition-transform
 ))}
 </div>
 
-{/* Business CTA */}
-<div className="border-t border-[#7A6E5D]/20 pt-8 flex items-center justify-between gap-4">
+{/* Seller CTA */}
+<div className="rounded-2xl p-5 flex items-center justify-between gap-4" style={cardStyle}>
 <div className="flex items-center gap-3">
-<TrendingUp className="w-4 h-4 text-[#C9A24B]" />
+<span
+className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+style={{ background: 'rgb(var(--gold) / 0.12)' }}
+>
+<TrendingUp className="w-4 h-4 text-[rgb(var(--gold))]" />
+</span>
 <div>
-<h3 className="text-sm text-[#C9A24B]">Sell on Potentia</h3>
-<p className="text-[11px] text-[#7A6E5D]">Reach engaged customers actively improving themselves</p>
+<h3 className="text-sm text-[rgb(var(--gold))] font-medium">Sell on Potentia</h3>
+<p className="text-[11px] text-[rgb(var(--muted))]">Reach people actively improving themselves</p>
 </div>
 </div>
-<button className="border border-[#7A6E5D]/30 hover:border-[#C9A24B]/50 text-[#B0A48F] hover:text-[#C9A24B] font-medium py-2 px-4 rounded-sm text-xs whitespace-nowrap transition-all">
+<button
+className="font-medium py-2 px-4 rounded-xl text-xs whitespace-nowrap"
+style={{ background: 'rgb(var(--muted) / 0.12)', color: 'rgb(var(--muted-hover))' }}
+>
 Become a Seller
 </button>
 </div>

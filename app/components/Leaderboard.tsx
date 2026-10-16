@@ -11,6 +11,12 @@ level: number;
 current_streak: number;
 };
 
+const cardStyle: React.CSSProperties = {
+background: 'rgb(var(--surface) / 0.5)',
+border: '1px solid rgb(var(--muted) / 0.14)',
+backdropFilter: 'blur(10px)',
+};
+
 export default function Leaderboard() {
 const [rows, setRows] = useState<LeaderboardRow[]>([]);
 const [currentUsername, setCurrentUsername] = useState('');
@@ -42,47 +48,61 @@ load();
 }, []);
 
 return (
-<div className="space-y-10 font-body">
-<div className="pb-6 border-b border-[#7A6E5D]/20">
-<span className="text-[10px] tracking-[0.35em] text-[#C9A24B] uppercase block mb-2">Standing</span>
-<h2 className="font-display text-2xl text-[#C9A24B] font-light">Rankings</h2>
-<p className="text-xs text-[#7A6E5D] mt-2">Measured by consistency and growth, not appearance.</p>
+<div className="space-y-5 font-body">
+<div className="p-5 rounded-2xl" style={cardStyle}>
+<span className="text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block mb-1.5">Standing</span>
+<h2 className="font-display text-xl text-[rgb(var(--gold))] font-semibold">Rankings</h2>
+<p className="text-xs text-[rgb(var(--muted))] mt-2">Measured by consistency and growth, not appearance.</p>
 </div>
 
 {loading ? (
-<p className="text-sm text-[#7A6E5D]">Loading rankings...</p>
+<p className="text-sm text-[rgb(var(--muted))] px-1">Loading rankings...</p>
 ) : rows.length === 0 ? (
-<p className="text-sm text-[#7A6E5D]">No one on the board yet — be the first.</p>
+<div className="rounded-2xl p-6 text-center" style={cardStyle}>
+<p className="text-sm text-[rgb(var(--muted))]">No one on the board yet. Be the first.</p>
+</div>
 ) : (
-<div className="border-t border-[#7A6E5D]/20">
+<div className="space-y-2.5">
 {rows.map((row, idx) => {
 const isMe = row.username === currentUsername;
+const top = idx < 3;
 return (
 <div
 key={row.username + idx}
-className={`border-b border-[#7A6E5D]/20 py-4 flex items-center gap-5 ${
-isMe ? 'bg-[#C9A24B]/[0.05]' : ''
-}`}
+className="rounded-2xl px-4 py-3.5 flex items-center gap-4"
+style={
+isMe
+? {
+background: 'linear-gradient(160deg, rgb(var(--gold) / 0.1), rgb(var(--surface) / 0.4))',
+border: '1px solid rgb(var(--gold) / 0.4)',
+boxShadow: '0 0 14px rgb(var(--gold) / 0.12)',
+}
+: cardStyle
+}
 >
-<span className={`font-display text-lg w-8 flex-shrink-0 ${idx < 3 ? 'text-[#C9A24B]' : 'text-[#7A6E5D]/60'}`}>
-{idx + 1}
+<span
+className="w-8 h-8 rounded-lg flex items-center justify-center font-display text-sm font-bold flex-shrink-0"
+style={{
+background: top ? 'rgb(var(--gold) / 0.14)' : 'rgb(var(--muted) / 0.1)',
+color: top ? 'rgb(var(--gold))' : 'rgb(var(--muted))',
+}}
+>
+{idx === 0 ? <Trophy className="w-4 h-4" /> : idx + 1}
 </span>
-{idx === 0 ? (
-<Trophy className="w-4 h-4 text-[#C9A24B] flex-shrink-0" />
-) : (
-<div className="w-4 flex-shrink-0" />
-)}
 <div className="flex-1 min-w-0">
-<p className={`font-body text-sm ${isMe ? 'text-[#C9A24B] font-medium' : 'text-[#C9A24B]/90'}`}>
-{row.username} {isMe && <span className="text-[10px] text-[#7A6E5D]">(you)</span>}
+<p className={`text-sm truncate ${isMe ? 'text-[rgb(var(--gold))] font-medium' : 'text-[rgb(var(--muted-hover))]'}`}>
+{row.username}{' '}
+{isMe && <span className="text-[10px] text-[rgb(var(--muted))]">(you)</span>}
 </p>
-<p className="font-body text-[11px] text-[#7A6E5D] mt-0.5">Rank {row.level}</p>
+<p className="text-[11px] text-[rgb(var(--muted))] mt-0.5">Rank {row.level}</p>
 </div>
-<div className="flex items-center gap-1.5 text-[#7A6E5D] text-xs">
+<div className="flex items-center gap-1 text-[rgb(var(--muted))] text-xs">
 <Flame className="w-3 h-3" />
 {row.current_streak}
 </div>
-<span className="font-display text-sm text-[#C9A24B] w-16 text-right">{row.total_xp} XP</span>
+<span className="font-display text-sm font-semibold text-[rgb(var(--gold))] w-16 text-right">
+{row.total_xp} XP
+</span>
 </div>
 );
 })}

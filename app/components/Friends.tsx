@@ -10,6 +10,12 @@ type SearchResult = { id: string; username: string; total_xp: number; level: num
 type PendingRequest = { id: string; requester_id: string; username: string };
 type Friend = { id: string; username: string; total_xp: number; level: number; current_streak: number };
 
+const cardStyle: React.CSSProperties = {
+background: 'rgb(var(--surface) / 0.5)',
+border: '1px solid rgb(var(--muted) / 0.14)',
+backdropFilter: 'blur(10px)',
+};
+
 export default function Friends({ myStats }: { myStats: MyStats }) {
 const [userId, setUserId] = useState<string | null>(null);
 const [query, setQuery] = useState('');
@@ -106,48 +112,54 @@ await loadFriendsAndRequests(userId);
 
 const diffLabel = (mine: number, theirs: number) => {
 const diff = mine - theirs;
-if (diff === 0) return { text: 'Even', color: 'text-[#7A6E5D]' };
-if (diff > 0) return { text: `+${diff} ahead`, color: 'text-[#C9A24B]' };
-return { text: `${Math.abs(diff)} behind`, color: 'text-[#8B4A3D]' };
+if (diff === 0) return { text: 'Even', color: 'rgb(var(--muted))' };
+if (diff > 0) return { text: `+${diff} ahead`, color: 'rgb(var(--gold))' };
+return { text: `${Math.abs(diff)} behind`, color: 'rgb(var(--err))' };
 };
 
 return (
-<div className="space-y-10 font-body">
-<div className="pb-6 border-b border-[#7A6E5D]/20">
-<span className="text-[10px] tracking-[0.35em] text-[#C9A24B] uppercase block mb-2">Circle</span>
-<h2 className="font-display text-2xl text-[#C9A24B] font-light">Friends</h2>
+<div className="space-y-5 font-body">
+<div className="p-5 rounded-2xl" style={cardStyle}>
+<span className="text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block mb-1.5">Circle</span>
+<h2 className="font-display text-xl text-[rgb(var(--gold))] font-semibold">Friends</h2>
 </div>
 
 <div className="relative">
-<Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-[#7A6E5D]" />
+<Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))]" />
 <input
 type="text"
 value={query}
 onChange={e => searchUsers(e.target.value)}
 placeholder="Search by username"
-className="w-full bg-transparent border-b border-[#7A6E5D]/30 py-2.5 pl-6 pr-2 text-sm text-[#C9A24B] placeholder:text-[#7A6E5D]/60 focus:outline-none focus:border-[#C9A24B] transition-all"
+className="w-full rounded-xl py-3 pl-11 pr-4 text-sm text-[rgb(var(--gold))] placeholder:text-[rgb(var(--muted))] focus:outline-none transition-all"
+style={{ ...cardStyle, fontSize: 16 }}
 />
 </div>
 
 {results.length > 0 && (
-<div className="space-y-2">
+<div className="rounded-2xl overflow-hidden" style={cardStyle}>
 {results.map(r => {
 const alreadyFriend = friends.some(f => f.id === r.id);
 const alreadySent = sentTo.has(r.id);
 return (
-<div key={r.id} className="flex items-center justify-between py-3 border-b border-[#7A6E5D]/10">
+<div
+key={r.id}
+className="flex items-center justify-between px-5 py-3.5"
+style={{ borderBottom: '1px solid rgb(var(--muted) / 0.1)' }}
+>
 <div>
-<p className="text-sm text-[#C9A24B]">{r.username}</p>
-<p className="text-[11px] text-[#7A6E5D]">Rank {r.level} · {r.total_xp} XP</p>
+<p className="text-sm text-[rgb(var(--gold))]">{r.username}</p>
+<p className="text-[11px] text-[rgb(var(--muted))]">Rank {r.level} · {r.total_xp} XP</p>
 </div>
 {alreadyFriend ? (
-<span className="text-[11px] text-[#7A6E5D]">Friends</span>
+<span className="text-[11px] text-[rgb(var(--muted))]">Friends</span>
 ) : alreadySent ? (
-<span className="text-[11px] text-[#7A6E5D]">Requested</span>
+<span className="text-[11px] text-[rgb(var(--muted))]">Requested</span>
 ) : (
 <button
 onClick={() => sendRequest(r.id)}
-className="flex items-center gap-1.5 text-[11px] text-[#C9A24B] border border-[#C9A24B]/40 hover:border-[#C9A24B] rounded-sm px-3 py-1.5 transition-all"
+className="flex items-center gap-1.5 text-[11px] font-medium rounded-lg px-3 py-1.5"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 >
 <UserPlus className="w-3 h-3" />
 Add
@@ -160,24 +172,26 @@ Add
 )}
 
 {pending.length > 0 && (
-<div>
-<span className="text-[10px] tracking-[0.2em] text-[#7A6E5D] uppercase block mb-4">Requests</span>
-<div className="space-y-2">
+<div className="rounded-2xl p-5" style={cardStyle}>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-3">Requests</span>
+<div className="space-y-3">
 {pending.map(p => (
-<div key={p.id} className="flex items-center justify-between py-3 border-b border-[#7A6E5D]/10">
-<p className="text-sm text-[#C9A24B]">{p.username}</p>
+<div key={p.id} className="flex items-center justify-between">
+<p className="text-sm text-[rgb(var(--gold))]">{p.username}</p>
 <div className="flex gap-2">
 <button
 onClick={() => respondToRequest(p.id, true)}
-className="w-7 h-7 flex items-center justify-center border border-[#C9A24B]/40 hover:border-[#C9A24B] rounded-sm text-[#C9A24B] transition-all"
+className="w-8 h-8 flex items-center justify-center rounded-lg"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 >
-<Check className="w-3.5 h-3.5" />
+<Check className="w-4 h-4" />
 </button>
 <button
 onClick={() => respondToRequest(p.id, false)}
-className="w-7 h-7 flex items-center justify-center border border-[#7A6E5D]/30 hover:border-[#7A6E5D]/60 rounded-sm text-[#7A6E5D] transition-all"
+className="w-8 h-8 flex items-center justify-center rounded-lg text-[rgb(var(--muted))]"
+style={{ background: 'rgb(var(--muted) / 0.12)' }}
 >
-<X className="w-3.5 h-3.5" />
+<X className="w-4 h-4" />
 </button>
 </div>
 </div>
@@ -187,29 +201,31 @@ className="w-7 h-7 flex items-center justify-center border border-[#7A6E5D]/30 h
 )}
 
 <div>
-<span className="text-[10px] tracking-[0.2em] text-[#7A6E5D] uppercase block mb-4">
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-3 px-1">
 Your Circle {friends.length > 0 && `(${friends.length})`}
 </span>
 {loading ? (
-<p className="text-sm text-[#7A6E5D]">Loading...</p>
+<p className="text-sm text-[rgb(var(--muted))] px-1">Loading...</p>
 ) : friends.length === 0 ? (
-<p className="text-sm text-[#7A6E5D]">No friends yet — search above to add someone.</p>
+<div className="rounded-2xl p-6 text-center" style={cardStyle}>
+<p className="text-sm text-[rgb(var(--muted))]">No friends yet. Search above to add someone.</p>
+</div>
 ) : (
-<div className="space-y-4">
+<div className="space-y-3">
 {friends.map(f => {
 const xpDiff = diffLabel(myStats.totalXP, f.total_xp);
 return (
-<div key={f.id} className="border border-[#7A6E5D]/20 rounded-sm p-5">
+<div key={f.id} className="rounded-2xl p-5" style={cardStyle}>
 <div className="flex items-center justify-between mb-3">
-<p className="text-sm text-[#C9A24B] font-medium">{f.username}</p>
-<div className="flex items-center gap-1.5 text-[#7A6E5D] text-xs">
+<p className="text-sm text-[rgb(var(--gold))] font-medium">{f.username}</p>
+<div className="flex items-center gap-1.5 text-[rgb(var(--muted))] text-xs">
 <Flame className="w-3 h-3" />
 {f.current_streak}
 </div>
 </div>
 <div className="flex items-center justify-between text-xs">
-<span className="text-[#7A6E5D]">Rank {f.level} · {f.total_xp} XP</span>
-<span className={xpDiff.color}>{xpDiff.text}</span>
+<span className="text-[rgb(var(--muted))]">Rank {f.level} · {f.total_xp} XP</span>
+<span style={{ color: xpDiff.color }}>{xpDiff.text}</span>
 </div>
 </div>
 );

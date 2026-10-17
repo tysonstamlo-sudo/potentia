@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Sparkles, Star, ShoppingBag, TrendingUp } from 'lucide-react';
+import SellerModal from './SellerModal';
 
 type Product = {
 id: number;
@@ -36,6 +37,7 @@ backdropFilter: 'blur(10px)',
 
 export default function Marketplace() {
 const [activeCategory, setActiveCategory] = useState('all');
+const [showSeller, setShowSeller] = useState(false);
 
 const filteredProducts = activeCategory === 'all'
 ? products
@@ -162,12 +164,15 @@ style={{ background: 'rgb(var(--gold) / 0.12)' }}
 </div>
 </div>
 <button
+onClick={() => setShowSeller(true)}
 className="font-medium py-2 px-4 rounded-xl text-xs whitespace-nowrap"
-style={{ background: 'rgb(var(--muted) / 0.12)', color: 'rgb(var(--muted-hover))' }}
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 >
 Become a Seller
 </button>
 </div>
+
+{showSeller && <SellerModal onClose={() => setShowSeller(false)} />}
 </div>
 );
 }

@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { PlanView } from './FullPlan';
 import {
 analyzeFace,
 preloadFaceModel,
@@ -510,6 +511,30 @@ style={{ borderTop: '1px solid rgb(var(--muted) / 0.15)', opacity: 0.8 }}
 )}
 </div>
 )}
+
+{/* Personal improvement plan */}
+<div>
+<div className="flex items-center gap-2 mb-3 px-1">
+<Target className="w-3.5 h-3.5 text-[rgb(var(--gold))]" />
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">Your improvement plan</span>
+</div>
+{showFull ? (
+<PlanView measurements={result.measurements} />
+) : (
+<div className="rounded-2xl p-6 text-center" style={accentCardStyle}>
+<Lock className="w-6 h-6 mx-auto mb-3 text-[rgb(var(--gold))]" />
+<p className="text-sm text-[rgb(var(--muted-hover))] mb-1">
+Premium turns this scan into a plan for your weakest areas.
+</p>
+<p className="text-xs text-[rgb(var(--muted))] mb-4">
+Weak jaw? You get jaw, posture and leanness work. Weak symmetry? You get habits and styling for it.
+</p>
+<button onClick={onGoPremium} className="inline-flex items-center gap-2 font-medium py-2.5 px-5 rounded-xl text-xs" style={primaryBtn}>
+<Crown className="w-3.5 h-3.5" /> Unlock my plan
+</button>
+</div>
+)}
+</div>
 
 {/* Measurement table */}
 <div className="p-6 rounded-2xl" style={cardStyle}>

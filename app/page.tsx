@@ -12,6 +12,7 @@ import PremiumModal from './components/PremiumModal';
 import Leaderboard from './components/Leaderboard';
 import Friends from './components/Friends';
 import BottomNav, { TabKey } from './components/BottomNav';
+import FullPlanModal from './components/FullPlan';
 
 const XP_PER_LEVEL = 270;
 const levelForXP = (xp: number) => Math.floor(xp / XP_PER_LEVEL) + 1;
@@ -56,6 +57,7 @@ const [streak, setStreak] = useState(0);
 const [isPremium, setIsPremium] = useState(false);
 const [premiumStatus, setPremiumStatus] = useState<'none' | 'pending'>('none');
 const [showPremiumModal, setShowPremiumModal] = useState(false);
+const [showPlan, setShowPlan] = useState(false);
 const [submittingPayment, setSubmittingPayment] = useState(false);
 const [completedToday, setCompletedToday] = useState<Record<number, string>>({});
 const [saving, setSaving] = useState(false);
@@ -402,8 +404,11 @@ background: activeTab === tab ? 'rgb(var(--gold))' : 'transparent',
 Start with morning skincare to prep your skin, then hit your workout. Stay consistent to keep your streak alive.
 </p>
 <div className="flex items-center justify-between">
-<span className="font-body text-[11px] text-[rgb(var(--muted))] tracking-wide">Confidence 94%</span>
-<button className="font-body flex items-center gap-1.5 text-[11px] text-[rgb(var(--gold))] hover:gap-2.5 transition-all">
+<span className="font-body text-[11px] text-[rgb(var(--muted))] tracking-wide">Built from your latest scan</span>
+<button
+onClick={() => setShowPlan(true)}
+className="font-body flex items-center gap-1.5 text-[11px] text-[rgb(var(--gold))] hover:gap-2.5 transition-all"
+>
 Full plan <ArrowRight className="w-3 h-3" />
 </button>
 </div>
@@ -561,6 +566,15 @@ Go Premium
 )}
 </div>
 </div>
+
+{showPlan && (
+<FullPlanModal
+isPremium={isPremium}
+onClose={() => setShowPlan(false)}
+onGoPremium={goPremium}
+onGoScan={() => setActiveTab('scan')}
+/>
+)}
 
 {showPremiumModal && (
 <PremiumModal

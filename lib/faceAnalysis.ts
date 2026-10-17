@@ -139,7 +139,7 @@ label: 'Left–right symmetry',
 group: 'symmetry',
 unit: 'pct',
 ideal: () => 0,
-tol: () => 4.5,
+tol: () => 3.5,
 weight: 1.6,
 note: 'Paired features sit at different distances from your midline.',
 compute: (p) => {
@@ -195,7 +195,7 @@ key: 'lower_split',
 label: 'Upper lip : chin split',
 group: 'proportions',
 unit: 'ratio',
-ideal: () => 0.5,
+ideal: () => 0.55,
 tol: () => 0.12,
 weight: 1.0,
 note: 'Nose-base→mouth vs mouth→chin is far from the 1 : 2 canon.',
@@ -209,8 +209,8 @@ key: 'face_hw',
 label: 'Face height : width',
 group: 'proportions',
 unit: 'ratio',
-ideal: (g) => (g === 'male' ? 1.38 : 1.45),
-tol: () => 0.16,
+ideal: (g) => (g === 'male' ? 1.27 : 1.33),
+tol: () => 0.12,
 weight: 1.2,
 note: 'Face is notably longer or shorter than typical ideal proportions.',
 compute: (p) => p.faceH / p.faceW,
@@ -220,8 +220,8 @@ key: 'nose_mouth',
 label: 'Mouth : nose width',
 group: 'proportions',
 unit: 'ratio',
-ideal: () => 1.5,
-tol: () => 0.25,
+ideal: () => 1.28,
+tol: () => 0.22,
 weight: 0.8,
 note: 'Mouth width vs nose width is off the usual 1.5 relationship.',
 compute: (p) => dist(p.g(I.rMouth), p.g(I.lMouth)) / dist(p.g(I.rAla), p.g(I.lAla)),
@@ -232,7 +232,7 @@ label: 'Upper : lower lip',
 group: 'proportions',
 unit: 'ratio',
 ideal: () => 0.62,
-tol: () => 0.2,
+tol: () => 0.15,
 weight: 0.6,
 note: 'Lip fullness is unbalanced (also depends on expression).',
 compute: (p) =>
@@ -247,7 +247,7 @@ label: 'Canthal tilt',
 group: 'eyes',
 unit: 'deg',
 ideal: (g) => (g === 'male' ? 5 : 6),
-tol: () => 4.5,
+tol: () => 4,
 weight: 1.3,
 note: 'Outer eye corners sit lower than ideal (negative/neutral tilt).',
 compute: (p) => {
@@ -263,9 +263,9 @@ key: 'eye_spacing',
 label: 'Eye spacing',
 group: 'eyes',
 unit: 'ratio',
-ideal: () => 1.0,
-tol: () => 0.18,
-weight: 1.2,
+ideal: () => 1.3,
+tol: () => 0.2,
+weight: 0.7,
 note: 'Gap between eyes differs from one eye-width (set too wide or too close).',
 compute: (p) => {
 const gap = dist(p.g(I.rInner), p.g(I.lInner));
@@ -290,8 +290,8 @@ key: 'nose_icd',
 label: 'Nose width : eye gap',
 group: 'eyes',
 unit: 'ratio',
-ideal: () => 1.0,
-tol: () => 0.2,
+ideal: () => 1.15,
+tol: () => 0.18,
 weight: 0.9,
 note: 'Nose is wider or narrower than the gap between your eyes.',
 compute: (p) => dist(p.g(I.rAla), p.g(I.lAla)) / dist(p.g(I.rInner), p.g(I.lInner)),
@@ -303,8 +303,8 @@ key: 'jaw_cheek',
 label: 'Jaw : cheekbone width',
 group: 'jaw',
 unit: 'ratio',
-ideal: (g) => (g === 'male' ? 0.82 : 0.74),
-tol: () => 0.08,
+ideal: (g) => (g === 'male' ? 0.8 : 0.76),
+tol: () => 0.06,
 weight: 1.4,
 note: 'Jaw is narrow (or very wide) compared to the cheekbones.',
 compute: (p) => dist(p.g(I.rGonion), p.g(I.lGonion)) / p.faceW,
@@ -401,7 +401,8 @@ const spread = Math.sqrt(variance);
 
 // Honest mapping: raw metric means run high (most faces are "kind of close"
 // on most ratios), so compress with a power curve. PROVISIONAL.
-const overallRaw = 1 + 9 * Math.pow(mean / 10, 1.6);
+// Recentred 2026-10-18 after 3 real scans (eye spacing read ~1.31 on all three).
+const overallRaw = 1 + 9 * Math.pow(mean / 10, 4.0);
 const overall = Math.round(clamp(overallRaw, 1, 10) * 10) / 10;
 
 // Potential (estimate): fixable-ish upside only. Ratios barely change; this
@@ -414,7 +415,7 @@ const groups = {} as Record<GroupKey, number>;
 const ms = measurements.filter((m) => m.group === k);
 const w = ms.reduce((a, m) => a + m.weight, 0);
 const mn = ms.reduce((a, m) => a + m.score * m.weight, 0) / w;
-groups[k] = Math.round(clamp(1 + 9 * Math.pow(mn / 10, 1.6), 1, 10) * 10) / 10;
+groups[k] = Math.round(clamp(1 + 9 * Math.pow(mn / 10, 4.0), 1, 10) * 10) / 10;
 });
 
 const levers = [...measurements]

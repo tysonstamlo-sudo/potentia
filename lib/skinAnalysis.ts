@@ -21,6 +21,9 @@ tip: string; // what to do about it
 export type SkinReading = {
 score: number; // 0..10, average of items
 items: SkinItem[]; // weakest first
+// which photos were given, and which ones could be read
+given: Record<SkinSource, boolean>;
+read: Record<SkinSource, boolean>;
 };
 
 type Pt = { x: number; y: number };
@@ -288,14 +291,23 @@ landmarks?: Pt[];
 eye?: string | null;
 nose?: string | null;
 }): Promise<SkinReading | null> {
-const parts = await Promise.all([
-input.landmarks && input.landmarks.length > 300 ? readFront(input.front, input.landmarks).catch(() => []) : Promise.resolve([]),
-input.eye ? readEye(input.eye).catch(() => []) : Promise.resolve([]),
-input.nose ? readNose(input.nose).catch(() => []) : Promise.resolve([]),
+const safe = (label: string, p: Promise<SkinItem[]>) =>
+p.catch((e) => {
+console.error(`Skin reading failed (${label}):`, e);
+return [] as SkinItem[];
+});
+const [front, eye, nose] = await Promise.all([
+input.landmarks && input.landmarks.length > 300 ? safe('front', readFront(input.front, input.landmarks)) : Promise.resolve([]),
+input.eye ? safe('eye', readEye(input.eye)) : Promise.resolve([]),
+input.nose ? safe('nose', readNose(input.nose)) : Promise.resolve([]),
 ]);
-const items = parts.flat().sort((a, b) => a.score - b.score);
-if (items.length === 0) return null;
-const score = Math.round((items.reduce((s, i) => s + i.score, 0) / items.length) * 10) / 10;
-return { score, items };
+const items = [...front, ...eye, ...nose].sort((a, b) => a.score - b.score);
+const given = { front: true, eye: !!input.eye, nose: !!input.nose };
+const read = { front: front.length > 0, eye: eye.length > 0, nose: nose.length > 0 };
+if (items.length === 0 && !given.eye && !given.nose) return null;
+const score = items.length
+? Math.round((items.reduce((s, i) => s + i.score, 0) / items.length) * 10) / 10
+: 0;
+return { score, items, given, read };
 }
 

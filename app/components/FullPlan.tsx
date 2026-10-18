@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { buildPlan, METRIC_LABEL, type PlanMeasurement, type Evidence } from '../../lib/improvementPlan';
 import { X, Crown, Lock, Target, CheckCircle2, AlertTriangle, ScanFace, Loader2 } from 'lucide-react';
+import { useLang } from '../../lib/i18n';
 
 const cardStyle: React.CSSProperties = {
 background: 'rgb(var(--surface) / 0.5)',
@@ -31,6 +32,7 @@ low: 'Mostly fixed, style around it',
 
 /** The plan itself. Used inside the scan result and in the full-plan modal. */
 export function PlanView({ measurements }: { measurements: PlanMeasurement[] }) {
+const { t } = useLang();
 const plan = buildPlan(measurements);
 
 return (
@@ -40,18 +42,18 @@ return (
 <div className="flex items-start justify-between gap-3 mb-3">
 <div>
 <span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-1">
-Priority {idx + 1}
+{t('Priority {n}', { n: idx + 1 })}
 </span>
-<h3 className="font-display text-lg font-semibold text-[rgb(var(--gold))]">{f.label}</h3>
+<h3 className="font-display text-lg font-semibold text-[rgb(var(--gold))]">{t(f.label)}</h3>
 </div>
 <div className="text-right flex-shrink-0">
 <div className="font-display text-xl font-bold text-[rgb(var(--gold))]">{f.score.toFixed(1)}</div>
-<div className="text-[10px] text-[rgb(var(--muted))]">area score</div>
+<div className="text-[10px] text-[rgb(var(--muted))]">{t("area score")}</div>
 </div>
 </div>
 
-<p className="text-xs text-[rgb(var(--muted-hover))] leading-relaxed mb-1">{f.headline}</p>
-<p className="text-[11px] text-[rgb(var(--muted))] mb-4">{CONTROL_LABEL[f.controllability]}</p>
+<p className="text-xs text-[rgb(var(--muted-hover))] leading-relaxed mb-1">{t(f.headline)}</p>
+<p className="text-[11px] text-[rgb(var(--muted))] mb-4">{t(CONTROL_LABEL[f.controllability])}</p>
 
 {f.weakest.length > 0 && (
 <div className="flex flex-wrap gap-1.5 mb-4">
@@ -61,7 +63,7 @@ key={k}
 className="text-[10px] rounded-full px-2.5 py-1"
 style={{ background: 'rgb(var(--muted) / 0.12)', color: 'rgb(var(--muted-hover))' }}
 >
-{METRIC_LABEL[k] ?? k}
+{t(METRIC_LABEL[k] ?? k)}
 </span>
 ))}
 </div>
@@ -71,17 +73,17 @@ style={{ background: 'rgb(var(--muted) / 0.12)', color: 'rgb(var(--muted-hover))
 {f.levers.map(l => (
 <div key={l.id} className="rounded-xl p-4" style={{ background: 'rgb(var(--bg) / 0.35)' }}>
 <div className="flex items-start justify-between gap-2 mb-1.5">
-<h4 className="text-sm font-medium text-[rgb(var(--gold))]">{l.title}</h4>
+<h4 className="text-sm font-medium text-[rgb(var(--gold))]">{t(l.title)}</h4>
 <span className="text-[9px] uppercase tracking-wide text-[rgb(var(--muted))] whitespace-nowrap mt-0.5">
-{EVIDENCE_LABEL[l.evidence]}
+{t(EVIDENCE_LABEL[l.evidence])}
 </span>
 </div>
-<p className="text-xs text-[rgb(var(--muted))] leading-relaxed mb-3">{l.why}</p>
+<p className="text-xs text-[rgb(var(--muted))] leading-relaxed mb-3">{t(l.why)}</p>
 <ul className="space-y-1.5">
 {l.steps.map((s, i) => (
 <li key={i} className="flex gap-2 text-xs text-[rgb(var(--muted-hover))] leading-relaxed">
 <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-px text-[rgb(var(--gold))]" />
-<span>{s}</span>
+<span>{t(s)}</span>
 </li>
 ))}
 </ul>
@@ -91,7 +93,7 @@ className="flex gap-2 mt-3 rounded-lg p-3 text-[11px] leading-relaxed"
 style={{ background: 'rgb(var(--err) / 0.1)', color: 'rgb(var(--err))' }}
 >
 <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-px" />
-<span>{l.caution}</span>
+<span>{t(l.caution)}</span>
 </div>
 )}
 </div>
@@ -103,32 +105,32 @@ style={{ background: 'rgb(var(--err) / 0.1)', color: 'rgb(var(--err))' }}
 <div className="rounded-2xl p-5" style={cardStyle}>
 <div className="flex items-center gap-2 mb-3">
 <Target className="w-3.5 h-3.5 text-[rgb(var(--gold))]" />
-<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">Your routine</span>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">{t("Your routine")}</span>
 </div>
 <ul className="space-y-2">
 {plan.routine.map((r, i) => (
 <li key={i} className="flex gap-2 text-xs text-[rgb(var(--muted-hover))] leading-relaxed">
 <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-px text-[rgb(var(--gold))]" />
-<span>{r}</span>
+<span>{t(r)}</span>
 </li>
 ))}
 </ul>
 </div>
 
 <div className="rounded-2xl p-5" style={cardStyle}>
-<h4 className="text-sm font-medium text-[rgb(var(--gold))] mb-1.5">{plan.baseline.title}</h4>
-<p className="text-xs text-[rgb(var(--muted))] leading-relaxed mb-3">{plan.baseline.why}</p>
+<h4 className="text-sm font-medium text-[rgb(var(--gold))] mb-1.5">{t(plan.baseline.title)}</h4>
+<p className="text-xs text-[rgb(var(--muted))] leading-relaxed mb-3">{t(plan.baseline.why)}</p>
 <ul className="space-y-1.5">
 {plan.baseline.steps.map((s, i) => (
 <li key={i} className="flex gap-2 text-xs text-[rgb(var(--muted-hover))] leading-relaxed">
 <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-px text-[rgb(var(--gold))]" />
-<span>{s}</span>
+<span>{t(s)}</span>
 </li>
 ))}
 </ul>
 </div>
 
-<p className="px-1 text-[11px] leading-relaxed text-[rgb(var(--muted))]">{plan.note}</p>
+<p className="px-1 text-[11px] leading-relaxed text-[rgb(var(--muted))]">{t(plan.note)}</p>
 </div>
 );
 }
@@ -142,6 +144,7 @@ onGoScan: () => void;
 
 /** Full-screen "Full plan" view opened from the dashboard. Reads your latest scan. */
 export default function FullPlanModal({ isPremium, onClose, onGoPremium, onGoScan }: FullPlanModalProps) {
+const { t } = useLang();
 const [loading, setLoading] = useState(true);
 const [measurements, setMeasurements] = useState<PlanMeasurement[] | null>(null);
 const [scanDate, setScanDate] = useState('');
@@ -183,7 +186,7 @@ style={{ background: 'rgb(var(--bg) / 0.96)' }}
 <div className="flex items-center justify-between mb-5">
 <div>
 <span className="text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block mb-1.5">
-Your plan
+{t("Your plan")}
 </span>
 <h2 className="font-display text-xl font-semibold text-[rgb(var(--gold))]">
 Improvement plan{scanDate && <span className="text-xs font-normal text-[rgb(var(--muted))]"> · from {scanDate} scan</span>}
@@ -206,9 +209,9 @@ style={{ background: 'rgb(var(--muted) / 0.12)' }}
 ) : !measurements ? (
 <div className="rounded-2xl p-8 text-center" style={cardStyle}>
 <ScanFace className="w-8 h-8 mx-auto mb-4 text-[rgb(var(--gold))]" />
-<h3 className="font-display text-lg font-semibold text-[rgb(var(--gold))] mb-2">Scan your face first</h3>
+<h3 className="font-display text-lg font-semibold text-[rgb(var(--gold))] mb-2">{t("Scan your face first")}</h3>
 <p className="text-sm text-[rgb(var(--muted))] mb-6">
-Your plan is built from your scan. It targets your weakest measurements, like jaw, symmetry or proportions.
+{t("Your plan is built from your scan. It targets your weakest measurements, like jaw, symmetry or proportions.")}
 </p>
 <button
 onClick={() => {
@@ -218,7 +221,7 @@ onGoScan();
 className="font-medium py-3 px-6 rounded-xl text-[13px] tracking-wide"
 style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 >
-Go to Scan
+{t("Go to Scan")}
 </button>
 </div>
 ) : showFull ? (
@@ -227,11 +230,10 @@ Go to Scan
 <div className="rounded-2xl p-8 text-center" style={accentCardStyle}>
 <Lock className="w-7 h-7 mx-auto mb-4 text-[rgb(var(--gold))]" />
 <h3 className="font-display text-lg font-semibold text-[rgb(var(--gold))] mb-2">
-Your personal plan is Premium
+{t("Your personal plan is Premium")}
 </h3>
 <p className="text-sm text-[rgb(var(--muted))] mb-6">
-Premium turns your scan into a step-by-step plan. If your jaw is weak, you get jaw, posture and leanness
-work. If your symmetry is off, you get habits and styling for that instead.
+{t('Premium turns your scan into a step-by-step plan. If your jaw is weak, you get jaw, posture and leanness work. If your symmetry is off, you get habits and styling for that instead.')}
 </p>
 <button
 onClick={() => {

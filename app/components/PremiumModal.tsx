@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { X, Crown, Loader2, Check } from 'lucide-react';
+import { useLang } from '../../lib/i18n';
 
 type PremiumModalProps = {
 onClose: () => void;
@@ -10,14 +11,15 @@ submitting: boolean;
 };
 
 const PLANS = [
-{ id: '1month', label: '1 Month', priceMMK: '85,000', priceUSD: '$20', note: '' },
-{ id: '6months', label: '6 Months', priceMMK: '450,000', priceUSD: '$105', note: 'Save ~12%' },
-{ id: '1year', label: '1 Year', priceMMK: '800,000', priceUSD: '$188', note: 'Save ~22%' },
+{ id: '1month', label: '1 Month', priceMMK: '60,000', note: '' },
+{ id: '6months', label: '6 Months', priceMMK: '299,000', note: 'Save 17%' },
+{ id: '1year', label: '1 Year', priceMMK: '499,000', note: 'Save 31%' },
 ];
 
 const primaryBtn: React.CSSProperties = { background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' };
 
 export default function PremiumModal({ onClose, onConfirm, submitting }: PremiumModalProps) {
+const { t } = useLang();
 const [selectedPlan, setSelectedPlan] = useState('1month');
 const [step, setStep] = useState<'select' | 'pay'>('select');
 
@@ -51,13 +53,13 @@ style={{ background: 'rgb(var(--gold) / 0.14)' }}
 >
 <Crown className="w-4 h-4 text-[rgb(var(--gold))]" />
 </span>
-<span className="font-display text-sm tracking-[0.15em] text-[rgb(var(--gold))] uppercase">Go Premium</span>
+<span className="font-display text-sm tracking-[0.15em] text-[rgb(var(--gold))] uppercase">{t("Go Premium")}</span>
 </div>
 
 {step === 'select' ? (
 <>
 <p className="text-sm text-[rgb(var(--muted-hover))] mb-5 leading-relaxed">
-Unlimited scans, full measurement tables and all weak-point reports. Choose your plan.
+{t("Unlimited scans, full measurement tables and all weak-point reports. Choose your plan.")}
 </p>
 <div className="space-y-3 mb-7">
 {PLANS.map(p => {
@@ -75,17 +77,17 @@ boxShadow: active ? '0 0 16px rgb(var(--gold) / 0.15)' : 'none',
 >
 <div>
 <div className="flex items-center gap-2 mb-0.5">
-<span className="text-sm text-[rgb(var(--gold))] font-medium">{p.label}</span>
+<span className="text-sm text-[rgb(var(--gold))] font-medium">{t(p.label)}</span>
 {p.note && (
 <span
 className="text-[9px] text-[rgb(var(--gold))] rounded-full px-2 py-0.5"
 style={{ background: 'rgb(var(--gold) / 0.14)' }}
 >
-{p.note}
+{t(p.note)}
 </span>
 )}
 </div>
-<span className="text-xs text-[rgb(var(--muted))]">{p.priceMMK} MMK (~{p.priceUSD})</span>
+<span className="text-xs text-[rgb(var(--muted))]">{p.priceMMK} MMK</span>
 </div>
 {active && <Check className="w-4 h-4 text-[rgb(var(--gold))] flex-shrink-0" />}
 </button>
@@ -97,14 +99,13 @@ onClick={() => setStep('pay')}
 className="w-full font-medium py-3.5 rounded-xl text-[13px] tracking-wide"
 style={primaryBtn}
 >
-Continue
+{t("Continue")}
 </button>
 </>
 ) : (
 <>
 <p className="text-sm text-[rgb(var(--muted-hover))] mb-5 leading-relaxed">
-Scan with your banking app to pay for the <span className="text-[rgb(var(--gold))]">{plan.label}</span> plan.
-Once done, tap &quot;I&apos;ve Sent Payment&quot; below.
+{t('Scan with your banking app to pay for the {plan} plan. Once done, tap "I\'ve Sent Payment" below.', { plan: t(plan.label) })}
 </p>
 
 {/* Replace this image with your real bank QR — place the file at
@@ -124,7 +125,7 @@ if (parent) parent.innerHTML = '<span style="color:#999;font-size:12px;padding:1
 </div>
 
 <p className="text-center text-xs text-[rgb(var(--muted))] mb-6">
-Amount: <span className="text-[rgb(var(--gold))] font-medium">{plan.priceMMK} MMK</span> (~{plan.priceUSD} USD)
+{t('Amount')}: <span className="text-[rgb(var(--gold))] font-medium">{plan.priceMMK} MMK</span>
 </p>
 
 <button
@@ -133,14 +134,14 @@ disabled={submitting}
 className="w-full flex items-center justify-center gap-2 disabled:opacity-50 font-medium py-3.5 rounded-xl text-[13px] tracking-wide"
 style={primaryBtn}
 >
-{submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "I've Sent Payment"}
+{submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t("I've Sent Payment")}
 </button>
 
 <button
 onClick={() => setStep('select')}
 className="w-full text-center text-xs text-[rgb(var(--muted))] mt-4"
 >
-Back
+{t("Back")}
 </button>
 </>
 )}

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Sparkles, Star, ShoppingBag, TrendingUp } from 'lucide-react';
 import SellerModal from './SellerModal';
+import { useLang } from '../../lib/i18n';
 
 type Product = {
 id: number;
@@ -36,6 +37,7 @@ backdropFilter: 'blur(10px)',
 };
 
 export default function Marketplace() {
+const { t } = useLang();
 const [activeCategory, setActiveCategory] = useState('all');
 const [showSeller, setShowSeller] = useState(false);
 
@@ -48,8 +50,8 @@ const recommendedProducts = products.filter(p => p.aiRecommended);
 return (
 <div className="space-y-6 font-body">
 <div className="p-5 rounded-2xl" style={cardStyle}>
-<span className="text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block mb-1.5">Provisions</span>
-<h2 className="font-display text-xl text-[rgb(var(--gold))] font-semibold">Marketplace</h2>
+<span className="text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block mb-1.5">{t("Provisions")}</span>
+<h2 className="font-display text-xl text-[rgb(var(--gold))] font-semibold">{t("Marketplace")}</h2>
 </div>
 
 {/* Recommended strip */}
@@ -63,7 +65,7 @@ backdropFilter: 'blur(10px)',
 >
 <div className="flex items-center gap-2 mb-4">
 <Sparkles className="w-3.5 h-3.5 text-[rgb(var(--gold))]" />
-<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--gold))] uppercase">Recommended for You</span>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--gold))] uppercase">{t("Recommended for You")}</span>
 </div>
 <div className="flex gap-3 overflow-x-auto -mx-1 px-1 pb-1">
 {recommendedProducts.map(product => (
@@ -100,7 +102,7 @@ color: active ? 'rgb(var(--bg))' : 'rgb(var(--muted-hover))',
 fontWeight: active ? 600 : 400,
 }}
 >
-{cat}
+{t(cat)}
 </button>
 );
 })}
@@ -139,7 +141,7 @@ style={{ background: 'rgb(var(--bg) / 0.75)', border: '1px solid rgb(var(--gold)
 <button
 className="w-9 h-9 rounded-xl flex items-center justify-center"
 style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
-aria-label="Add to bag"
+aria-label={t('Add to bag')}
 >
 <ShoppingBag className="w-4 h-4" />
 </button>
@@ -159,8 +161,8 @@ style={{ background: 'rgb(var(--gold) / 0.12)' }}
 <TrendingUp className="w-4 h-4 text-[rgb(var(--gold))]" />
 </span>
 <div>
-<h3 className="text-sm text-[rgb(var(--gold))] font-medium">Sell on Potentia</h3>
-<p className="text-[11px] text-[rgb(var(--muted))]">Reach people actively improving themselves</p>
+<h3 className="text-sm text-[rgb(var(--gold))] font-medium">{t("Sell on Potentia")}</h3>
+<p className="text-[11px] text-[rgb(var(--muted))]">{t("Reach people actively improving themselves")}</p>
 </div>
 </div>
 <button
@@ -168,7 +170,7 @@ onClick={() => setShowSeller(true)}
 className="font-medium py-2 px-4 rounded-xl text-xs whitespace-nowrap"
 style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 >
-Become a Seller
+{t("Become a Seller")}
 </button>
 </div>
 

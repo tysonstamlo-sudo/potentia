@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Trophy, Flame } from 'lucide-react';
+import { useLang } from '../../lib/i18n';
 
 type LeaderboardRow = {
 username: string;
@@ -18,6 +19,7 @@ backdropFilter: 'blur(10px)',
 };
 
 export default function Leaderboard() {
+const { t } = useLang();
 const [rows, setRows] = useState<LeaderboardRow[]>([]);
 const [currentUsername, setCurrentUsername] = useState('');
 const [loading, setLoading] = useState(true);
@@ -50,16 +52,16 @@ load();
 return (
 <div className="space-y-5 font-body">
 <div className="p-5 rounded-2xl" style={cardStyle}>
-<span className="text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block mb-1.5">Standing</span>
-<h2 className="font-display text-xl text-[rgb(var(--gold))] font-semibold">Rankings</h2>
-<p className="text-xs text-[rgb(var(--muted))] mt-2">Measured by consistency and growth, not appearance.</p>
+<span className="text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block mb-1.5">{t("Standing")}</span>
+<h2 className="font-display text-xl text-[rgb(var(--gold))] font-semibold">{t("Rankings")}</h2>
+<p className="text-xs text-[rgb(var(--muted))] mt-2">{t("Measured by consistency and growth, not appearance.")}</p>
 </div>
 
 {loading ? (
-<p className="text-sm text-[rgb(var(--muted))] px-1">Loading rankings...</p>
+<p className="text-sm text-[rgb(var(--muted))] px-1">{t("Loading rankings...")}</p>
 ) : rows.length === 0 ? (
 <div className="rounded-2xl p-6 text-center" style={cardStyle}>
-<p className="text-sm text-[rgb(var(--muted))]">No one on the board yet. Be the first.</p>
+<p className="text-sm text-[rgb(var(--muted))]">{t("No one on the board yet. Be the first.")}</p>
 </div>
 ) : (
 <div className="space-y-2.5">
@@ -92,9 +94,9 @@ color: top ? 'rgb(var(--gold))' : 'rgb(var(--muted))',
 <div className="flex-1 min-w-0">
 <p className={`text-sm truncate ${isMe ? 'text-[rgb(var(--gold))] font-medium' : 'text-[rgb(var(--muted-hover))]'}`}>
 {row.username}{' '}
-{isMe && <span className="text-[10px] text-[rgb(var(--muted))]">(you)</span>}
+{isMe && <span className="text-[10px] text-[rgb(var(--muted))]">{t("(you)")}</span>}
 </p>
-<p className="text-[11px] text-[rgb(var(--muted))] mt-0.5">Rank {row.level}</p>
+<p className="text-[11px] text-[rgb(var(--muted))] mt-0.5">{t('Level {n}', { n: row.level })}</p>
 </div>
 <div className="flex items-center gap-1 text-[rgb(var(--muted))] text-xs">
 <Flame className="w-3 h-3" />

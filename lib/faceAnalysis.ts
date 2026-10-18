@@ -41,6 +41,7 @@ levers: string[]; // weakest metrics, human readable
 overlay: OverlayPoint[];
 tier: 'Foundation' | 'Ascending' | 'Refined' | 'Elite';
 croppedImage?: string; // tight face crop the measurements were taken on
+landmarks?: OverlayPoint[]; // all landmarks, normalized 0..1 to the analysed image
 };
 
 export type FaceAnalysisErrorCode =
@@ -106,8 +107,7 @@ const dist = (a: P, b: P) => Math.hypot(a.x - b.x, a.y - b.y);
 const mid = (a: P, b: P): P => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-function scoreOf(value: number, ideal: number, tol: number) {
-const dev = Math.abs(value - ideal);
+function scoreDev(dev: number, tol: number) {
 return clamp(10 * Math.exp(-Math.LN2 * Math.pow(dev / tol, 2)), 0, 10);
 }
 
@@ -121,6 +121,8 @@ tol: (g: Gender) => number;
 weight: number;
 note: string; // what "off" means
 compute: (p: Pts) => number;
+// Optional custom deviation (e.g. a band of acceptable values instead of one ideal)
+dev?: (value: number, ideal: number) => number;
 };
 
 type Pts = {
@@ -195,7 +197,7 @@ key: 'lower_split',
 label: 'Upper lip : chin split',
 group: 'proportions',
 unit: 'ratio',
-ideal: () => 0.55,
+ideal: () => 0.58,
 tol: () => 0.12,
 weight: 1.0,
 note: 'Nose-base→mouth vs mouth→chin is far from the 1 : 2 canon.',
@@ -220,8 +222,8 @@ key: 'nose_mouth',
 label: 'Mouth : nose width',
 group: 'proportions',
 unit: 'ratio',
-ideal: () => 1.28,
-tol: () => 0.22,
+ideal: () => 1.15,
+tol: () => 0.2,
 weight: 0.8,
 note: 'Mouth width vs nose width is off the usual 1.5 relationship.',
 compute: (p) => dist(p.g(I.rMouth), p.g(I.lMouth)) / dist(p.g(I.rAla), p.g(I.lAla)),
@@ -247,9 +249,11 @@ label: 'Canthal tilt',
 group: 'eyes',
 unit: 'deg',
 ideal: (g) => (g === 'male' ? 5 : 6),
-tol: () => 4,
+tol: () => 3,
 weight: 1.3,
 note: 'Outer eye corners sit lower than ideal (negative/neutral tilt).',
+// Band: ideal-1 .. ideal+4 degrees counts as ideal. Only tilt outside it is penalised.
+dev: (v, ideal) => Math.max(0, ideal - 1 - v, v - (ideal + 4)),
 compute: (p) => {
 const tilt = (inner: P, outer: P) =>
 (Math.atan2(inner.y - outer.y, Math.abs(outer.x - inner.x)) * 180) / Math.PI;
@@ -314,8 +318,8 @@ key: 'chin_width',
 label: 'Chin height : face',
 group: 'jaw',
 unit: 'ratio',
-ideal: (g) => (g === 'male' ? 0.2 : 0.18),
-tol: () => 0.035,
+ideal: () => 0.17,
+tol: () => 0.03,
 weight: 0.9,
 note: 'Lower lip→chin length is short or long relative to face height.',
 compute: (p) => (p.g(I.chin).y - p.g(I.lowerLipBot).y) / p.faceH,
@@ -387,7 +391,7 @@ value,
 ideal,
 tolerance,
 unit: d.unit,
-score: scoreOf(value, ideal, tolerance),
+score: scoreDev(d.dev ? d.dev(value, ideal) : Math.abs(value - ideal), tolerance),
 weight: d.weight,
 note: d.note,
 };
@@ -434,7 +438,8 @@ I.rZygo, I.lZygo, I.rGonion, I.lGonion, I.rBrow, I.lBrow, I.glabella,
 ].filter((i) => i < lms.length);
 const overlay = overlayIdx.map((i) => ({ x: lms[i].x, y: lms[i].y }));
 
-return { overall, potential, spread, groups, measurements, levers, overlay, tier };
+const landmarks = lms.map((p) => ({ x: p.x, y: p.y }));
+return { overall, potential, spread, groups, measurements, levers, overlay, tier, landmarks };
 }
 
 /* ---------- browser pipeline ---------- */
@@ -541,7 +546,7 @@ if (m.unit === 'pct') return `${m.value.toFixed(1)}%`;
 return m.value.toFixed(2);
 }
 export function formatIdeal(m: Measurement): string {
-if (m.unit === 'deg') return `${m.ideal.toFixed(0)}°`;
+if (m.unit === 'deg') return `${(m.ideal - 1).toFixed(0)}–${(m.ideal + 4).toFixed(0)}°`;
 if (m.unit === 'pct') return `≈ 0%`;
 return m.ideal.toFixed(2);
 }

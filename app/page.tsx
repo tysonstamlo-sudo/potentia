@@ -13,9 +13,9 @@ import Leaderboard from './components/Leaderboard';
 import Friends from './components/Friends';
 import BottomNav, { TabKey } from './components/BottomNav';
 import FullPlanModal from './components/FullPlan';
+import { useLang, LanguageToggle, LanguageStyles } from '../lib/i18n';
+import { tasksForLevel, daysRequired, needsScan, rankTitle, AREA_LABEL, MAX_LEVEL, type ProgramTask } from '../lib/program';
 
-const XP_PER_LEVEL = 270;
-const levelForXP = (xp: number) => Math.floor(xp / XP_PER_LEVEL) + 1;
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const yesterdayStr = () => {
 const d = new Date();
@@ -23,13 +23,23 @@ d.setDate(d.getDate() - 1);
 return d.toISOString().slice(0, 10);
 };
 
-const habits = [
-{ id: 1, name: 'Morning Skincare Routine', icon: Sparkles, xp: 50, category: 'skincare' },
-{ id: 2, name: '30 Minute Workout', icon: Dumbbell, xp: 100, category: 'fitness' },
-{ id: 3, name: 'Hydration Goal', icon: Droplets, xp: 30, category: 'nutrition' },
-{ id: 4, name: 'Protein Intake Target', icon: Star, xp: 40, category: 'nutrition' },
-{ id: 5, name: 'Cold Exposure', icon: Target, xp: 50, category: 'confidence' },
-];
+const AREA_ICON = {
+skin: Sparkles,
+body: Dumbbell,
+nutrition: Droplets,
+face: Star,
+recovery: Target,
+} as const;
+
+type LevelStatus = {
+level: number;
+days_done: number;
+days_required: number;
+scan_needed: boolean;
+scan_ok: boolean;
+maxed: boolean;
+ready: boolean;
+};
 
 // Shared glass-card look used throughout the Biometric Lab theme
 const cardStyle: React.CSSProperties = {
@@ -45,6 +55,7 @@ backdropFilter: 'blur(10px)',
 };
 
 export default function Dashboard() {
+const { t } = useLang();
 const router = useRouter();
 const [checkingAuth, setCheckingAuth] = useState(true);
 const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
@@ -55,11 +66,16 @@ const [totalXP, setTotalXP] = useState(0);
 const [level, setLevel] = useState(1);
 const [streak, setStreak] = useState(0);
 const [isPremium, setIsPremium] = useState(false);
+const [premiumExpired, setPremiumExpired] = useState(false);
+const [premiumUntil, setPremiumUntil] = useState<string | null>(null);
 const [premiumStatus, setPremiumStatus] = useState<'none' | 'pending'>('none');
 const [showPremiumModal, setShowPremiumModal] = useState(false);
 const [showPlan, setShowPlan] = useState(false);
 const [submittingPayment, setSubmittingPayment] = useState(false);
 const [completedToday, setCompletedToday] = useState<Record<number, string>>({});
+const [levelStatus, setLevelStatus] = useState<LevelStatus | null>(null);
+const [rankingUp, setRankingUp] = useState(false);
+const [rankMsg, setRankMsg] = useState('');
 const [saving, setSaving] = useState(false);
 
 useEffect(() => {
@@ -77,7 +93,7 @@ setUserId(session.user.id);
 
 const { data: profile, error: profileError } = await supabase
 .from('profiles')
-.select('username, total_xp, level, current_streak, is_premium, last_active_date')
+.select('username, total_xp, level, current_streak, is_premium, subscription_expires_at, last_active_date')
 .eq('id', session.user.id)
 .single();
 
@@ -87,7 +103,16 @@ if (profile) {
 if (profile.username) setUsername(profile.username);
 setTotalXP(profile.total_xp ?? 0);
 setLevel(profile.level ?? 1);
-setIsPremium(!!profile.is_premium);
+// Premium only counts while the paid period has not run out
+const expiresAt = profile.subscription_expires_at ? new Date(profile.subscription_expires_at) : null;
+const expired = !!profile.is_premium && !!expiresAt && expiresAt.getTime() <= Date.now();
+setIsPremium(!!profile.is_premium && !expired);
+setPremiumExpired(expired);
+setPremiumUntil(expiresAt && !expired ? expiresAt.toISOString() : null);
+if (expired) {
+// Switch the flag off in the database too (best effort)
+await supabase.from('profiles').update({ is_premium: false }).eq('id', session.user.id);
+}
 
 const today = todayStr();
 const yesterday = yesterdayStr();
@@ -108,11 +133,13 @@ const { data: logs } = await supabase
 if (logs) {
 const map: Record<number, string> = {};
 logs.forEach(log => {
-const match = habits.find(h => h.name === log.habit_name);
+const match = tasksForLevel(profile?.level ?? 1).find(h => h.name === log.habit_name);
 if (match) map[match.id] = log.id;
 });
 setCompletedToday(map);
 }
+
+await loadLevelStatus();
 
 // Check for a pending premium request
 const { data: requests } = await supabase
@@ -140,7 +167,35 @@ await supabase.auth.signOut();
 router.push('/login');
 };
 
-const toggleHabit = async (habit: typeof habits[0]) => {
+const loadLevelStatus = async () => {
+const { data, error } = await supabase.rpc('level_status');
+if (error) {
+console.error('level_status failed:', error);
+return;
+}
+if (data && !data.error) {
+setLevelStatus(data as LevelStatus);
+setLevel(data.level);
+}
+};
+
+const rankUp = async () => {
+if (rankingUp) return;
+setRankingUp(true);
+setRankMsg('');
+const { data, error } = await supabase.rpc('rank_up');
+setRankingUp(false);
+if (error || !data?.ok) {
+setRankMsg(t(data?.reason ?? 'Could not rank up. Try again.'));
+return;
+}
+setLevel(data.level);
+setCompletedToday({}); // new level, new tasks
+setRankMsg(t('Level {n} unlocked.', { n: data.level }));
+await loadLevelStatus();
+};
+
+const toggleHabit = async (habit: ProgramTask) => {
 if (!userId || saving) return;
 setSaving(true);
 
@@ -156,7 +211,6 @@ const { data: inserted, error: insertError } = await supabase
 if (insertError) throw insertError;
 
 const newXP = totalXP + habit.xp;
-const newLevel = levelForXP(newXP);
 const today = todayStr();
 const yesterday = yesterdayStr();
 
@@ -177,11 +231,10 @@ newStreak = 1;
 
 await supabase
 .from('profiles')
-.update({ total_xp: newXP, level: newLevel, current_streak: newStreak, last_active_date: today })
+.update({ total_xp: newXP, current_streak: newStreak, last_active_date: today })
 .eq('id', userId);
 
 setTotalXP(newXP);
-setLevel(newLevel);
 setStreak(newStreak);
 setCompletedToday(prev => ({ ...prev, [habit.id]: inserted.id }));
 } else {
@@ -189,20 +242,19 @@ const logId = completedToday[habit.id];
 await supabase.from('habit_logs').delete().eq('id', logId);
 
 const newXP = Math.max(totalXP - habit.xp, 0);
-const newLevel = levelForXP(newXP);
 await supabase
 .from('profiles')
-.update({ total_xp: newXP, level: newLevel })
+.update({ total_xp: newXP })
 .eq('id', userId);
 
 setTotalXP(newXP);
-setLevel(newLevel);
 setCompletedToday(prev => {
 const next = { ...prev };
 delete next[habit.id];
 return next;
 });
 }
+await loadLevelStatus();
 } catch (err) {
 console.error('Toggle habit failed:', err);
 } finally {
@@ -229,15 +281,17 @@ setSubmittingPayment(false);
 };
 
 const completedCount = Object.keys(completedToday).length;
-const xpIntoLevel = totalXP % XP_PER_LEVEL;
-const ringPct = Math.min((xpIntoLevel / XP_PER_LEVEL) * 100, 100);
+const tasks = tasksForLevel(level);
+const daysDone = levelStatus?.days_done ?? 0;
+const daysReq = levelStatus?.days_required ?? daysRequired(level);
+const ringPct = Math.min((daysDone / daysReq) * 100, 100);
 const circumference = 2 * Math.PI * 44;
 const dashOffset = circumference - (ringPct / 100) * circumference;
 
 const achievements = [
-{ name: `${streak} Day Streak`, desc: 'Consistency is key', icon: Flame, unlocked: streak > 0 },
-{ name: `Level ${level}`, desc: 'On your way up', icon: Target, unlocked: level > 1 },
-{ name: '500 XP Earned', desc: totalXP >= 500 ? 'Unlocked' : 'Keep going', icon: Trophy, unlocked: totalXP >= 500 },
+{ name: t('{n} Day Streak', { n: streak }), desc: t('Consistency is key'), icon: Flame, unlocked: streak > 0 },
+{ name: t('Level {n}', { n: level }), desc: t('On your way up'), icon: Target, unlocked: level > 1 },
+{ name: t('500 XP Earned'), desc: totalXP >= 500 ? t('Unlocked') : t('Keep going'), icon: Trophy, unlocked: totalXP >= 500 },
 ];
 
 if (checkingAuth) {
@@ -267,7 +321,7 @@ style={{ boxShadow: '0 0 30px 6px rgb(var(--glow) / 0.35)' }}
 <span className="font-display text-2xl font-bold text-[rgb(var(--gold))]">P</span>
 </div>
 </div>
-<span className="font-display text-xs tracking-[0.3em] text-[rgb(var(--muted))] uppercase z-10">Potentia</span>
+<span className="font-display text-xs tracking-[0.3em] text-[rgb(var(--muted))] uppercase z-10">{t("Potentia")}</span>
 </div>
 );
 }
@@ -290,7 +344,9 @@ to { opacity: 1; transform: translateY(0); filter: blur(0); }
 .word-reveal { display: inline-block; opacity: 0; animation: wordReveal 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
 `}</style>
 
+<LanguageStyles />
 <ThemeToggle className="fixed top-4 right-4 z-40" />
+<LanguageToggle className="fixed top-4 right-16 z-40" />
 
 <div className="relative z-10">
 <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 md:py-16 w-full pb-28 md:pb-16">
@@ -303,7 +359,7 @@ style={{ background: 'linear-gradient(145deg, rgb(var(--gold)), rgb(var(--bg)))'
 >
 <span className="font-display text-xs font-bold" style={{ color: 'rgb(var(--bg))' }}>P</span>
 </div>
-<span className="font-display text-lg tracking-[0.1em] text-[rgb(var(--gold))] uppercase">Potentia</span>
+<span className="font-display text-lg tracking-[0.1em] text-[rgb(var(--gold))] uppercase">{t("Potentia")}</span>
 </div>
 {isPremium && (
 <div
@@ -311,7 +367,11 @@ className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] tracki
 style={{ background: 'rgb(var(--gold) / 0.12)', border: '1px solid rgb(var(--gold) / 0.3)' }}
 >
 <Crown className="w-3 h-3" />
-Premium
+{t("Premium")}
+{premiumUntil && (() => {
+const d = Math.ceil((new Date(premiumUntil).getTime() - Date.now()) / 86400000);
+return <span className="opacity-70 normal-case tracking-normal">· {t('{n}d left', { n: d })}</span>;
+})()}
 </div>
 )}
 </div>
@@ -326,17 +386,17 @@ style={cardStyle}
 className="w-1.5 h-1.5 rounded-full"
 style={{ background: 'rgb(var(--gold))', boxShadow: '0 0 8px rgb(var(--gold))' }}
 />
-<span className="font-body text-[10px] tracking-[0.25em] text-[rgb(var(--muted))] uppercase">Readout · Today</span>
+<span className="font-body text-[10px] tracking-[0.25em] text-[rgb(var(--muted))] uppercase">{t("Readout \u00b7 Today")}</span>
 </div>
 <h1 className="font-display text-3xl sm:text-5xl md:text-6xl font-semibold tracking-tight mb-3 text-[rgb(var(--gold))] break-words">
-{(username ? `Welcome back, ${username}` : 'Your Ascent').split(' ').map((word, idx) => (
+{(username ? t('Welcome back, {name}', { name: username }) : t('Your Ascent')).split(' ').map((word, idx) => (
 <span key={idx} className="word-reveal mr-[0.25em]" style={{ animationDelay: `${idx * 0.12}s` }}>
 {word}
 </span>
 ))}
 </h1>
 <p className="font-body text-[rgb(var(--muted))] text-sm max-w-sm">
-Guided by AI. Measured in what you actually do.
+{t("Guided by AI. Measured in what you actually do.")}
 </p>
 </div>
 
@@ -354,7 +414,7 @@ strokeLinecap="round"
 </svg>
 <div className="absolute inset-0 flex flex-col items-center justify-center">
 <span className="font-display text-4xl font-bold text-[rgb(var(--gold))] leading-none">{level}</span>
-<span className="font-body text-[8px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase mt-2">Level</span>
+<span className="font-body text-[8px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase mt-2">{t("Level")}</span>
 </div>
 </div>
 <button
@@ -362,7 +422,7 @@ onClick={handleLogout}
 className="font-body flex items-center gap-1.5 text-[11px] text-[rgb(var(--muted))] hover:text-[rgb(var(--gold))] transition-colors"
 >
 <LogOut className="w-3 h-3" />
-Log out
+{t("Log out")}
 </button>
 </div>
 </div>
@@ -399,29 +459,74 @@ background: activeTab === tab ? 'rgb(var(--gold))' : 'transparent',
 <div className="lg:col-span-2 space-y-6">
 
 <div className="relative p-6 rounded-2xl" style={accentCardStyle}>
-<span className="font-body text-[10px] tracking-[0.3em] text-[rgb(var(--gold))] uppercase block mb-4">Counsel</span>
+<span className="font-body text-[10px] tracking-[0.3em] text-[rgb(var(--gold))] uppercase block mb-4">{t("Counsel")}</span>
 <p className="font-display text-xl leading-relaxed text-[rgb(var(--gold))] font-medium mb-6">
-Start with morning skincare to prep your skin, then hit your workout. Stay consistent to keep your streak alive.
+{t("Start with morning skincare to prep your skin, then hit your workout. Stay consistent to keep your streak alive.")}
 </p>
 <div className="flex items-center justify-between">
-<span className="font-body text-[11px] text-[rgb(var(--muted))] tracking-wide">Built from your latest scan</span>
+<span className="font-body text-[11px] text-[rgb(var(--muted))] tracking-wide">{t("Built from your latest scan")}</span>
 <button
 onClick={() => setShowPlan(true)}
 className="font-body flex items-center gap-1.5 text-[11px] text-[rgb(var(--gold))] hover:gap-2.5 transition-all"
 >
-Full plan <ArrowRight className="w-3 h-3" />
+{t("Full plan")} <ArrowRight className="w-3 h-3" />
 </button>
 </div>
 </div>
 
+{levelStatus && !levelStatus.maxed && (
+<div className="p-5 rounded-2xl" style={levelStatus.ready ? accentCardStyle : cardStyle}>
+<div className="flex items-center justify-between gap-4">
+<div className="min-w-0">
+<span className="font-body text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block mb-1">{t('Next Rank · Level {n}', { n: level + 1 })}</span>
+<p className="font-body text-[12px] text-[rgb(var(--muted-hover))] leading-relaxed">
+{levelStatus.ready
+? t('You earned it. Rank up to unlock new tasks.')
+: daysDone < daysReq
+? t('Complete {n} more days at this level.', { n: daysReq - daysDone })
+: t('Scan your face to unlock this level. Your score must not drop.')}
+{needsScan(level) && !levelStatus.ready && daysDone < daysReq ? ' ' + t('A face scan is also required.') : ''}
+</p>
+{rankMsg && <p className="font-body text-[11px] text-[rgb(var(--gold))] mt-1">{rankMsg}</p>}
+</div>
+{levelStatus.ready ? (
+<button
+onClick={rankUp}
+disabled={rankingUp}
+className="font-body flex-shrink-0 font-medium py-2.5 px-4 rounded-xl text-xs disabled:opacity-50"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
+>
+{rankingUp ? t('Ranking up…') : t('Rank up')}
+</button>
+) : daysDone >= daysReq && levelStatus.scan_needed ? (
+<button
+onClick={() => setActiveTab('scan')}
+className="font-body flex-shrink-0 font-medium py-2.5 px-4 rounded-xl text-xs"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
+>
+{t("Scan now")}
+</button>
+) : null}
+</div>
+</div>
+)}
+{levelStatus?.maxed && (
+<div className="p-5 rounded-2xl" style={accentCardStyle}>
+<span className="font-display text-[rgb(var(--gold))]">{t('Level {n} · Apex. You finished the program.', { n: MAX_LEVEL })}</span>
+</div>
+)}
+
 <div className="p-6 rounded-2xl" style={cardStyle}>
 <div className="flex items-center justify-between mb-5">
-<span className="font-body text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase">Today&apos;s Protocol</span>
-<span className="font-display text-sm text-[rgb(var(--gold))]">{completedCount}/5</span>
+<div>
+<span className="font-body text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block">{t("Today's Protocol")}</span>
+<span className="font-body text-[11px] text-[rgb(var(--gold))]">{t('Level {n}', { n: level })} · {t(rankTitle(level))}</span>
+</div>
+<span className="font-display text-sm text-[rgb(var(--gold))]">{completedCount}/{tasks.length}</span>
 </div>
 <div className="space-y-2">
-{habits.map((habit, idx) => {
-const HabitIcon = habit.icon;
+{tasks.map(habit => {
+const HabitIcon = AREA_ICON[habit.area];
 const done = habit.id in completedToday;
 return (
 <div
@@ -448,9 +553,9 @@ style={{ color: done ? 'rgb(var(--gold))' : 'rgb(var(--muted))' }}
 className={`font-body text-sm font-medium transition-colors ${done ? 'line-through' : ''}`}
 style={{ color: done ? 'rgb(var(--muted))' : 'rgb(var(--gold))' }}
 >
-{habit.name}
+{t(habit.name)}
 </h3>
-<p className="font-body text-[11px] text-[rgb(var(--muted))] capitalize mt-0.5">{habit.category}</p>
+<p className="font-body text-[11px] text-[rgb(var(--muted))] mt-0.5">{t(AREA_LABEL[habit.area])} · {t(habit.hint)}</p>
 </div>
 <span className="font-display text-sm text-[rgb(var(--gold))]">+{habit.xp}</span>
 <div
@@ -467,22 +572,25 @@ border: done ? '1px solid rgb(var(--gold))' : '1px solid rgb(var(--muted) / 0.35
 );
 })}
 </div>
+<p className="font-body text-[11px] text-[rgb(var(--muted))] mt-4 leading-relaxed">
+{t("A day counts when you finish at least 3 of these. Be honest. Your scans will show if it is working.")}
+</p>
 </div>
 
 <div className="grid grid-cols-2 gap-4">
 <div className="p-5 rounded-2xl" style={cardStyle}>
 <div className="flex justify-between items-baseline mb-3">
-<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">Missions</span>
-<span className="font-display text-[rgb(var(--gold))]">{completedCount}<span className="text-[rgb(var(--muted))] text-sm">/5</span></span>
+<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">{t("Missions")}</span>
+<span className="font-display text-[rgb(var(--gold))]">{completedCount}<span className="text-[rgb(var(--muted))] text-sm">/{tasks.length}</span></span>
 </div>
 <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--muted) / 0.15)' }}>
-<div className="h-full rounded-full transition-all duration-500" style={{ width: `${(completedCount / 5) * 100}%`, background: 'rgb(var(--gold))' }} />
+<div className="h-full rounded-full transition-all duration-500" style={{ width: `${(completedCount / tasks.length) * 100}%`, background: 'rgb(var(--gold))' }} />
 </div>
 </div>
 <div className="p-5 rounded-2xl" style={cardStyle}>
 <div className="flex justify-between items-baseline mb-3">
-<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">XP to Next Level</span>
-<span className="font-display text-[rgb(var(--gold))]">{xpIntoLevel}<span className="text-[rgb(var(--muted))] text-sm">/{XP_PER_LEVEL}</span></span>
+<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">{t("Days at Level")}</span>
+<span className="font-display text-[rgb(var(--gold))]">{daysDone}<span className="text-[rgb(var(--muted))] text-sm">/{daysReq}</span></span>
 </div>
 <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--muted) / 0.15)' }}>
 <div className="h-full rounded-full transition-all duration-500" style={{ width: `${ringPct}%`, background: 'rgb(var(--gold))' }} />
@@ -494,27 +602,27 @@ border: done ? '1px solid rgb(var(--gold))' : '1px solid rgb(var(--muted) / 0.35
 <div className="space-y-4">
 <div className="p-6 rounded-2xl space-y-5" style={cardStyle}>
 <div>
-<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-2">Current Streak</span>
+<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-2">{t("Current Streak")}</span>
 <div className="flex items-baseline gap-2">
 <Flame className="w-4 h-4 text-[rgb(var(--gold))] mb-1" />
 <span className="font-display text-4xl font-bold text-[rgb(var(--gold))]">{streak}</span>
-<span className="font-body text-xs text-[rgb(var(--muted))]">days</span>
+<span className="font-body text-xs text-[rgb(var(--muted))]">{t("days")}</span>
 </div>
 </div>
 <div className="h-px" style={{ background: 'rgb(var(--muted) / 0.15)' }} />
 <div>
-<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-2">Total XP</span>
+<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-2">{t("Total XP")}</span>
 <div className="font-display text-3xl font-bold text-[rgb(var(--gold))]">{totalXP}</div>
 </div>
 <div className="h-px" style={{ background: 'rgb(var(--muted) / 0.15)' }} />
 <div>
-<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-2">Next Milestone</span>
-<div className="font-display text-3xl font-bold text-[rgb(var(--gold))]">Level <span>{level + 1}</span></div>
+<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-2">{t("Next Milestone")}</span>
+<div className="font-display text-3xl font-bold text-[rgb(var(--gold))]">{t("Level")} <span>{level + 1}</span></div>
 </div>
 </div>
 
 <div className="p-6 rounded-2xl" style={cardStyle}>
-<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-5">Honors</span>
+<span className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-5">{t("Honors")}</span>
 <div className="space-y-4">
 {achievements.map((ach, idx) => {
 const AchIcon = ach.icon;
@@ -542,14 +650,14 @@ onClick={() => setActiveTab('marketplace')}
 className="font-body w-full text-[rgb(var(--gold))] font-medium py-3.5 rounded-2xl transition-all text-[13px] tracking-[0.05em]"
 style={cardStyle}
 >
-Enter the Marketplace
+{t("Enter the Marketplace")}
 </button>
 ) : premiumStatus === 'pending' ? (
 <div
 className="w-full text-[rgb(var(--muted))] font-medium py-3.5 rounded-2xl text-[13px] tracking-[0.05em] text-center"
 style={cardStyle}
 >
-Payment Pending Review
+{t("Payment Pending Review")}
 </div>
 ) : (
 <button
@@ -558,7 +666,7 @@ className="font-body w-full flex items-center justify-center gap-2 font-medium p
 style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 >
 <Crown className="w-4 h-4" />
-Go Premium
+{premiumExpired ? t('Premium ended — Renew') : t('Go Premium')}
 </button>
 )}
 </div>

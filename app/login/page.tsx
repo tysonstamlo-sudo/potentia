@@ -4,28 +4,39 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { ThemeStyles, ThemeToggle, MarbleBackground, MarbleImage } from '../../lib/theme';
-import { Mail, Lock, User, Loader2 } from 'lucide-react';
+import { useLang, LanguageToggle, LanguageStyles } from '../../lib/i18n';
+import { Mail, Lock, User, Loader2, ScanFace } from 'lucide-react';
 
-const labelCls =
-'font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase mb-2 block';
-const inputCls =
-'font-body w-full bg-transparent border-b border-[rgb(var(--muted)/0.3)] py-2.5 pl-6 pr-2 text-sm text-[rgb(var(--gold))] placeholder:text-[rgb(var(--muted)/0.6)] focus:outline-none focus:border-[rgb(var(--gold))] transition-all';
-const iconCls = 'absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-[rgb(var(--muted))]';
-const tabCls = (active: boolean) =>
-`font-body pb-3 text-[13px] tracking-[0.05em] transition-all relative ${
-active
-? 'text-[rgb(var(--gold))]'
-: 'text-[rgb(var(--muted))] hover:text-[rgb(var(--muted-hover))]'
-}`;
-const genderCls = (active: boolean) =>
-`flex-1 py-2.5 rounded-sm border text-[13px] tracking-wide transition-all ${
-active
-? 'border-[rgb(var(--gold))] text-[rgb(var(--gold))] bg-[rgb(var(--gold)/0.08)]'
-: 'border-[rgb(var(--muted)/0.3)] text-[rgb(var(--muted))] hover:border-[rgb(var(--muted)/0.6)]'
-}`;
+const cardStyle: React.CSSProperties = {
+background: 'rgb(var(--surface) / 0.55)',
+border: '1px solid rgb(var(--gold) / 0.18)',
+backdropFilter: 'blur(14px)',
+boxShadow: '0 0 40px rgb(var(--gold) / 0.06)',
+};
+
+const inputWrap: React.CSSProperties = {
+background: 'rgb(var(--bg) / 0.6)',
+border: '1px solid rgb(var(--muted) / 0.22)',
+};
+
+const inputClass =
+'flex-1 min-w-0 bg-transparent py-3.5 text-[rgb(var(--gold))] placeholder:text-[rgb(var(--muted)/0.6)] focus:outline-none font-body';
+
+function Field({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+return (
+<div>
+<label className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-2">{label}</label>
+<div className="flex items-center gap-3 rounded-xl px-4" style={inputWrap}>
+<span className="text-[rgb(var(--muted))]">{icon}</span>
+{children}
+</div>
+</div>
+);
+}
 
 export default function AuthPage() {
 const router = useRouter();
+const { t } = useLang();
 const [mode, setMode] = useState<'login' | 'signup'>('login');
 const [email, setEmail] = useState('');
 const [password, setPassword] = useState('');
@@ -39,7 +50,7 @@ e.preventDefault();
 setError('');
 
 if (mode === 'signup' && !gender) {
-setError('Please select your gender to continue.');
+setError(t('Please select your gender to continue.'));
 return;
 }
 
@@ -76,167 +87,170 @@ setLoading(false);
 };
 
 return (
-<div className="min-h-screen bg-[rgb(var(--bg))] text-[rgb(var(--gold))] flex items-center justify-center p-4 transition-colors">
+<div className="min-h-screen bg-[rgb(var(--bg))] flex items-center justify-center p-4 relative overflow-hidden transition-colors">
 <ThemeStyles />
-<style>{`
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600&family=Inter:wght@300;400;500;600&display=swap');
-.font-display { font-family: 'Fraunces', serif; }
-.font-body { font-family: 'Inter', sans-serif; }
-.relief {
-background:
-radial-gradient(circle at 30% 20%, rgb(var(--glow) / var(--glow-a)), transparent 45%),
-radial-gradient(circle at 80% 80%, rgb(var(--glow) / calc(var(--glow-a) * 0.6)), transparent 50%);
-}
-.seal-ring { filter: drop-shadow(0 0 18px rgb(var(--glow) / 0.25)); }
-`}</style>
-
+<LanguageStyles />
 <MarbleBackground />
 <MarbleImage />
-<div className="relief fixed inset-0 pointer-events-none" />
+<style>{`
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+.font-display { font-family: 'Space Grotesk', system-ui, sans-serif; }
+.font-body { font-family: 'Inter', sans-serif; }
+@keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-8px); } }
+.float-seal { animation: float 3s ease-in-out infinite; }
+`}</style>
 
-<ThemeToggle className="fixed top-4 right-4 z-10" />
+<ThemeToggle className="fixed top-4 right-4 z-40" />
+<LanguageToggle className="fixed top-4 right-16 z-40" />
 
-<div className="w-full max-w-sm relative">
-{/* Medallion */}
-<div className="flex flex-col items-center mb-10">
-<div className="relative w-24 h-24 mb-6 seal-ring">
-<svg className="w-24 h-24 -rotate-90" viewBox="0 0 108 108">
-<circle
-cx="54" cy="54" r="52" fill="none" strokeWidth="1"
-style={{ stroke: 'rgb(var(--muted) / 0.25)' }}
-/>
-<circle
-cx="54" cy="54" r="44" strokeWidth="1"
-style={{ fill: 'rgb(var(--surface))', stroke: 'rgb(var(--gold) / 0.5)' }}
-/>
-</svg>
-<div className="absolute inset-0 flex items-center justify-center">
-<span className="font-display text-2xl text-[rgb(var(--gold))]">P</span>
+<div className="w-full max-w-sm relative z-10">
+{/* Logo */}
+<div className="flex flex-col items-center mb-8">
+<div
+className="w-16 h-16 rounded-2xl flex items-center justify-center float-seal mb-5"
+style={{
+background: 'linear-gradient(145deg, rgb(var(--gold)), rgb(var(--bg)))',
+boxShadow: '0 0 30px rgb(var(--gold) / 0.35)',
+}}
+>
+<span className="font-display text-2xl font-bold" style={{ color: 'rgb(var(--bg))' }}>P</span>
 </div>
-</div>
-<span className="font-body text-[10px] tracking-[0.35em] text-[rgb(var(--gold))] uppercase mb-3">
-Potentia
-</span>
-<h1 className="font-display text-3xl font-light tracking-tight text-[rgb(var(--gold))]">
-{mode === 'login' ? 'Welcome back' : 'Begin your ascent'}
+<span className="font-display text-sm tracking-[0.35em] text-[rgb(var(--gold))] uppercase mb-2">Potentia</span>
+<h1 className="font-display text-3xl font-semibold text-[rgb(var(--gold))] text-center">
+{mode === 'login' ? t('Welcome back') : t('Start your ascent')}
 </h1>
-<p className="font-body text-[rgb(var(--muted))] text-sm mt-2">
-Your transformation, guided by AI
-</p>
+<p className="font-body text-sm text-[rgb(var(--muted))] mt-2 text-center">{t('Your transformation, guided by AI')}</p>
 </div>
 
-{/* Form */}
-<div className="px-1">
-<div className="flex gap-8 mb-8 border-b border-[rgb(var(--muted)/0.2)]">
-<button type="button" onClick={() => setMode('login')} className={tabCls(mode === 'login')}>
-Log In
-{mode === 'login' && (
-<div className="absolute -bottom-px left-0 right-0 h-px bg-[rgb(var(--gold))]" />
-)}
+{/* Card */}
+<div className="rounded-3xl p-6" style={cardStyle}>
+{/* Tabs */}
+<div className="grid grid-cols-2 gap-1 p-1 rounded-xl mb-6" style={{ background: 'rgb(var(--bg) / 0.5)' }}>
+{(['login', 'signup'] as const).map(m => {
+const active = mode === m;
+return (
+<button
+key={m}
+type="button"
+onClick={() => {
+setMode(m);
+setError('');
+}}
+className="font-body text-[13px] py-2.5 rounded-lg transition-all"
+style={{
+background: active ? 'rgb(var(--gold))' : 'transparent',
+color: active ? 'rgb(var(--bg))' : 'rgb(var(--muted-hover))',
+fontWeight: active ? 600 : 400,
+}}
+>
+{m === 'login' ? t('Log In') : t('Sign Up')}
 </button>
-<button type="button" onClick={() => setMode('signup')} className={tabCls(mode === 'signup')}>
-Sign Up
-{mode === 'signup' && (
-<div className="absolute -bottom-px left-0 right-0 h-px bg-[rgb(var(--gold))]" />
-)}
-</button>
+);
+})}
 </div>
 
-<form onSubmit={handleSubmit} className="space-y-5">
+<form onSubmit={handleSubmit} className="space-y-4">
 {mode === 'signup' && (
-<div>
-<label className={labelCls}>Username</label>
-<div className="relative">
-<User className={iconCls} />
+<Field icon={<User className="w-4 h-4" />} label={t('Username')}>
 <input
 type="text"
-required
 value={username}
 onChange={e => setUsername(e.target.value)}
+required
 placeholder="Marcus"
-className={inputCls}
+className={inputClass}
+style={{ fontSize: 16 }}
 />
-</div>
-</div>
+</Field>
 )}
 
-<div>
-<label className={labelCls}>Email</label>
-<div className="relative">
-<Mail className={iconCls} />
+<Field icon={<Mail className="w-4 h-4" />} label={t('Email')}>
 <input
 type="email"
-required
 value={email}
 onChange={e => setEmail(e.target.value)}
-placeholder="you@example.com"
-className={inputCls}
+required
+autoComplete="email"
+placeholder="you@email.com"
+className={inputClass}
+style={{ fontSize: 16 }}
 />
-</div>
-</div>
+</Field>
 
-<div>
-<label className={labelCls}>Password</label>
-<div className="relative">
-<Lock className={iconCls} />
+<Field icon={<Lock className="w-4 h-4" />} label={t('Password')}>
 <input
 type="password"
-required
-minLength={6}
 value={password}
 onChange={e => setPassword(e.target.value)}
+required
+minLength={6}
+autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
 placeholder="••••••••"
-className={inputCls}
+className={inputClass}
+style={{ fontSize: 16 }}
 />
-</div>
-</div>
+</Field>
 
 {mode === 'signup' && (
 <div>
-<label className={labelCls}>Gender</label>
-<div className="flex gap-3">
-<button type="button" onClick={() => setGender('male')} className={genderCls(gender === 'male')}>
-Male
+<label className="font-body text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-2">
+{t('Gender')}
+</label>
+<div className="grid grid-cols-2 gap-2">
+{(['male', 'female'] as const).map(g => {
+const active = gender === g;
+return (
+<button
+key={g}
+type="button"
+onClick={() => setGender(g)}
+className="font-body text-[13px] py-3 rounded-xl transition-all"
+style={{
+background: active ? 'rgb(var(--gold) / 0.14)' : 'rgb(var(--bg) / 0.6)',
+border: `1px solid ${active ? 'rgb(var(--gold) / 0.6)' : 'rgb(var(--muted) / 0.22)'}`,
+color: active ? 'rgb(var(--gold))' : 'rgb(var(--muted-hover))',
+fontWeight: active ? 600 : 400,
+}}
+>
+{g === 'male' ? t('Male') : t('Female')}
 </button>
-<button type="button" onClick={() => setGender('female')} className={genderCls(gender === 'female')}>
-Female
-</button>
+);
+})}
 </div>
+<p className="font-body text-[11px] text-[rgb(var(--muted))] mt-2">
+{t('Used only to pick the right face measurements.')}
+</p>
 </div>
 )}
 
 {error && (
-<div className="font-body border border-[rgb(var(--err)/0.4)] rounded-sm px-4 py-3 text-xs text-[rgb(var(--err))]">
+<p
+className="font-body text-xs rounded-lg px-3 py-2"
+style={{ color: 'rgb(var(--err))', background: 'rgb(var(--err) / 0.1)' }}
+>
 {error}
-</div>
+</p>
 )}
 
 <button
 type="submit"
 disabled={loading}
-className="font-body w-full border border-[rgb(var(--gold)/0.5)] hover:border-[rgb(var(--gold))] hover:bg-[rgb(var(--gold)/0.08)] disabled:opacity-40 text-[rgb(var(--gold))] font-medium py-3.5 rounded-sm transition-all text-[13px] tracking-[0.1em] uppercase flex items-center justify-center gap-2 mt-2"
+className="w-full flex items-center justify-center gap-2 font-body font-semibold py-3.5 rounded-xl text-[13px] tracking-[0.08em] uppercase disabled:opacity-60 transition-all"
+style={{
+background: 'rgb(var(--gold))',
+color: 'rgb(var(--bg))',
+boxShadow: '0 0 20px rgb(var(--gold) / 0.3)',
+}}
 >
-{loading ? (
-<Loader2 className="w-4 h-4 animate-spin" />
-) : mode === 'login' ? (
-'Enter'
-) : (
-'Create Account'
-)}
+{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : mode === 'login' ? t('Enter') : t('Create Account')}
 </button>
 </form>
 </div>
 
-<p className="font-body text-center text-xs text-[rgb(var(--muted))] mt-8">
-{mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
-<button
-type="button"
-onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
-className="text-[rgb(var(--gold))] hover:text-[rgb(var(--gold-hover))] font-medium"
->
-{mode === 'login' ? 'Sign up' : 'Log in'}
-</button>
-</p>
+<div className="flex items-center justify-center gap-2 mt-6 font-body text-[11px] text-[rgb(var(--muted))] text-center">
+<ScanFace className="w-3.5 h-3.5 flex-shrink-0" />
+<span>{t('Face scans run on your device. Photos are never uploaded.')}</span>
+</div>
 </div>
 </div>
 );

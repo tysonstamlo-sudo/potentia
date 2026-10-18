@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Flame, TrendingUp, Target, Award } from 'lucide-react';
+import { useLang } from '../../lib/i18n';
+import { rankTitle } from '../../lib/program';
 
 type ProgressProps = {
 totalXP: number;
@@ -82,11 +84,12 @@ return null;
 }
 
 function ChartCard({ title, sample = true, children }: { title: string; sample?: boolean; children: React.ReactNode }) {
+const { t } = useLang();
 return (
 <div className="rounded-2xl p-5" style={cardStyle}>
 <div className="flex items-center justify-between mb-5">
 <span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">{title}</span>
-{sample && <span className="text-[9px] text-[rgb(var(--muted))] opacity-70 italic">sample trend</span>}
+{sample && <span className="text-[9px] text-[rgb(var(--muted))] opacity-70 italic">{t("sample trend")}</span>}
 </div>
 {children}
 </div>
@@ -94,7 +97,7 @@ return (
 }
 
 export default function Progress({ totalXP, level, streak }: ProgressProps) {
-const XP_PER_LEVEL = 270;
+const { t } = useLang();
 const { accent, muted } = useThemeColors();
 const [scans, setScans] = useState<{ date: string; overall: number; potential: number }[]>([]);
 
@@ -127,17 +130,17 @@ const delta = firstScan && lastScan ? Math.round((lastScan.overall - firstScan.o
 const grid = <CartesianGrid strokeDasharray="1 6" stroke={muted} strokeOpacity={0.3} vertical={false} />;
 
 const stats = [
-{ icon: Flame, label: 'Streak', value: streak, suffix: '' },
-{ icon: TrendingUp, label: 'Total XP', value: totalXP, suffix: '' },
-{ icon: Target, label: 'To next rank', value: totalXP % XP_PER_LEVEL, suffix: `/${XP_PER_LEVEL}` },
-{ icon: Award, label: 'Rank', value: level, suffix: '' },
+{ icon: Flame, label: t('Streak'), value: streak, suffix: '' },
+{ icon: TrendingUp, label: t('Total XP'), value: totalXP, suffix: '' },
+{ icon: Award, label: t('Level'), value: level, suffix: '' },
+{ icon: Target, label: t('Rank'), value: t(rankTitle(level)), suffix: '' },
 ];
 
 return (
 <div className="space-y-5 font-body">
 <div className="p-5 rounded-2xl" style={cardStyle}>
-<span className="text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block mb-1.5">Record</span>
-<h2 className="font-display text-xl text-[rgb(var(--gold))] font-semibold">Your Progress</h2>
+<span className="text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block mb-1.5">{t("Record")}</span>
+<h2 className="font-display text-xl text-[rgb(var(--gold))] font-semibold">{t("Your Progress")}</h2>
 </div>
 
 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -155,7 +158,7 @@ return (
 ))}
 </div>
 
-<ChartCard title="XP — Last 7 Days">
+<ChartCard title={t('XP — Last 7 Days')}>
 <ResponsiveContainer width="100%" height={210}>
 <LineChart data={xpData}>
 {grid}
@@ -167,28 +170,28 @@ return (
 </ResponsiveContainer>
 </ChartCard>
 
-<ChartCard title="Missions Completed">
+<ChartCard title={t('Missions Completed')}>
 <ResponsiveContainer width="100%" height={210}>
 <BarChart data={habitData}>
 {grid}
 <XAxis dataKey="day" stroke={muted} fontSize={11} tickLine={false} axisLine={false} />
 <YAxis stroke={muted} fontSize={11} tickLine={false} axisLine={false} domain={[0, 5]} />
 <Tooltip content={<CustomTooltip />} cursor={{ fill: muted, fillOpacity: 0.1 }} />
-<Bar dataKey="completed" fill={accent} radius={[6, 6, 0, 0]} name="Completed" />
+<Bar dataKey="completed" fill={accent} radius={[6, 6, 0, 0]} name={t('Completed')} />
 </BarChart>
 </ResponsiveContainer>
 </ChartCard>
 
-<ChartCard title="Reading History" sample={false}>
+<ChartCard title={t('Reading History')} sample={false}>
 {scans.length === 0 ? (
 <p className="text-sm text-[rgb(var(--muted))] text-center py-10">
-No scans yet. Run a facial scan and your trend shows up here.
+{t("No scans yet. Run a facial scan and your trend shows up here.")}
 </p>
 ) : (
 <>
 <div className="flex items-baseline gap-3 mb-4">
 <span className="font-display text-3xl font-bold text-[rgb(var(--gold))]">{lastScan.overall.toFixed(1)}</span>
-<span className="text-xs text-[rgb(var(--muted))]">latest overall</span>
+<span className="text-xs text-[rgb(var(--muted))]">{t("latest overall")}</span>
 {scans.length > 1 && (
 <span
 className="text-xs font-medium"
@@ -204,18 +207,18 @@ style={{ color: delta >= 0 ? 'rgb(var(--gold))' : 'rgb(var(--err))' }}
 <XAxis dataKey="date" stroke={muted} fontSize={11} tickLine={false} axisLine={false} />
 <YAxis stroke={muted} fontSize={11} tickLine={false} axisLine={false} domain={[0, 10]} />
 <Tooltip content={<CustomTooltip />} />
-<Line type="monotone" dataKey="overall" stroke={accent} strokeWidth={2} dot={{ fill: accent, r: 3 }} name="Overall" />
-<Line type="monotone" dataKey="potential" stroke={muted} strokeWidth={2} strokeDasharray="4 4" dot={false} name="Potential" />
+<Line type="monotone" dataKey="overall" stroke={accent} strokeWidth={2} dot={{ fill: accent, r: 3 }} name={t('Overall')} />
+<Line type="monotone" dataKey="potential" stroke={muted} strokeWidth={2} strokeDasharray="4 4" dot={false} name={t('Potential')} />
 </LineChart>
 </ResponsiveContainer>
 <div className="flex items-center gap-6 mt-4 justify-center">
 <div className="flex items-center gap-2">
 <div className="w-2 h-2 rounded-full bg-[rgb(var(--gold))]" />
-<span className="text-[11px] text-[rgb(var(--muted))]">Overall</span>
+<span className="text-[11px] text-[rgb(var(--muted))]">{t("Overall")}</span>
 </div>
 <div className="flex items-center gap-2">
 <div className="w-2 h-2 rounded-full bg-[rgb(var(--muted))]" />
-<span className="text-[11px] text-[rgb(var(--muted))]">Potential (est.)</span>
+<span className="text-[11px] text-[rgb(var(--muted))]">{t("Potential (est.)")}</span>
 </div>
 </div>
 </>

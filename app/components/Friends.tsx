@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { UserPlus, Check, X, Search, Flame } from 'lucide-react';
+import { useLang } from '../../lib/i18n';
 
 type MyStats = { totalXP: number; level: number; streak: number };
 
@@ -17,6 +18,7 @@ backdropFilter: 'blur(10px)',
 };
 
 export default function Friends({ myStats }: { myStats: MyStats }) {
+const { t } = useLang();
 const [userId, setUserId] = useState<string | null>(null);
 const [query, setQuery] = useState('');
 const [results, setResults] = useState<SearchResult[]>([]);
@@ -50,7 +52,7 @@ setPending(
 incoming.map(f => ({
 id: f.id,
 requester_id: f.requester_id,
-username: requesterProfiles?.find(p => p.id === f.requester_id)?.username ?? 'Unknown',
+username: requesterProfiles?.find(p => p.id === f.requester_id)?.username ?? t('Unknown'),
 }))
 );
 } else {
@@ -112,16 +114,16 @@ await loadFriendsAndRequests(userId);
 
 const diffLabel = (mine: number, theirs: number) => {
 const diff = mine - theirs;
-if (diff === 0) return { text: 'Even', color: 'rgb(var(--muted))' };
-if (diff > 0) return { text: `+${diff} ahead`, color: 'rgb(var(--gold))' };
-return { text: `${Math.abs(diff)} behind`, color: 'rgb(var(--err))' };
+if (diff === 0) return { text: t('Even'), color: 'rgb(var(--muted))' };
+if (diff > 0) return { text: t('+{n} ahead', { n: diff }), color: 'rgb(var(--gold))' };
+return { text: t('{n} behind', { n: Math.abs(diff) }), color: 'rgb(var(--err))' };
 };
 
 return (
 <div className="space-y-5 font-body">
 <div className="p-5 rounded-2xl" style={cardStyle}>
-<span className="text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block mb-1.5">Circle</span>
-<h2 className="font-display text-xl text-[rgb(var(--gold))] font-semibold">Friends</h2>
+<span className="text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block mb-1.5">{t("Circle")}</span>
+<h2 className="font-display text-xl text-[rgb(var(--gold))] font-semibold">{t("Friends")}</h2>
 </div>
 
 <div className="relative">
@@ -130,7 +132,7 @@ return (
 type="text"
 value={query}
 onChange={e => searchUsers(e.target.value)}
-placeholder="Search by username"
+placeholder={t('Search by username')}
 className="w-full rounded-xl py-3 pl-11 pr-4 text-sm text-[rgb(var(--gold))] placeholder:text-[rgb(var(--muted))] focus:outline-none transition-all"
 style={{ ...cardStyle, fontSize: 16 }}
 />
@@ -152,9 +154,9 @@ style={{ borderBottom: '1px solid rgb(var(--muted) / 0.1)' }}
 <p className="text-[11px] text-[rgb(var(--muted))]">Rank {r.level} · {r.total_xp} XP</p>
 </div>
 {alreadyFriend ? (
-<span className="text-[11px] text-[rgb(var(--muted))]">Friends</span>
+<span className="text-[11px] text-[rgb(var(--muted))]">{t("Friends")}</span>
 ) : alreadySent ? (
-<span className="text-[11px] text-[rgb(var(--muted))]">Requested</span>
+<span className="text-[11px] text-[rgb(var(--muted))]">{t("Requested")}</span>
 ) : (
 <button
 onClick={() => sendRequest(r.id)}
@@ -162,7 +164,7 @@ className="flex items-center gap-1.5 text-[11px] font-medium rounded-lg px-3 py-
 style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 >
 <UserPlus className="w-3 h-3" />
-Add
+{t("Add")}
 </button>
 )}
 </div>
@@ -173,7 +175,7 @@ Add
 
 {pending.length > 0 && (
 <div className="rounded-2xl p-5" style={cardStyle}>
-<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-3">Requests</span>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-3">{t("Requests")}</span>
 <div className="space-y-3">
 {pending.map(p => (
 <div key={p.id} className="flex items-center justify-between">
@@ -202,13 +204,13 @@ style={{ background: 'rgb(var(--muted) / 0.12)' }}
 
 <div>
 <span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-3 px-1">
-Your Circle {friends.length > 0 && `(${friends.length})`}
+{t('Your Circle')} {friends.length > 0 && `(${friends.length})`}
 </span>
 {loading ? (
-<p className="text-sm text-[rgb(var(--muted))] px-1">Loading...</p>
+<p className="text-sm text-[rgb(var(--muted))] px-1">{t("Loading...")}</p>
 ) : friends.length === 0 ? (
 <div className="rounded-2xl p-6 text-center" style={cardStyle}>
-<p className="text-sm text-[rgb(var(--muted))]">No friends yet. Search above to add someone.</p>
+<p className="text-sm text-[rgb(var(--muted))]">{t("No friends yet. Search above to add someone.")}</p>
 </div>
 ) : (
 <div className="space-y-3">

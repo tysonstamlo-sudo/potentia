@@ -13,6 +13,7 @@ import Leaderboard from './components/Leaderboard';
 import Friends from './components/Friends';
 import BottomNav, { TabKey } from './components/BottomNav';
 import FullPlanModal from './components/FullPlan';
+import Onboarding, { CONCERN_FOCUS, type OnboardingAnswers } from './components/Onboarding';
 import { useLang, LanguageToggle, LanguageStyles } from '../lib/i18n';
 import { tasksForLevel, daysRequired, needsScan, rankTitle, AREA_LABEL, MAX_LEVEL, type ProgramTask } from '../lib/program';
 
@@ -71,6 +72,8 @@ const [premiumUntil, setPremiumUntil] = useState<string | null>(null);
 const [premiumStatus, setPremiumStatus] = useState<'none' | 'pending'>('none');
 const [showPremiumModal, setShowPremiumModal] = useState(false);
 const [showPlan, setShowPlan] = useState(false);
+const [showOnboarding, setShowOnboarding] = useState(false);
+const [onboarding, setOnboarding] = useState<OnboardingAnswers | null>(null);
 const [submittingPayment, setSubmittingPayment] = useState(false);
 const [completedToday, setCompletedToday] = useState<Record<number, string>>({});
 const [levelStatus, setLevelStatus] = useState<LevelStatus | null>(null);
@@ -140,6 +143,17 @@ setCompletedToday(map);
 }
 
 await loadLevelStatus();
+
+// First-run quiz (separate query so the dashboard still loads if the column is missing)
+const { data: ob, error: obError } = await supabase
+.from('profiles')
+.select('onboarding, onboarded_at')
+.eq('id', session.user.id)
+.single();
+if (!obError && ob) {
+if (ob.onboarding) setOnboarding(ob.onboarding as OnboardingAnswers);
+if (!ob.onboarded_at) setShowOnboarding(true);
+}
 
 // Check for a pending premium request
 const { data: requests } = await supabase
@@ -461,7 +475,9 @@ background: activeTab === tab ? 'rgb(var(--gold))' : 'transparent',
 <div className="relative p-6 rounded-2xl" style={accentCardStyle}>
 <span className="font-body text-[10px] tracking-[0.3em] text-[rgb(var(--gold))] uppercase block mb-4">{t("Counsel")}</span>
 <p className="font-display text-xl leading-relaxed text-[rgb(var(--gold))] font-medium mb-6">
-{t("Start with morning skincare to prep your skin, then hit your workout. Stay consistent to keep your streak alive.")}
+{onboarding?.concern && CONCERN_FOCUS[onboarding.concern]
+? t(CONCERN_FOCUS[onboarding.concern])
+: t("Start with morning skincare to prep your skin, then hit your workout. Stay consistent to keep your streak alive.")}
 </p>
 <div className="flex items-center justify-between">
 <span className="font-body text-[11px] text-[rgb(var(--muted))] tracking-wide">{t("Built from your latest scan")}</span>
@@ -681,6 +697,17 @@ isPremium={isPremium}
 onClose={() => setShowPlan(false)}
 onGoPremium={goPremium}
 onGoScan={() => setActiveTab('scan')}
+/>
+)}
+
+{showOnboarding && userId && (
+<Onboarding
+userId={userId}
+onDone={(answers, goScan) => {
+setOnboarding(answers);
+setShowOnboarding(false);
+if (goScan) setActiveTab('scan');
+}}
 />
 )}
 

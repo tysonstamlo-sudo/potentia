@@ -251,6 +251,10 @@ boxShadow: '0 0 20px rgb(var(--gold) / 0.3)',
 <ScanFace className="w-3.5 h-3.5 flex-shrink-0" />
 <span>{t('Face scans run on your device. Photos are never uploaded.')}</span>
 </div>
+<p className="mt-3 font-body text-[11px] text-[rgb(var(--muted))] text-center">
+{t('By continuing you agree to our')}{' '}
+<a href="/terms" className="underline underline-offset-2">{t('Terms of Use')}</a> · <a href="/privacy" className="underline underline-offset-2">{t('Privacy Policy')}</a>
+</p>
 </div>
 </div>
 );

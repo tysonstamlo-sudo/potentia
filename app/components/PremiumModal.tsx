@@ -136,6 +136,10 @@ style={primaryBtn}
 >
 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t("I've Sent Payment")}
 </button>
+<p className="text-center text-[11px] text-[rgb(var(--muted))] mt-3">
+{t('By paying you agree to our')}{' '}
+<a href="/terms" target="_blank" className="underline underline-offset-2">{t('Terms of Use')}</a>
+</p>
 
 <button
 onClick={() => setStep('select')}

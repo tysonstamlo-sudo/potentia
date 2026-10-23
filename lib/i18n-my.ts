@@ -719,5 +719,22 @@ Enter: 'ဝင်မည်',
 'Terms of Use': 'အသုံးပြုမှု စည်းကမ်းချက်များ',
 'By continuing you agree to our': 'ဆက်လုပ်ခြင်းဖြင့် သင်သည် ကျွန်ုပ်တို့၏',
 'By paying you agree to our': 'ငွေပေးချေခြင်းဖြင့် သင်သည် ကျွန်ုပ်တို့၏',
+
+/* ---------- tiers + seller form ---------- */
+'Your tier': 'သင့် အဆင့်',
+'{n} points to {tier}': '{tier} ရောက်ဖို့ {n} မှတ် လိုသေးတယ်',
+'Low-tier normie': 'ပုံမှန် (အောက်ပိုင်း)',
+'Mid-tier normie': 'ပုံမှန် (အလယ်)',
+'High-tier normie': 'ပုံမှန် (အပေါ်ပိုင်း)',
+'Low-tier becky': 'ပုံမှန် (အောက်ပိုင်း)',
+'Mid-tier becky': 'ပုံမှန် (အလယ်)',
+'High-tier becky': 'ပုံမှန် (အပေါ်ပိုင်း)',
+'Send application': 'လျှောက်လွှာ ပို့မည်',
+'Please log in again, then try.': 'ပြန် login ဝင်ပြီး ထပ်ကြိုးစားပါ။',
+'Add your business or brand name.': 'လုပ်ငန်း သို့မဟုတ် အမှတ်တံဆိပ် အမည် ထည့်ပါ။',
+'Add a phone, Viber, Telegram or email so we can contact you.': 'ဆက်သွယ်နိုင်ဖို့ ဖုန်း၊ Viber၊ Telegram သို့မဟုတ် email ထည့်ပါ။',
+'Describe what you sell in at least 20 characters ({n}/20).': 'ဘာရောင်းမလဲ အနည်းဆုံး စာလုံး ၂၀ ရေးပါ ({n}/20)။',
+'Tick the box to confirm your products are real, safe and legal.': 'ပစ္စည်းများ စစ်မှန်၊ ဘေးကင်းပြီး တရားဝင်ကြောင်း အတည်ပြုရန် အကွက်ကို အမှန်ခြစ်ပါ။',
+'Scan to get your tier': 'သင့်အဆင့် သိဖို့ စကင်န်ဖတ်ပါ',
 };
 

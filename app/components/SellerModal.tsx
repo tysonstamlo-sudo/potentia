@@ -54,7 +54,14 @@ load();
 const valid = business.trim().length >= 2 && contact.trim().length >= 3 && description.trim().length >= 20 && agree;
 
 const submit = async () => {
-if (!userId || !valid || submitting) return;
+if (submitting) return;
+// Tell the user exactly what is missing instead of a dead button
+if (!userId) return setError(t('Please log in again, then try.'));
+if (business.trim().length < 2) return setError(t('Add your business or brand name.'));
+if (contact.trim().length < 3) return setError(t('Add a phone, Viber, Telegram or email so we can contact you.'));
+if (description.trim().length < 20)
+return setError(t('Describe what you sell in at least 20 characters ({n}/20).', { n: description.trim().length }));
+if (!agree) return setError(t('Tick the box to confirm your products are real, safe and legal.'));
 setSubmitting(true);
 setError('');
 const { error: err } = await supabase.from('seller_applications').insert({
@@ -67,6 +74,7 @@ link: link.trim() || null,
 });
 setSubmitting(false);
 if (err) {
+console.error('Seller application failed:', err);
 setError(t('Could not send your application. Please try again.'));
 return;
 }
@@ -212,6 +220,12 @@ rows={3}
 className="w-full rounded-xl px-4 py-3 text-[rgb(var(--gold))] focus:outline-none resize-none"
 style={inputStyle}
 />
+<p
+className="text-[10px] text-right mt-1"
+style={{ color: description.trim().length >= 20 ? 'rgb(var(--gold))' : 'rgb(var(--muted))' }}
+>
+{description.trim().length}/20
+</p>
 </div>
 <div>
 <label className="text-[11px] text-[rgb(var(--muted))] block mb-1.5">
@@ -225,12 +239,15 @@ style={inputStyle}
 />
 </div>
 
-<label className="flex gap-3 items-start text-[11px] text-[rgb(var(--muted))] leading-relaxed">
+<label
+className="flex gap-3 items-start text-[12px] text-[rgb(var(--muted-hover))] leading-relaxed rounded-xl p-3 cursor-pointer"
+style={{ background: 'rgb(var(--muted) / 0.08)', border: `1px solid ${agree ? 'rgb(var(--gold) / 0.5)' : 'rgb(var(--muted) / 0.2)'}` }}
+>
 <input
 type="checkbox"
 checked={agree}
 onChange={e => setAgree(e.target.checked)}
-className="mt-0.5"
+className="mt-0.5 w-5 h-5 flex-shrink-0 accent-[rgb(var(--gold))]"
 />
 <span>{t("I confirm my products are real, safe and legal to sell, and the details above are true.")}</span>
 </label>
@@ -239,11 +256,11 @@ className="mt-0.5"
 
 <button
 onClick={submit}
-disabled={!valid || submitting}
-className="w-full flex items-center justify-center gap-2 font-medium py-3.5 rounded-xl text-[13px] tracking-wide disabled:opacity-40"
-style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
+disabled={submitting}
+className="w-full flex items-center justify-center gap-2 font-medium py-3.5 rounded-xl text-[13px] tracking-wide transition-opacity"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))', opacity: valid ? 1 : 0.6 }}
 >
-{submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Send application'}
+{submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t('Send application')}
 </button>
 </div>
 </>

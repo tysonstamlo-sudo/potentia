@@ -10,6 +10,7 @@ import { rankTitle } from '../../lib/program';
 type ProgressProps = {
 totalXP: number;
 level: number;
+tierLabel?: string | null;
 streak: number;
 };
 
@@ -96,7 +97,7 @@ return (
 );
 }
 
-export default function Progress({ totalXP, level, streak }: ProgressProps) {
+export default function Progress({ totalXP, level, streak, tierLabel }: ProgressProps) {
 const { t } = useLang();
 const { accent, muted } = useThemeColors();
 const [scans, setScans] = useState<{ date: string; overall: number; potential: number }[]>([]);
@@ -133,7 +134,7 @@ const stats = [
 { icon: Flame, label: t('Streak'), value: streak, suffix: '' },
 { icon: TrendingUp, label: t('Total XP'), value: totalXP, suffix: '' },
 { icon: Award, label: t('Level'), value: level, suffix: '' },
-{ icon: Target, label: t('Rank'), value: t(rankTitle(level)), suffix: '' },
+{ icon: Target, label: t('Rank'), value: tierLabel ?? t(rankTitle(level)), suffix: '' },
 ];
 
 return (

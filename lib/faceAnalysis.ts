@@ -551,3 +551,40 @@ if (m.unit === 'pct') return `≈ 0%`;
 return m.ideal.toFixed(2);
 }
 
+/* ---------- looksmaxxing tier (shown on the result) ---------- */
+export type FaceTier = { key: string; label: string; full: string; min: number };
+
+const MALE_TIERS: FaceTier[] = [
+{ key: 'sub3', label: 'Sub 3', full: 'Sub 3', min: 0 },
+{ key: 'sub5', label: 'Sub 5', full: 'Sub 5', min: 3 },
+{ key: 'ltn', label: 'LTN', full: 'Low-tier normie', min: 4.5 },
+{ key: 'mtn', label: 'MTN', full: 'Mid-tier normie', min: 5.3 },
+{ key: 'htn', label: 'HTN', full: 'High-tier normie', min: 6 },
+{ key: 'chadlite', label: 'Chadlite', full: 'Chadlite', min: 6.8 },
+{ key: 'chad', label: 'Chad', full: 'Chad', min: 7.6 },
+{ key: 'gigachad', label: 'Gigachad', full: 'Gigachad', min: 8.5 },
+];
+
+const FEMALE_TIERS: FaceTier[] = [
+{ key: 'sub3', label: 'Sub 3', full: 'Sub 3', min: 0 },
+{ key: 'sub5', label: 'Sub 5', full: 'Sub 5', min: 3 },
+{ key: 'ltb', label: 'LTB', full: 'Low-tier becky', min: 4.5 },
+{ key: 'mtb', label: 'MTB', full: 'Mid-tier becky', min: 5.3 },
+{ key: 'htb', label: 'HTB', full: 'High-tier becky', min: 6 },
+{ key: 'stacylite', label: 'Stacylite', full: 'Stacylite', min: 6.8 },
+{ key: 'stacy', label: 'Stacy', full: 'Stacy', min: 7.6 },
+{ key: 'gigastacy', label: 'Gigastacy', full: 'Gigastacy', min: 8.5 },
+];
+
+export function faceTiers(gender: Gender) {
+return gender === 'female' ? FEMALE_TIERS : MALE_TIERS;
+}
+
+/** Which tier an overall score (1–10) falls in. */
+export function faceTier(overall: number, gender: Gender): FaceTier {
+const tiers = faceTiers(gender);
+let t = tiers[0];
+for (const x of tiers) if (overall >= x.min) t = x;
+return t;
+}
+

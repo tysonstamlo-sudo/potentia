@@ -14,6 +14,8 @@ FaceAnalysisError,
 GROUP_LABELS,
 formatValue,
 formatIdeal,
+faceTier,
+faceTiers,
 type FaceAnalysis,
 type GroupKey,
 } from '../../lib/faceAnalysis';
@@ -608,9 +610,53 @@ boxShadow: '0 0 6px rgb(var(--gold))',
 />
 ))}
 </div>
-<div className="rounded-full px-4 py-1 mt-4" style={{ background: 'rgb(var(--gold) / 0.14)' }}>
-<span className="text-[11px] tracking-[0.2em] text-[rgb(var(--gold))] uppercase">{t(result.tier)}</span>
+{(() => {
+const tier = faceTier(result.overall, gender);
+const ladder = faceTiers(gender);
+const idx = ladder.findIndex(x => x.key === tier.key);
+return (
+<div className="w-full mt-5">
+<div className="text-center mb-4">
+<span className="text-[10px] tracking-[0.25em] text-[rgb(var(--muted))] uppercase block mb-1">{t('Your tier')}</span>
+<span
+className="font-display text-3xl font-bold text-[rgb(var(--gold))]"
+style={{ textShadow: '0 0 18px rgb(var(--gold) / 0.45)' }}
+>
+{tier.label}
+</span>
+{tier.full !== tier.label && (
+<span className="block text-[11px] text-[rgb(var(--muted-hover))] mt-0.5">{t(tier.full)}</span>
+)}
 </div>
+{/* tier ladder: where you stand */}
+<div className="flex gap-1">
+{ladder.map((x, i) => (
+<div key={x.key} className="flex-1 min-w-0">
+<div
+className="h-1.5 rounded-full"
+style={{
+background:
+i < idx ? 'rgb(var(--gold) / 0.45)' : i === idx ? 'rgb(var(--gold))' : 'rgb(var(--muted) / 0.2)',
+boxShadow: i === idx ? '0 0 8px rgb(var(--gold))' : 'none',
+}}
+/>
+<span
+className="block text-[8px] text-center mt-1 truncate"
+style={{ color: i === idx ? 'rgb(var(--gold))' : 'rgb(var(--muted))', fontWeight: i === idx ? 700 : 400 }}
+>
+{x.label}
+</span>
+</div>
+))}
+</div>
+{idx < ladder.length - 1 && (
+<p className="text-[11px] text-[rgb(var(--muted))] text-center mt-3">
+{t('{n} points to {tier}', { n: (ladder[idx + 1].min - result.overall).toFixed(1), tier: ladder[idx + 1].label })}
+</p>
+)}
+</div>
+);
+})()}
 <p className="text-xs text-[rgb(var(--muted-hover))] text-center mt-3 max-w-xs leading-relaxed">
 {t(verdict(result.overall))}
 </p>

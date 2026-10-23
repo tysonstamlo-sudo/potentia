@@ -15,6 +15,7 @@ import BottomNav, { TabKey } from './components/BottomNav';
 import FullPlanModal from './components/FullPlan';
 import Onboarding, { CONCERN_FOCUS, type OnboardingAnswers } from './components/Onboarding';
 import { useLang, LanguageToggle, LanguageStyles } from '../lib/i18n';
+import { faceTier } from '../lib/faceAnalysis';
 import { tasksForLevel, daysRequired, needsScan, rankTitle, AREA_LABEL, MAX_LEVEL, type ProgramTask } from '../lib/program';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -73,6 +74,7 @@ const [premiumStatus, setPremiumStatus] = useState<'none' | 'pending'>('none');
 const [showPremiumModal, setShowPremiumModal] = useState(false);
 const [showPlan, setShowPlan] = useState(false);
 const [showOnboarding, setShowOnboarding] = useState(false);
+const [tierLabel, setTierLabel] = useState<string | null>(null);
 const [onboarding, setOnboarding] = useState<OnboardingAnswers | null>(null);
 const [submittingPayment, setSubmittingPayment] = useState(false);
 const [completedToday, setCompletedToday] = useState<Record<number, string>>({});
@@ -180,6 +182,23 @@ const handleLogout = async () => {
 await supabase.auth.signOut();
 router.push('/login');
 };
+
+// Your face tier (from your latest scan) is part of your rank. Only you see it.
+const loadTier = async (uid: string) => {
+const [{ data: prof }, { data: last }] = await Promise.all([
+supabase.from('profiles').select('gender').eq('id', uid).single(),
+supabase.from('scans').select('overall').eq('user_id', uid).order('created_at', { ascending: false }).limit(1),
+]);
+if (last && last[0]) {
+const g = prof?.gender === 'female' ? 'female' : 'male';
+setTierLabel(faceTier(Number(last[0].overall), g).label);
+}
+};
+
+useEffect(() => {
+if (userId && activeTab === 'dashboard') loadTier(userId);
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [userId, activeTab]);
 
 const loadLevelStatus = async () => {
 const { data, error } = await supabase.rpc('level_status');
@@ -432,6 +451,13 @@ strokeLinecap="round"
 </div>
 </div>
 <button
+onClick={() => setActiveTab('scan')}
+className="font-display text-xs font-semibold rounded-full px-3 py-1"
+style={{ background: 'rgb(var(--gold) / 0.14)', color: 'rgb(var(--gold))', border: '1px solid rgb(var(--gold) / 0.35)' }}
+>
+{tierLabel ?? t('Scan to get your tier')}
+</button>
+<button
 onClick={handleLogout}
 className="font-body flex items-center gap-1.5 text-[11px] text-[rgb(var(--muted))] hover:text-[rgb(var(--gold))] transition-colors"
 >
@@ -461,7 +487,7 @@ background: activeTab === tab ? 'rgb(var(--gold))' : 'transparent',
 {activeTab === 'scan' ? (
 <FaceScan isPremium={isPremium} onGoPremium={goPremium} />
 ) : activeTab === 'progress' ? (
-<Progress totalXP={totalXP} level={level} streak={streak} />
+<Progress totalXP={totalXP} level={level} streak={streak} tierLabel={tierLabel} />
 ) : activeTab === 'rankings' ? (
 <Leaderboard />
 ) : activeTab === 'friends' ? (
@@ -536,7 +562,7 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 <div className="flex items-center justify-between mb-5">
 <div>
 <span className="font-body text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block">{t("Today's Protocol")}</span>
-<span className="font-body text-[11px] text-[rgb(var(--gold))]">{t('Level {n}', { n: level })} · {t(rankTitle(level))}</span>
+<span className="font-body text-[11px] text-[rgb(var(--gold))]">{t('Level {n}', { n: level })} · {tierLabel ?? t(rankTitle(level))}</span>
 </div>
 <span className="font-display text-sm text-[rgb(var(--gold))]">{completedCount}/{tasks.length}</span>
 </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { X, Store, Loader2, CheckCircle2, Clock } from 'lucide-react';
 import { useLang } from '../../lib/i18n';
@@ -81,23 +82,29 @@ return;
 setDone(true);
 };
 
-return (
+// Render on top of the whole app (above the bottom menu), not inside the Shop tab
+const [mounted, setMounted] = useState(false);
+useEffect(() => setMounted(true), []);
+if (!mounted) return null;
+
+return createPortal(
 <div
-className="fixed inset-0 flex items-end md:items-center justify-center p-0 md:p-4 z-[70] backdrop-blur-sm"
-style={{ background: 'rgb(0 0 0 / 0.7)' }}
+className="fixed inset-0 flex items-stretch md:items-center justify-center p-0 md:p-4 z-[100] backdrop-blur-sm"
+style={{ background: 'rgb(0 0 0 / 0.75)' }}
 >
 <div
-className="w-full max-w-md rounded-t-3xl md:rounded-3xl px-6 pt-6 relative font-body max-h-[85dvh] overflow-y-auto overscroll-contain"
+className="w-full max-w-md md:rounded-3xl px-6 relative font-body h-[100dvh] md:h-auto md:max-h-[90dvh] overflow-y-auto overscroll-contain"
 style={{
-background: 'linear-gradient(160deg, rgb(var(--gold) / 0.08), rgb(var(--surface) / 0.97) 45%)',
+background: 'linear-gradient(160deg, rgb(var(--gold) / 0.08), rgb(var(--surface)) 45%)',
 border: '1px solid rgb(var(--gold) / 0.25)',
+paddingTop: 'max(env(safe-area-inset-top), 24px)',
 }}
 >
 <button
 onClick={onClose}
 aria-label="Close"
-className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center text-[rgb(var(--muted))]"
-style={{ background: 'rgb(var(--muted) / 0.12)' }}
+className="absolute right-4 w-9 h-9 rounded-full flex items-center justify-center text-[rgb(var(--muted))]"
+style={{ background: 'rgb(var(--muted) / 0.12)', top: 'max(env(safe-area-inset-top), 20px)' }}
 >
 <X className="w-4 h-4" />
 </button>
@@ -287,7 +294,8 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))', opacity: valid
 </>
 )}
 </div>
-</div>
+</div>,
+document.body,
 );
 }
 

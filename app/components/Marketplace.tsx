@@ -52,6 +52,9 @@ return (
 <div className="p-5 rounded-2xl" style={cardStyle}>
 <span className="text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block mb-1.5">{t("Provisions")}</span>
 <h2 className="font-display text-xl text-[rgb(var(--gold))] font-semibold">{t("Marketplace")}</h2>
+<p className="text-xs text-[rgb(var(--muted-hover))] mt-2 leading-relaxed">
+{t('Shop is coming soon. These are examples of what will be sold here. Sellers can apply now.')}
+</p>
 </div>
 
 {/* Recommended strip */}
@@ -138,13 +141,12 @@ style={{ background: 'rgb(var(--bg) / 0.75)', border: '1px solid rgb(var(--gold)
 </div>
 <div className="flex items-center justify-between">
 <span className="font-display text-base font-semibold text-[rgb(var(--gold))]">${product.price}</span>
-<button
-className="w-9 h-9 rounded-xl flex items-center justify-center"
-style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
-aria-label={t('Add to bag')}
+<span
+className="text-[10px] rounded-full px-2.5 py-1 flex items-center gap-1"
+style={{ background: 'rgb(var(--muted) / 0.12)', color: 'rgb(var(--muted-hover))' }}
 >
-<ShoppingBag className="w-4 h-4" />
-</button>
+<ShoppingBag className="w-3 h-3" /> {t('Soon')}
+</span>
 </div>
 </div>
 </div>
@@ -178,4 +180,3 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 </div>
 );
 }
-

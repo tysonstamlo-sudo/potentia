@@ -83,11 +83,11 @@ setDone(true);
 
 return (
 <div
-className="fixed inset-0 flex items-end md:items-center justify-center p-0 md:p-4 z-50 backdrop-blur-sm"
+className="fixed inset-0 flex items-end md:items-center justify-center p-0 md:p-4 z-[70] backdrop-blur-sm"
 style={{ background: 'rgb(0 0 0 / 0.7)' }}
 >
 <div
-className="w-full max-w-md rounded-t-3xl md:rounded-3xl p-6 relative font-body max-h-[92vh] overflow-y-auto safe-bottom"
+className="w-full max-w-md rounded-t-3xl md:rounded-3xl px-6 pt-6 relative font-body max-h-[85dvh] overflow-y-auto overscroll-contain"
 style={{
 background: 'linear-gradient(160deg, rgb(var(--gold) / 0.08), rgb(var(--surface) / 0.97) 45%)',
 border: '1px solid rgb(var(--gold) / 0.25)',
@@ -164,6 +164,18 @@ style={{ background: 'rgb(var(--muted) / 0.12)', color: 'rgb(var(--muted-hover))
 <p className="text-sm text-[rgb(var(--muted-hover))] mb-5 leading-relaxed">
 {t("Tell us about your business. We review every application before anything is listed.")}
 </p>
+
+<div
+className="rounded-xl p-4 mb-5"
+style={{ background: 'rgb(var(--gold) / 0.08)', border: '1px solid rgb(var(--gold) / 0.25)' }}
+>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--gold))] uppercase block mb-2">{t('How selling works')}</span>
+<ul className="space-y-1.5 text-[12px] text-[rgb(var(--muted-hover))] leading-relaxed">
+<li>• {t('Buyers pay Potentia directly through the app.')}</li>
+<li>• {t('You ship the order once we confirm the payment.')}</li>
+<li>• {t('Potentia keeps 20% of every sale. You receive 80%, paid out monthly.')}</li>
+</ul>
+</div>
 
 <div className="space-y-4">
 <div>
@@ -249,15 +261,24 @@ checked={agree}
 onChange={e => setAgree(e.target.checked)}
 className="mt-0.5 w-5 h-5 flex-shrink-0 accent-[rgb(var(--gold))]"
 />
-<span>{t("I confirm my products are real, safe and legal to sell, and the details above are true.")}</span>
+<span>{t("I confirm my products are real, safe and legal to sell, the details above are true, and I agree to the 20% Potentia commission.")}</span>
 </label>
 
-{error && <p className="text-xs text-[rgb(var(--err))]">{error}</p>}
+</div>
 
+<div
+className="sticky bottom-0 -mx-6 px-6 pt-3 mt-4"
+style={{
+background: 'rgb(var(--surface))',
+borderTop: '1px solid rgb(var(--muted) / 0.15)',
+paddingBottom: 'max(env(safe-area-inset-bottom), 20px)',
+}}
+>
+{error && <p className="text-xs text-[rgb(var(--err))] mb-2">{error}</p>}
 <button
 onClick={submit}
 disabled={submitting}
-className="w-full flex items-center justify-center gap-2 font-medium py-3.5 rounded-xl text-[13px] tracking-wide transition-opacity"
+className="w-full flex items-center justify-center gap-2 font-medium py-3.5 rounded-xl text-[14px] tracking-wide transition-opacity"
 style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))', opacity: valid ? 1 : 0.6 }}
 >
 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t('Send application')}

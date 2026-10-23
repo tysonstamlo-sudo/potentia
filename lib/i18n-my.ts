@@ -736,5 +736,16 @@ Enter: 'ဝင်မည်',
 'Describe what you sell in at least 20 characters ({n}/20).': 'ဘာရောင်းမလဲ အနည်းဆုံး စာလုံး ၂၀ ရေးပါ ({n}/20)။',
 'Tick the box to confirm your products are real, safe and legal.': 'ပစ္စည်းများ စစ်မှန်၊ ဘေးကင်းပြီး တရားဝင်ကြောင်း အတည်ပြုရန် အကွက်ကို အမှန်ခြစ်ပါ။',
 'Scan to get your tier': 'သင့်အဆင့် သိဖို့ စကင်န်ဖတ်ပါ',
+
+/* ---------- seller commission + shop ---------- */
+'How selling works': 'ရောင်းချပုံ',
+'Buyers pay Potentia directly through the app.': 'ဝယ်သူက app ထဲကနေ Potentia ကို တိုက်ရိုက် ငွေပေးချေပါတယ်။',
+'You ship the order once we confirm the payment.': 'ငွေရောက်ကြောင်း ကျွန်ုပ်တို့ အတည်ပြုပြီးမှ ပစ္စည်း ပို့ပေးရပါမယ်။',
+'Potentia keeps 20% of every sale. You receive 80%, paid out monthly.': 'ရောင်းရငွေတိုင်းရဲ့ ၂၀% ကို Potentia က ယူပါတယ်။ သင် ၈၀% ကို လစဉ် ရရှိပါမယ်။',
+"I confirm my products are real, safe and legal to sell, the details above are true, and I agree to the 20% Potentia commission.":
+'ကျွန်ုပ်၏ ပစ္စည်းများ စစ်မှန်၊ ဘေးကင်းပြီး တရားဝင်ကြောင်း၊ အထက်ပါ အချက်အလက်များ မှန်ကန်ကြောင်းနှင့် Potentia ၂၀% ကော်မရှင်ကို သဘောတူကြောင်း အတည်ပြုပါသည်။',
+'Shop is coming soon. These are examples of what will be sold here. Sellers can apply now.':
+'ဈေးဆိုင် မကြာမီ ဖွင့်ပါမယ်။ ဒါတွေက ဒီမှာ ရောင်းမယ့် ပစ္စည်း နမူနာများပါ။ ရောင်းသူများ ယခု လျှောက်ထားနိုင်ပါပြီ။',
+Soon: 'မကြာမီ',
 };
 

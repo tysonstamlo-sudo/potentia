@@ -61,6 +61,12 @@ body: [
 title: 'Marketplace and sellers',
 body: [
 'Products shown in the Shop may be sold by third parties. Sellers must apply and be approved, and must only sell real, safe and legal products. We are not responsible for products sold by third-party sellers, but you can report a problem to us.',
+[
+'Buyers pay Potentia directly. Sellers ship orders after Potentia confirms the payment.',
+'Potentia keeps a 20% commission on every sale. Sellers receive the remaining 80%, paid out once a month for the previous month’s confirmed orders.',
+'Sellers may not ask buyers to pay them directly outside the app. Doing so can lead to removal from the Shop.',
+'If an order is refunded, the commission on that order is also cancelled.',
+],
 ],
 },
 {

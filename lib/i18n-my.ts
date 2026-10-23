@@ -747,5 +747,7 @@ Enter: 'ဝင်မည်',
 'Shop is coming soon. These are examples of what will be sold here. Sellers can apply now.':
 'ဈေးဆိုင် မကြာမီ ဖွင့်ပါမယ်။ ဒါတွေက ဒီမှာ ရောင်းမယ့် ပစ္စည်း နမူနာများပါ။ ရောင်းသူများ ယခု လျှောက်ထားနိုင်ပါပြီ။',
 Soon: 'မကြာမီ',
+'Apply again': 'ထပ်လျှောက်မည်',
+'Send an updated application': 'ပြင်ဆင်ထားသော လျှောက်လွှာ ပို့မည်',
 };
 

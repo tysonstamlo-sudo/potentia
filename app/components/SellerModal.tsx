@@ -158,6 +158,21 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 ? t('You can contact us if you think this is a mistake.')
 : t('We will contact you once it has been reviewed.')}
 </p>
+<div className="flex flex-col gap-3 items-center">
+{existing.status !== 'approved' && (
+<button
+onClick={() => {
+// Let them try again: prefill with what they sent last time
+setBusiness(existing.business_name);
+setExisting(null);
+setError('');
+}}
+className="font-medium py-3 px-8 rounded-xl text-[13px] tracking-wide"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
+>
+{existing.status === 'rejected' ? t('Apply again') : t('Send an updated application')}
+</button>
+)}
 <button
 onClick={onClose}
 className="font-medium py-3 px-8 rounded-xl text-[13px] tracking-wide"
@@ -165,6 +180,7 @@ style={{ background: 'rgb(var(--muted) / 0.12)', color: 'rgb(var(--muted-hover))
 >
 {t("Close")}
 </button>
+</div>
 </div>
 ) : (
 <>

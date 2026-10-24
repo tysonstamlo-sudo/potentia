@@ -42,11 +42,15 @@ overlay: OverlayPoint[];
 tier: 'Foundation' | 'Ascending' | 'Refined' | 'Elite';
 croppedImage?: string; // tight face crop the measurements were taken on
 landmarks?: OverlayPoint[]; // all landmarks, normalized 0..1 to the analysed image
+pose?: { yaw: number; pitch: number; roll: number }; // head angle in degrees (0 = straight at the camera)
+frames?: number; // how many photos were combined into this result
 };
 
 export type FaceAnalysisErrorCode =
 | 'NO_FACE'
 | 'NOT_FRONTAL'
+| 'EXPRESSION'
+| 'TOO_CLOSE'
 | 'TOO_SMALL'
 | 'LOAD_FAILED'
 | 'IMAGE_FAILED';
@@ -462,6 +466,8 @@ FaceLandmarker.createFromOptions(fileset, {
 baseOptions: { modelAssetPath: MODEL_URL, delegate },
 runningMode: 'IMAGE',
 numFaces: 4,
+outputFaceBlendshapes: true,
+outputFacialTransformationMatrixes: true,
 });
 try {
 return await make('GPU');
@@ -535,9 +541,95 @@ const res2 = landmarker.detect(canvas);
 const lms2: LM[] | undefined = res2?.faceLandmarks?.[0];
 if (!lms2) return analyzeLandmarks(main, W, H, gender);
 
+// Quality gates: the same face should give the same score, so reject photos that distort it
+const pose = headPose(res2?.facialTransformationMatrixes?.[0]?.data);
+if (pose && (Math.abs(pose.yaw) > 14 || Math.abs(pose.pitch) > 18)) {
+throw new FaceAnalysisError('NOT_FRONTAL', 'Look straight at the camera with your chin level.');
+}
+const shapes = blendshapeMap(res2?.faceBlendshapes?.[0]?.categories);
+if (shapes) {
+const smile = ((shapes.mouthSmileLeft ?? 0) + (shapes.mouthSmileRight ?? 0)) / 2;
+const blink = ((shapes.eyeBlinkLeft ?? 0) + (shapes.eyeBlinkRight ?? 0)) / 2;
+if ((shapes.jawOpen ?? 0) > 0.18 || smile > 0.4 || blink > 0.75) {
+throw new FaceAnalysisError('EXPRESSION', 'Keep a neutral face: mouth closed, no smile, eyes open.');
+}
+}
+// Too close to the camera = lens distortion (nose looks bigger, face narrower)
+if (b.maxX - b.minX > 0.8) {
+throw new FaceAnalysisError('TOO_CLOSE', 'Hold the phone a little further away.');
+}
+
 const analysis = analyzeLandmarks(lms2, canvas.width, canvas.height, gender);
 analysis.croppedImage = canvas.toDataURL('image/jpeg', 0.92);
+if (pose) analysis.pose = pose;
+analysis.frames = 1;
 return analysis;
+}
+
+/** Head angle from MediaPipe's 4x4 face transform (column-major). */
+function headPose(m?: number[] | Float32Array) {
+if (!m || m.length < 16) return null;
+const r00 = m[0], r10 = m[1], r20 = m[2], r21 = m[6], r22 = m[10];
+const deg = 180 / Math.PI;
+// fold angles into -90..90 so either axis convention gives "0 = straight on"
+const fold = (a: number) => (a > 90 ? a - 180 : a < -90 ? a + 180 : a);
+return {
+yaw: fold(Math.asin(Math.max(-1, Math.min(1, -r20))) * deg),
+pitch: fold(Math.atan2(r21, r22) * deg),
+roll: fold(Math.atan2(r10, r00) * deg),
+};
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function blendshapeMap(cats?: any[]): Record<string, number> | null {
+if (!cats || !cats.length) return null;
+const out: Record<string, number> = {};
+for (const c of cats) out[c.categoryName] = c.score;
+return out;
+}
+
+const median = (xs: number[]) => {
+const s = [...xs].sort((a, b) => a - b);
+const m = Math.floor(s.length / 2);
+return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
+/**
+* Analyse several photos of the same face and combine them.
+* Uses the median of every measurement, so one bad frame can't swing the score.
+*/
+export async function analyzeFaceBurst(images: string[], gender: Gender = 'male'): Promise<FaceAnalysis> {
+const ok: FaceAnalysis[] = [];
+let firstError: unknown = null;
+for (const img of images) {
+try {
+ok.push(await analyzeFace(img, gender));
+} catch (e) {
+if (!firstError) firstError = e;
+}
+}
+if (!ok.length) throw firstError ?? new FaceAnalysisError('NO_FACE', 'No face found.');
+if (ok.length === 1) return ok[0];
+
+const overall = Math.round(median(ok.map(a => a.overall)) * 10) / 10;
+// show the frame closest to the median as the photo
+const base = ok.reduce((a, b) => (Math.abs(b.overall - overall) < Math.abs(a.overall - overall) ? b : a));
+const groups = { ...base.groups };
+(Object.keys(groups) as GroupKey[]).forEach(k => {
+groups[k] = Math.round(median(ok.map(a => a.groups[k])) * 10) / 10;
+});
+const measurements = base.measurements.map(m => {
+const same = ok.map(a => a.measurements.find(x => x.key === m.key)).filter(Boolean) as Measurement[];
+return { ...m, value: median(same.map(x => x.value)), score: median(same.map(x => x.score)) };
+});
+return {
+...base,
+overall,
+potential: Math.round(median(ok.map(a => a.potential)) * 10) / 10,
+groups,
+measurements,
+frames: ok.length,
+};
 }
 
 export function formatValue(m: Measurement): string {

@@ -9,6 +9,7 @@ import { useLang } from '../../lib/i18n';
 import { buildScanFeedback, type ScanFeedback, type ScanSnapshot } from '../../lib/scanFeedback';
 import {
 analyzeFace,
+analyzeFaceBurst,
 preloadFaceModel,
 FaceAnalysisError,
 GROUP_LABELS,
@@ -34,6 +35,7 @@ Gauge,
 AlertTriangle,
 Ruler,
 Target,
+ScanFace,
 } from 'lucide-react';
 
 type FaceScanProps = {
@@ -71,6 +73,8 @@ return 'Significant deviation on most measurements. Structure is the weakest par
 const ERROR_COPY: Record<string, string> = {
 NO_FACE: 'No face detected. Use a clear, well-lit, front-facing photo with your whole face visible.',
 NOT_FRONTAL: 'Your face is turned. Look straight at the camera, chin level, and try again.',
+EXPRESSION: 'Keep a neutral face: mouth closed, no smile, eyes open. Then try again.',
+TOO_CLOSE: 'You are too close. Hold the phone at arm’s length so your whole head and some shoulder are in frame.',
 TOO_SMALL: 'Your face is too small in the frame. Move closer or crop tighter.',
 LOAD_FAILED: 'Could not load the face model. Check your connection and try again.',
 IMAGE_FAILED: 'That image could not be read. Try a different photo.',
@@ -104,6 +108,9 @@ const [status, setStatus] = useState<'idle' | 'capture' | 'scanning' | 'result' 
 const [result, setResult] = useState<FaceAnalysis | null>(null);
 const [feedback, setFeedback] = useState<ScanFeedback | null>(null);
 const [skin, setSkin] = useState<SkinReading | null>(null);
+const [frontBurst, setFrontBurst] = useState<string[]>([]);
+const [capturing, setCapturing] = useState(false);
+const [stableOverall, setStableOverall] = useState<number | null>(null);
 const [step, setStep] = useState<Step>('front');
 const [shots, setShots] = useState<Partial<Record<Step, string>>>({});
 const [source, setSource] = useState<'camera' | 'upload'>('camera');
@@ -146,6 +153,8 @@ streamRef.current?.getTracks().forEach(t => t.stop());
 
 // Full breakdown is open on your local dev server so you can test without paying.
 const showFull = isPremium || process.env.NODE_ENV === 'development';
+// The score we show: averaged with recent scans when there are any (steadier than one photo)
+const shownOverall = stableOverall ?? result?.overall ?? 0;
 
 const msUntilNext = lastScanAt ? Math.max(0, lastScanAt + DAY_MS - Date.now()) : 0;
 const hoursUntilNext = Math.ceil(msUntilNext / (60 * 60 * 1000));
@@ -203,25 +212,47 @@ streamRef.current = null;
 setCameraActive(false);
 };
 
-const capturePhoto = () => {
-if (!videoRef.current) return;
+const grabFrame = () => {
 const video = videoRef.current;
+if (!video) return null;
 const canvas = document.createElement('canvas');
 canvas.width = video.videoWidth;
 canvas.height = video.videoHeight;
 const ctx = canvas.getContext('2d');
-if (ctx) {
+if (!ctx) return null;
 ctx.translate(canvas.width, 0);
 ctx.scale(-1, 1);
 ctx.drawImage(video, 0, 0);
+return canvas.toDataURL('image/jpeg', 0.92);
+};
+
+// Front photo: take 5 quick frames and combine them later, so one bad frame can't swing the score
+const capturePhoto = async () => {
+if (!videoRef.current || capturing) return;
+if (step !== 'front') {
+const one = grabFrame();
+if (one) setImagePreview(one);
+stopCamera();
+return;
 }
-setImagePreview(canvas.toDataURL('image/jpeg', 0.92));
+setCapturing(true);
+const frames: string[] = [];
+for (let i = 0; i < 5; i++) {
+const f = grabFrame();
+if (f) frames.push(f);
+await new Promise(r => setTimeout(r, 180));
+}
+setCapturing(false);
+if (!frames.length) return;
+setFrontBurst(frames);
+setImagePreview(frames[Math.floor(frames.length / 2)]);
 stopCamera();
 };
 
 const cancelCapture = () => {
 stopCamera();
 setImagePreview(null);
+setFrontBurst([]);
 setShots({});
 setStep('front');
 setStatus('idle');
@@ -229,6 +260,7 @@ setStatus('idle');
 
 const retake = () => {
 setImagePreview(null);
+if (step === 'front') setFrontBurst([]);
 if (source === 'camera') startCamera();
 else fileInputRef.current?.click();
 };
@@ -261,7 +293,9 @@ stopCamera();
 setStatus('scanning');
 const started = Date.now();
 try {
-const analysis = await analyzeFace(sh.front, gender);
+// Camera: combine the 5 frames. Upload: single photo.
+const analysis =
+frontBurst.length > 1 ? await analyzeFaceBurst(frontBurst, gender) : await analyzeFace(sh.front, gender);
 let skinReading: SkinReading | null = null;
 try {
 skinReading = await analyzeSkin({
@@ -291,6 +325,18 @@ fb = buildScanFeedback(
 { overall: analysis.overall, groups: analysis.groups, measurements: analysis.measurements },
 (prev ?? []) as ScanSnapshot[],
 );
+// Your score = average of this scan and up to 2 recent ones (last 3 weeks).
+// Faces don't change day to day, so this stops the number jumping between photos.
+const recent = (prev ?? [])
+.filter(p => Date.now() - new Date(p.created_at).getTime() < 21 * 24 * 3600 * 1000)
+.slice(0, 2)
+.map(p => Number(p.overall));
+if (recent.length) {
+const all = [analysis.overall, ...recent];
+setStableOverall(Math.round((all.reduce((a, b) => a + b, 0) / all.length) * 10) / 10);
+} else {
+setStableOverall(null);
+}
 }
 } catch {
 /* feedback is optional */
@@ -331,6 +377,8 @@ setStatus('idle');
 setResult(null);
 setFeedback(null);
 setSkin(null);
+setStableOverall(null);
+setFrontBurst([]);
 setShots({});
 setStep('front');
 setImagePreview(null);
@@ -339,7 +387,7 @@ setErrorMsg('');
 
 const shareResult = async () => {
 if (!result) return;
-const text = `Potentia structure reading — Overall ${result.overall}/10, Potential ${result.potential}/10`;
+const text = `Potentia structure reading — Overall ${shownOverall}/10, Potential ${result.potential}/10`;
 try {
 if (navigator.share) await navigator.share({ text, title: 'Potentia' });
 else {
@@ -429,7 +477,7 @@ color: isPremium ? 'rgb(var(--gold))' : 'rgb(var(--muted))',
 ) : (
 <div className="space-y-4">
 <div className="flex items-center gap-2 text-[rgb(var(--muted))] text-sm justify-center">
-<Lock className="w-4 h-4" /> Your free scan is used. Next one in {hoursUntilNext}h
+<Lock className="w-4 h-4" /> {t('Your free scan is used. Next one in {h}h', { h: hoursUntilNext })}
 </div>
 <button onClick={onGoPremium} className="flex items-center gap-2 font-medium py-3 px-6 rounded-xl text-[13px] tracking-wide mx-auto" style={primaryBtn}>
 <Crown className="w-4 h-4" /> {t("Unlock unlimited readings")}
@@ -438,6 +486,7 @@ color: isPremium ? 'rgb(var(--gold))' : 'rgb(var(--muted))',
 )}
 </div>
 )}
+
 
 {/* Capture: 3 steps (front, eye close-up, nose close-up) */}
 {status === 'capture' && (
@@ -515,8 +564,13 @@ className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 backdrop-blur
 </div>
 
 {cameraActive && !imagePreview && (
-<button onClick={capturePhoto} className="font-medium py-3 px-8 rounded-xl text-[13px] tracking-wide" style={primaryBtn}>
-{t("Capture")}
+<button
+onClick={capturePhoto}
+disabled={capturing}
+className="font-medium py-3 px-8 rounded-xl text-[13px] tracking-wide disabled:opacity-60"
+style={primaryBtn}
+>
+{capturing ? t('Hold still…') : t("Capture")}
 </button>
 )}
 
@@ -611,7 +665,7 @@ boxShadow: '0 0 6px rgb(var(--gold))',
 ))}
 </div>
 {(() => {
-const tier = faceTier(result.overall, gender);
+const tier = faceTier(shownOverall, gender);
 const ladder = faceTiers(gender);
 const idx = ladder.findIndex(x => x.key === tier.key);
 return (
@@ -651,14 +705,14 @@ style={{ color: i === idx ? 'rgb(var(--gold))' : 'rgb(var(--muted))', fontWeight
 </div>
 {idx < ladder.length - 1 && (
 <p className="text-[11px] text-[rgb(var(--muted))] text-center mt-3">
-{t('{n} points to {tier}', { n: (ladder[idx + 1].min - result.overall).toFixed(1), tier: ladder[idx + 1].label })}
+{t('{n} points to {tier}', { n: (ladder[idx + 1].min - shownOverall).toFixed(1), tier: ladder[idx + 1].label })}
 </p>
 )}
 </div>
 );
 })()}
 <p className="text-xs text-[rgb(var(--muted-hover))] text-center mt-3 max-w-xs leading-relaxed">
-{t(verdict(result.overall))}
+{t(verdict(shownOverall))}
 </p>
 </div>
 
@@ -737,11 +791,18 @@ feedback.trend === 'declining'
 <span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">{t("Overall")}</span>
 </div>
 <div className="font-display text-3xl font-bold text-[rgb(var(--gold))] mb-3">
-{result.overall.toFixed(1)}
+{shownOverall.toFixed(1)}
 <span className="text-sm font-normal text-[rgb(var(--muted))] font-body">/10</span>
 </div>
+{(stableOverall !== null || (result.frames ?? 1) > 1) && (
+<p className="text-[10px] text-[rgb(var(--muted))] -mt-1.5 mb-2.5 leading-snug">
+{stableOverall !== null
+? t('This photo {n} · averaged with your recent scans', { n: result.overall.toFixed(1) })
+: t('Combined from {n} photos', { n: result.frames ?? 1 })}
+</p>
+)}
 <div className="h-1.5 rounded-full score-bar-track overflow-hidden">
-<div className="h-full rounded-full score-bar-fill" style={{ width: `${result.overall * 10}%`, background: scoreColor(result.overall) }} />
+<div className="h-full rounded-full score-bar-fill" style={{ width: `${shownOverall * 10}%`, background: scoreColor(shownOverall) }} />
 </div>
 </div>
 {showFull && (
@@ -1082,6 +1143,7 @@ style={{ borderTop: '1px solid rgb(var(--muted) / 0.15)', opacity: 0.8 }}
 
 </>
 )}
+
 
 {/* Honest footnote */}
 <div className="px-2 text-[11px] leading-relaxed text-[rgb(var(--muted))]">

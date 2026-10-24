@@ -187,11 +187,16 @@ router.push('/login');
 const loadTier = async (uid: string) => {
 const [{ data: prof }, { data: last }] = await Promise.all([
 supabase.from('profiles').select('gender').eq('id', uid).single(),
-supabase.from('scans').select('overall').eq('user_id', uid).order('created_at', { ascending: false }).limit(1),
+supabase.from('scans').select('overall, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(3),
 ]);
 if (last && last[0]) {
 const g = prof?.gender === 'female' ? 'female' : 'male';
-setTierLabel(faceTier(Number(last[0].overall), g).label);
+// same steady score as the scan screen: latest scan averaged with recent ones (3 weeks)
+const recent = last.filter(
+(s: { created_at: string }, i: number) => i === 0 || Date.now() - new Date(s.created_at).getTime() < 21 * 24 * 3600 * 1000,
+);
+const avg = recent.reduce((a: number, s: { overall: number }) => a + Number(s.overall), 0) / recent.length;
+setTierLabel(faceTier(Math.round(avg * 10) / 10, g).label);
 }
 };
 

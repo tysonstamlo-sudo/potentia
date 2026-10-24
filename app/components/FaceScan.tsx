@@ -354,6 +354,7 @@ overall: analysis.overall,
 potential: analysis.potential,
 groups: analysis.groups,
 skin: skinReading,
+source: frontBurst.length > 1 ? 'camera' : 'upload',
 measurements: analysis.measurements.map(m => ({
 key: m.key,
 value: Math.round(m.value * 1000) / 1000,

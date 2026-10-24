@@ -47,7 +47,9 @@ body: [
 {
 title: 'What other users can see',
 body: [
-'Your username, level and XP appear in Rankings. Friends you accept can see your level, XP and streak. Your scan scores, measurements and photos are not shown to other users.',
+'Your username, level and XP appear in the Level ranking. Friends you accept can see your level, XP and streak.',
+'If you scan with the camera, your username, face score, face tier (for example HTN) and level appear in the Looks ranking, which other users can see. You can hide yourself at any time with the switch on the Rankings page.',
+'Your photos, detailed measurements, skin results and plan are never shown to other users.',
 ],
 },
 {
@@ -96,3 +98,4 @@ const SUMMARY_MY = `• သင့်ဓာတ်ပုံတွေက သင့�
 export default function PrivacyPage() {
 return <LegalPage title="Privacy Policy" summaryMy={SUMMARY_MY} sections={SECTIONS} />;
 }
+

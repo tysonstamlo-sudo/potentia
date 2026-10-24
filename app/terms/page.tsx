@@ -54,7 +54,9 @@ body: [
 {
 title: 'Levels and rankings',
 body: [
-'Rankings measure consistency, not appearance. Ranking up requires completing daily tasks and, at some levels, a face scan. Please be honest when checking off tasks. We may reset levels or remove users from Rankings if we see cheating or abuse.',
+'There are two rankings. The Level ranking measures consistency. The Looks ranking orders users by their face score from camera scans; uploaded photos do not count.',
+'Face scores are estimates from a photo, not a judgement of your worth. You can hide yourself from the Looks ranking at any time.',
+'Do not scan someone else’s face or a photo of another person to get a higher rank. We may remove scores, reset levels or remove users from Rankings if we see cheating, abuse or mocking of other users.',
 ],
 },
 {

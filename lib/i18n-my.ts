@@ -819,5 +819,16 @@ Done: 'ပြီးပြီ',
 'Combined from {n} photos': 'ဓာတ်ပုံ {n} ပုံကို ပေါင်းတွက်ထားပါတယ်',
 'Keep a neutral face: mouth closed, no smile, eyes open. Then try again.': 'ပုံမှန် မျက်နှာထား ထားပါ: ပါးစပ်ပိတ်၊ မပြုံးနဲ့၊ မျက်လုံးဖွင့်။ ပြီးရင် ထပ်ကြိုးစားပါ။',
 'You are too close. Hold the phone at arm’s length so your whole head and some shoulder are in frame.': 'အရမ်း နီးနေပါတယ်။ ခေါင်းတစ်ခုလုံးနဲ့ ပခုံးနည်းနည်း ပါအောင် ဖုန်းကို လက်တစ်ကမ်းအကွာမှာ ကိုင်ပါ။',
+
+/* ---------- looks ranking ---------- */
+'Ranked by face score. Only camera scans count, uploaded photos do not.': 'မျက်နှာ ရမှတ်အလိုက် အဆင့်သတ်မှတ်ပါတယ်။ ကင်မရာ စကင်န်သာ တွက်ပြီး upload လုပ်ထားတဲ့ ဓာတ်ပုံ မတွက်ပါ။',
+'Ranked by level and consistency.': 'အဆင့်နဲ့ ပုံမှန်လုပ်မှုအလိုက် သတ်မှတ်ပါတယ်။',
+Looks: 'ရုပ်ရည်',
+Men: 'အမျိုးသား',
+Women: 'အမျိုးသမီး',
+'You are shown': 'သင့်ကို ပြထားသည်',
+'You are hidden': 'သင့်ကို ဖျောက်ထားသည်',
+'Your position': 'သင့် နေရာ',
+'Do a camera scan to get on the ranking.': 'အဆင့်ဇယားထဲ ပါဖို့ ကင်မရာနဲ့ စကင်န်ဖတ်ပါ။',
 };
 

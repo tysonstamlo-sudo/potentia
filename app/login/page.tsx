@@ -87,7 +87,8 @@ setLoading(false);
 };
 
 return (
-<div className="min-h-screen bg-[rgb(var(--bg))] flex items-center justify-center p-4 relative overflow-hidden transition-colors">
+<div className="min-h-screen bg-[rgb(var(--bg))] flex items-center justify-center px-4 pb-4 relative overflow-hidden transition-colors"
+style={{ paddingTop: 'max(calc(env(safe-area-inset-top) + 16px), 56px)' }}>
 <ThemeStyles />
 <LanguageStyles />
 <MarbleBackground />
@@ -100,10 +101,12 @@ return (
 .float-seal { animation: float 3s ease-in-out infinite; }
 `}</style>
 
-<ThemeToggle className="fixed top-4 right-4 z-40" />
-<LanguageToggle className="fixed top-4 right-16 z-40" />
-
 <div className="w-full max-w-sm relative z-10">
+{/* Toggles sit in the page (not fixed) so they never cover the phone's status bar */}
+<div className="flex items-center justify-end gap-2 mb-6">
+<LanguageToggle />
+<ThemeToggle />
+</div>
 {/* Logo */}
 <div className="flex flex-col items-center mb-8">
 <div

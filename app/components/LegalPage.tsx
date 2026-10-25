@@ -9,8 +9,8 @@ import { useLang, LanguageToggle, LanguageStyles } from '../../lib/i18n';
 import { ChevronLeft } from 'lucide-react';
 
 // >>> Put your real contact details here before launch <<<
-export const CONTACT_EMAIL = 'tysonstamlo@gmail.com';
-export const CONTACT_OTHER = 'Telegram / Viber: 09943650553';
+export const CONTACT_EMAIL = 'support@potentia.app';
+export const CONTACT_OTHER = 'Telegram / Viber: add your number here';
 export const LAST_UPDATED = '21 October 2026';
 
 export type Section = { title: string; body: (string | string[])[] };
@@ -36,8 +36,13 @@ return (
 .font-display { font-family: 'Space Grotesk', system-ui, sans-serif; }
 .font-body { font-family: 'Inter', sans-serif; }
 `}</style>
-<ThemeToggle className="fixed top-4 right-4 z-40" />
-<LanguageToggle className="fixed top-4 right-16 z-40" />
+<div
+className="fixed right-4 z-40 flex items-center gap-2"
+style={{ top: 'max(calc(env(safe-area-inset-top) + 8px), 16px)' }}
+>
+<LanguageToggle />
+<ThemeToggle />
+</div>
 
 <div className="relative z-10 max-w-2xl mx-auto px-5 pt-6 pb-20">
 <Link href="/" className="inline-flex items-center gap-1 text-sm text-[rgb(var(--muted-hover))] mb-8">

@@ -830,5 +830,25 @@ Women: 'အမျိုးသမီး',
 'You are hidden': 'သင့်ကို ဖျောက်ထားသည်',
 'Your position': 'သင့် နေရာ',
 'Do a camera scan to get on the ranking.': 'အဆင့်ဇယားထဲ ပါဖို့ ကင်မရာနဲ့ စကင်န်ဖတ်ပါ။',
+
+/* ---------- notifications ---------- */
+Reminders: 'သတိပေးချက်များ',
+"On. We'll remind you about your streak and weekly scan.": 'ဖွင့်ထားပါတယ်။ Streak နဲ့ အပတ်စဉ် စကင်န်အကြောင်း သတိပေးပါမယ်။',
+'Blocked. Allow notifications for this app in your phone settings.': 'ပိတ်ထားပါတယ်။ ဖုန်း settings မှာ ဒီ app အတွက် notification ခွင့်ပြုပါ။',
+'On iPhone, add Potentia to your Home Screen first (Share → Add to Home Screen), then open it from there.':
+'iPhone မှာ Potentia ကို Home Screen ထဲ အရင်ထည့်ပါ (Share → Add to Home Screen)၊ ပြီးရင် အဲဒီကနေ ဖွင့်ပါ။',
+'Get a reminder so you never lose your streak.': 'Streak မပြတ်အောင် သတိပေးချက် ရယူပါ။',
+'Turn on': 'ဖွင့်မည်',
+'Turn off': 'ပိတ်မည်',
+// onboarding real result
+'Would you be happy with a change like this?': 'ဒီလို ပြောင်းလဲမှုမျိုး ရရင် ကျေနပ်မလား?',
+'A real Potentia user': 'Potentia အသုံးပြုသူ အစစ်',
+'Before': 'အရင်',
+'After': 'အခု',
+'Potentia user': 'Potentia အသုံးပြုသူ',
+'3 months': '၃ လ',
+'Shared with permission. Results vary person to person.': 'ခွင့်ပြုချက်ယူပြီး မျှဝေထားပါတယ်။ ရလဒ်က လူတစ်ယောက်နဲ့တစ်ယောက် မတူပါ။',
+'Yes, I would love that': 'ဟုတ်ကဲ့၊ အရမ်းလိုချင်တယ်',
+'I want even more': 'ဒီထက် ပိုလိုချင်တယ်',
 };
 

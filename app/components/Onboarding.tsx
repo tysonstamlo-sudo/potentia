@@ -2,7 +2,7 @@
 
 // app/components/Onboarding.tsx
 // First-run quiz. Shown once after sign-up. Answers are saved to profiles.onboarding
-// and used to personalise the dashboard. Honest by design: no fake stats, no fake before/afters.
+// and used to personalise the dashboard. Honest by design: no fake stats. The before/after is a real Potentia user.
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
@@ -15,6 +15,7 @@ blocker?: string;
 motivation?: string;
 routine?: string;
 commitment?: string;
+result_reaction?: string;
 };
 
 type Option = { id: string; emoji: string; label: string };
@@ -82,6 +83,18 @@ options: [
 },
 ];
 
+// >>> Real Potentia result. Put the photos in public/results/ with these exact names. <<<
+const RESULT = {
+before: '/results/before.jpg',
+after: '/results/after.jpg',
+name: 'Potentia user',
+time: '1 year',
+};
+const RESULT_OPTIONS: Option[] = [
+{ id: 'yes', emoji: '✅', label: 'Yes, I would love that' },
+{ id: 'more', emoji: '🔥', label: 'I want even more' },
+];
+
 const CAN_CHANGE = [
 'Skin: clarity, acne, dark circles',
 'Face fat and jaw definition (by getting leaner)',
@@ -115,8 +128,8 @@ color: 'rgb(var(--bg))',
 boxShadow: '0 0 22px rgb(var(--gold) / 0.3)',
 };
 
-// steps: 0 intro · 1..5 questions · 6 honest "what can change" · 7 commitment pact · 8 building · 9 ready
-const TOTAL = 10;
+// steps: 0 intro · 1..5 questions · 6 real result · 7 honest "what can change" · 8 commitment pact · 9 building · 10 ready
+const TOTAL = 11;
 
 export default function Onboarding({
 userId,
@@ -137,14 +150,14 @@ const selected = q ? answers[q.key] : undefined;
 
 // Fake-free "building" step: a short pause while we save, so the transition feels deliberate.
 useEffect(() => {
-if (step !== 8) return;
+if (step !== 9) return;
 setBuildPct(0);
 const id = setInterval(() => setBuildPct(p => Math.min(100, p + 4)), 60);
 return () => clearInterval(id);
 }, [step]);
 
 useEffect(() => {
-if (step === 8 && buildPct >= 100) setStep(9);
+if (step === 9 && buildPct >= 100) setStep(10);
 }, [step, buildPct]);
 
 const next = () => setStep(s => Math.min(TOTAL - 1, s + 1));
@@ -164,13 +177,14 @@ setSaving(false);
 onDone(answers, goScan);
 };
 
-const canContinue = step === 0 || (q ? !!selected : step === 6 || (step === 7 && pact));
+const canContinue =
+step === 0 || (q ? !!selected : step === 6 ? !!answers.result_reaction : step === 7 || (step === 8 && pact));
 
 return (
 <div className="fixed inset-0 z-[60] bg-[rgb(var(--bg))] flex flex-col font-body">
 <div className="max-w-md w-full mx-auto flex-1 min-h-0 flex flex-col px-5 pt-[max(env(safe-area-inset-top),16px)]">
 {/* top bar */}
-{step > 0 && step < 8 && (
+{step > 0 && step < 9 && (
 <div className="flex-shrink-0 flex items-center gap-3 pt-3 pb-4">
 <button onClick={back} aria-label={t('Back')} className="w-9 h-9 flex items-center justify-center text-[rgb(var(--muted-hover))]">
 <ChevronLeft className="w-5 h-5" />
@@ -178,7 +192,7 @@ return (
 <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--muted) / 0.2)' }}>
 <div
 className="h-full rounded-full transition-all duration-500"
-style={{ width: `${(step / 8) * 100}%`, background: 'rgb(var(--gold))', boxShadow: '0 0 8px rgb(var(--gold))' }}
+style={{ width: `${(step / 9) * 100}%`, background: 'rgb(var(--gold))', boxShadow: '0 0 8px rgb(var(--gold))' }}
 />
 </div>
 </div>
@@ -238,8 +252,73 @@ border: active ? 'none' : '1.5px solid rgb(var(--muted) / 0.5)',
 </div>
 )}
 
-{/* honest expectations */}
+{/* real result */}
 {step === 6 && (
+<div>
+<h2 className="font-display text-xl sm:text-2xl font-semibold text-[rgb(var(--gold))] text-center leading-snug mb-1.5">
+{t('Would you be happy with a change like this?')}
+</h2>
+<p className="text-sm text-[rgb(var(--muted))] text-center mb-5">{t('A real Potentia user')}</p>
+<div className="rounded-3xl p-2.5 mb-2" style={{ background: 'rgb(var(--surface) / 0.7)', border: '1px solid rgb(var(--gold) / 0.35)' }}>
+<div className="grid grid-cols-2 gap-2">
+{([
+['before', RESULT.before, 'Before'],
+['after', RESULT.after, 'After'],
+] as const).map(([k, src, label]) => (
+<div key={k} className="relative aspect-[3/4] rounded-2xl overflow-hidden" style={{ background: 'rgb(var(--muted) / 0.15)' }}>
+{/* eslint-disable-next-line @next/next/no-img-element */}
+<img src={src} alt={t(label)} className="w-full h-full object-cover" />
+<span
+className={`absolute bottom-2 ${k === 'before' ? 'left-2' : 'right-2'} text-[10px] font-semibold tracking-[0.15em] uppercase rounded-lg px-2.5 py-1`}
+style={
+k === 'after'
+? { background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }
+: { background: 'rgb(0 0 0 / 0.6)', color: '#fff' }
+}
+>
+{t(label)}
+</span>
+</div>
+))}
+</div>
+<div className="flex items-center justify-between px-2 pt-3 pb-1">
+<span className="text-sm font-medium text-[rgb(var(--gold))]">{t(RESULT.name)}</span>
+<span className="text-xs text-[rgb(var(--muted))]">{t(RESULT.time)}</span>
+</div>
+</div>
+<p className="text-[11px] text-[rgb(var(--muted))] text-center mb-5">{t('Shared with permission. Results vary person to person.')}</p>
+<div className="space-y-2.5">
+{RESULT_OPTIONS.map(o => {
+const active = answers.result_reaction === o.id;
+return (
+<button
+key={o.id}
+onClick={() => setAnswers(a => ({ ...a, result_reaction: o.id }))}
+className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left transition-all"
+style={active ? activeStyle : cardStyle}
+>
+<span
+className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+style={{
+background: active ? 'rgb(var(--gold))' : 'transparent',
+border: active ? 'none' : '1.5px solid rgb(var(--muted) / 0.5)',
+}}
+>
+{active && <Check className="w-3.5 h-3.5" style={{ color: 'rgb(var(--bg))' }} />}
+</span>
+<span className="text-lg">{o.emoji}</span>
+<span className="text-sm" style={{ color: active ? 'rgb(var(--gold))' : 'rgb(var(--muted-hover))' }}>
+{t(o.label)}
+</span>
+</button>
+);
+})}
+</div>
+</div>
+)}
+
+{/* honest expectations */}
+{step === 7 && (
 <div>
 <h2 className="font-display text-2xl font-semibold text-[rgb(var(--gold))] text-center leading-snug mb-2">
 {t('What can actually change')}
@@ -276,7 +355,7 @@ border: active ? 'none' : '1.5px solid rgb(var(--muted) / 0.5)',
 )}
 
 {/* commitment pact */}
-{step === 7 && (
+{step === 8 && (
 <div>
 <h2 className="font-display text-2xl font-semibold text-[rgb(var(--gold))] text-center leading-snug mb-2">
 {t('Results come from doing the daily tasks')}
@@ -304,7 +383,7 @@ style={{ background: pact ? 'rgb(var(--gold))' : 'transparent', border: pact ? '
 )}
 
 {/* building */}
-{step === 8 && (
+{step === 9 && (
 <div className="h-full flex flex-col items-center justify-center text-center pt-16">
 <div className="relative w-28 h-28 mb-8">
 <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
@@ -332,7 +411,7 @@ style={{ filter: 'drop-shadow(0 0 6px rgb(var(--gold)))' }}
 )}
 
 {/* ready */}
-{step === 9 && (
+{step === 10 && (
 <div className="h-full flex flex-col items-center justify-center text-center pt-10">
 <Sparkles className="w-10 h-10 text-[rgb(var(--gold))] mb-6" />
 <h2 className="font-display text-3xl font-semibold text-[rgb(var(--gold))] mb-3">{t('Your plan is ready')}</h2>
@@ -350,7 +429,7 @@ style={{ filter: 'drop-shadow(0 0 6px rgb(var(--gold)))' }}
 
 {/* bottom button */}
 <div className="flex-shrink-0 pb-[max(env(safe-area-inset-bottom),16px)] pt-3" style={{ background: 'rgb(var(--bg))' }}>
-{step === 9 ? (
+{step === 10 ? (
 <div className="space-y-3">
 <button
 onClick={() => finish(true)}
@@ -364,7 +443,7 @@ style={primaryBtn}
 {t('Later, take me to my dashboard')}
 </button>
 </div>
-) : step !== 8 ? (
+) : step !== 9 ? (
 <button
 onClick={next}
 disabled={!canContinue}

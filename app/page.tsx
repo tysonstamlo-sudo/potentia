@@ -16,6 +16,7 @@ import FullPlanModal from './components/FullPlan';
 import Onboarding, { CONCERN_FOCUS, type OnboardingAnswers } from './components/Onboarding';
 import { useLang, LanguageToggle, LanguageStyles } from '../lib/i18n';
 import { faceTier } from '../lib/faceAnalysis';
+import NotificationToggle from './components/NotificationToggle';
 import { tasksForLevel, daysRequired, needsScan, rankTitle, AREA_LABEL, MAX_LEVEL, type ProgramTask } from '../lib/program';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -383,13 +384,14 @@ to { opacity: 1; transform: translateY(0); filter: blur(0); }
 `}</style>
 
 <LanguageStyles />
-<ThemeToggle className="fixed top-4 right-4 z-40" />
-<LanguageToggle className="fixed top-4 right-16 z-40" />
-
 <div className="relative z-10">
-<div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12 md:py-16 w-full pb-28 md:pb-16">
+<div
+className="max-w-6xl mx-auto px-4 sm:px-6 pb-28 md:pb-16 w-full"
+style={{ paddingTop: 'max(calc(env(safe-area-inset-top) + 12px), 20px)' }}
+>
 
-<div className="flex items-center justify-between mb-14">
+{/* Header: logo left, language + theme right. Premium badge sits on its own line so nothing overlaps. */}
+<div className="flex items-center justify-between gap-3">
 <div className="flex items-center gap-3">
 <div
 className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -399,6 +401,12 @@ style={{ background: 'linear-gradient(145deg, rgb(var(--gold)), rgb(var(--bg)))'
 </div>
 <span className="font-display text-lg tracking-[0.1em] text-[rgb(var(--gold))] uppercase">{t("Potentia")}</span>
 </div>
+<div className="flex items-center gap-2 flex-shrink-0">
+<LanguageToggle />
+<ThemeToggle />
+</div>
+</div>
+<div className="flex items-center mt-3 mb-10 min-h-[28px]">
 {isPremium && (
 <div
 className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] tracking-[0.15em] text-[rgb(var(--gold))] uppercase"
@@ -502,6 +510,7 @@ background: activeTab === tab ? 'rgb(var(--gold))' : 'transparent',
 ) : (
 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 <div className="lg:col-span-2 space-y-6">
+{userId && <NotificationToggle userId={userId} />}
 
 <div className="relative p-6 rounded-2xl" style={accentCardStyle}>
 <span className="font-body text-[10px] tracking-[0.3em] text-[rgb(var(--gold))] uppercase block mb-4">{t("Counsel")}</span>

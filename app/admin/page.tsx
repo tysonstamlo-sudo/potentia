@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { ThemeStyles, ThemeToggle, MarbleBackground } from '../../lib/theme';
-import { Check, X, Crown, ShieldAlert, Wallet, Store, RefreshCw, Loader2, Users } from 'lucide-react';
+import { Check, X, Crown, ShieldAlert, Wallet, Store, RefreshCw, Loader2, Users, Bell, Send } from 'lucide-react';
 
 const ADMIN_USER_ID = '0ae23fa9-66ba-446d-8f3d-a06d49ee8760';
 
@@ -76,7 +76,10 @@ export default function AdminPage() {
 const router = useRouter();
 const [checking, setChecking] = useState(true);
 const [isAdmin, setIsAdmin] = useState(false);
-const [tab, setTab] = useState<'approvals' | 'revenue' | 'sellers'>('approvals');
+const [tab, setTab] = useState<'approvals' | 'revenue' | 'sellers' | 'notify'>('approvals');
+const [nTitle, setNTitle] = useState('');
+const [nBody, setNBody] = useState('');
+const [sending, setSending] = useState(false);
 const [pending, setPending] = useState<PremiumRequest[]>([]);
 const [approved, setApproved] = useState<PremiumRequest[]>([]);
 const [sellers, setSellers] = useState<SellerApp[]>([]);
@@ -185,6 +188,32 @@ setBusyId(null);
 await loadAll();
 };
 
+const sendBroadcast = async () => {
+if (!nTitle.trim() || !nBody.trim() || sending) return;
+if (!confirm(`Send "${nTitle}" to everyone with notifications on?`)) return;
+setSending(true);
+setMsg('');
+try {
+const {
+data: { session },
+} = await supabase.auth.getSession();
+const res = await fetch('/api/push/broadcast', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+body: JSON.stringify({ title: nTitle.trim(), body: nBody.trim() }),
+});
+const json = await res.json().catch(() => ({}));
+if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+setMsg(`Sent to ${json.sent} of ${json.total} phones.`);
+setNTitle('');
+setNBody('');
+} catch (e) {
+setMsg(`Could not send: ${(e as Error).message}`);
+} finally {
+setSending(false);
+}
+};
+
 /* ---------- revenue numbers ---------- */
 const now = new Date();
 const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -226,6 +255,7 @@ const tabs = [
 { key: 'approvals' as const, label: 'Approvals', icon: Crown, badge: pending.length },
 { key: 'revenue' as const, label: 'Revenue', icon: Wallet, badge: 0 },
 { key: 'sellers' as const, label: 'Sellers', icon: Store, badge: pendingSellers.length },
+{ key: 'notify' as const, label: 'Notify', icon: Bell, badge: 0 },
 ];
 
 return (
@@ -237,9 +267,11 @@ return (
 .font-display { font-family: 'Space Grotesk', system-ui, sans-serif; }
 .font-body { font-family: 'Inter', sans-serif; }
 `}</style>
-<ThemeToggle className="fixed top-4 right-4 z-40" />
+<div className="fixed right-4 z-40" style={{ top: 'max(calc(env(safe-area-inset-top) + 8px), 16px)' }}>
+<ThemeToggle />
+</div>
 
-<div className="relative z-10 max-w-xl mx-auto px-4 pt-6 pb-28">
+<div className="relative z-10 max-w-xl mx-auto px-4 pb-28" style={{ paddingTop: 'max(calc(env(safe-area-inset-top) + 12px), 24px)' }}>
 <div className="flex items-center justify-between mb-5 pr-12">
 <div>
 <span className="text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block">Potentia</span>
@@ -408,6 +440,43 @@ style={{ borderBottom: '1px solid rgb(var(--muted) / 0.08)' }}
 </div>
 )}
 
+{/* ---------- notify ---------- */}
+{tab === 'notify' && (
+<div className="rounded-2xl p-5 space-y-4" style={cardStyle}>
+<div>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-1">Send to everyone</span>
+<p className="text-xs text-[rgb(var(--muted-hover))]">
+Goes to every phone with reminders turned on. Automatic streak and Sunday scan reminders already go out every day at 6pm.
+</p>
+</div>
+<input
+value={nTitle}
+onChange={e => setNTitle(e.target.value)}
+maxLength={80}
+placeholder="Title, e.g. New challenge this week 🔥"
+className="w-full rounded-xl px-4 py-3 bg-transparent text-[rgb(var(--gold))] focus:outline-none"
+style={{ border: '1px solid rgb(var(--muted) / 0.25)', fontSize: 16 }}
+/>
+<textarea
+value={nBody}
+onChange={e => setNBody(e.target.value)}
+maxLength={300}
+rows={3}
+placeholder="Message"
+className="w-full rounded-xl px-4 py-3 bg-transparent text-[rgb(var(--gold))] focus:outline-none resize-none"
+style={{ border: '1px solid rgb(var(--muted) / 0.25)', fontSize: 16 }}
+/>
+<button
+onClick={sendBroadcast}
+disabled={sending || !nTitle.trim() || !nBody.trim()}
+className="w-full flex items-center justify-center gap-2 text-sm font-semibold rounded-xl py-3.5 disabled:opacity-40"
+style={primaryBtn}
+>
+{sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Send notification
+</button>
+</div>
+)}
+
 {/* ---------- sellers ---------- */}
 {tab === 'sellers' && (
 <div className="space-y-3">
@@ -484,7 +553,7 @@ borderTop: '1px solid rgb(var(--gold) / 0.12)',
 paddingBottom: 'env(safe-area-inset-bottom)',
 }}
 >
-<div className="max-w-xl mx-auto grid grid-cols-3">
+<div className="max-w-xl mx-auto grid grid-cols-4">
 {tabs.map(({ key, label, icon: Icon, badge }) => {
 const active = tab === key;
 return (

@@ -654,7 +654,7 @@ const MALE_TIERS: FaceTier[] = [
 { key: 'htn', label: 'HTN', full: 'High-tier normie', min: 6 },
 { key: 'chadlite', label: 'Chadlite', full: 'Chadlite', min: 6.8 },
 { key: 'chad', label: 'Chad', full: 'Chad', min: 7.6 },
-{ key: 'gigachad', label: 'Gigachad', full: 'Gigachad', min: 8.5 },
+{ key: 'trueadam', label: 'True Adam', full: 'True Adam', min: 8.5 },
 ];
 
 const FEMALE_TIERS: FaceTier[] = [

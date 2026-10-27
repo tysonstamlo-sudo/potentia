@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabase';
 import { ThemeStyles, ThemeToggle, MarbleBackground, MarbleImage } from '../lib/theme';
-import { Flame, Trophy, Target, Star, CheckCircle2, ArrowRight, Droplets, Dumbbell, Sparkles, LogOut, Crown } from 'lucide-react';
+import { Flame, Trophy, Target, Star, CheckCircle2, ArrowRight, Droplets, Dumbbell, Sparkles, LogOut, Crown, Share2 } from 'lucide-react';
 import FaceScan from './components/FaceScan';
 import Progress from './components/Progress';
 import Marketplace from './components/Marketplace';
@@ -17,6 +17,9 @@ import Onboarding, { CONCERN_FOCUS, type OnboardingAnswers } from './components/
 import { useLang, LanguageToggle, LanguageStyles } from '../lib/i18n';
 import { faceTier } from '../lib/faceAnalysis';
 import NotificationToggle from './components/NotificationToggle';
+import GlowCard from './components/GlowCard';
+import { notify } from '../lib/notify';
+import type { Currency } from '../lib/payments';
 import { tasksForLevel, daysRequired, needsScan, rankTitle, AREA_LABEL, MAX_LEVEL, type ProgramTask } from '../lib/program';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -76,6 +79,9 @@ const [showPremiumModal, setShowPremiumModal] = useState(false);
 const [showPlan, setShowPlan] = useState(false);
 const [showOnboarding, setShowOnboarding] = useState(false);
 const [tierLabel, setTierLabel] = useState<string | null>(null);
+const [steadyScore, setSteadyScore] = useState<number | null>(null);
+const [gender, setGender] = useState<'male' | 'female'>('male');
+const [showGlow, setShowGlow] = useState(false);
 const [onboarding, setOnboarding] = useState<OnboardingAnswers | null>(null);
 const [submittingPayment, setSubmittingPayment] = useState(false);
 const [completedToday, setCompletedToday] = useState<Record<number, string>>({});
@@ -83,6 +89,17 @@ const [levelStatus, setLevelStatus] = useState<LevelStatus | null>(null);
 const [rankingUp, setRankingUp] = useState(false);
 const [rankMsg, setRankMsg] = useState('');
 const [saving, setSaving] = useState(false);
+
+// Notifications can open a tab directly, e.g. /?tab=marketplace
+useEffect(() => {
+try {
+const want = new URLSearchParams(window.location.search).get('tab');
+const ok: TabKey[] = ['dashboard', 'scan', 'progress', 'rankings', 'friends', 'marketplace'];
+if (want && (ok as string[]).includes(want)) setActiveTab(want as TabKey);
+} catch {
+/* ignore */
+}
+}, []);
 
 useEffect(() => {
 const init = async () => {
@@ -190,14 +207,17 @@ const [{ data: prof }, { data: last }] = await Promise.all([
 supabase.from('profiles').select('gender').eq('id', uid).single(),
 supabase.from('scans').select('overall, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(3),
 ]);
-if (last && last[0]) {
 const g = prof?.gender === 'female' ? 'female' : 'male';
+setGender(g);
+if (last && last[0]) {
 // same steady score as the scan screen: latest scan averaged with recent ones (3 weeks)
 const recent = last.filter(
 (s: { created_at: string }, i: number) => i === 0 || Date.now() - new Date(s.created_at).getTime() < 21 * 24 * 3600 * 1000,
 );
 const avg = recent.reduce((a: number, s: { overall: number }) => a + Number(s.overall), 0) / recent.length;
-setTierLabel(faceTier(Math.round(avg * 10) / 10, g).label);
+const steady = Math.round(avg * 10) / 10;
+setSteadyScore(steady);
+setTierLabel(faceTier(steady, g).label);
 }
 };
 
@@ -305,11 +325,17 @@ const goPremium = async () => {
 setShowPremiumModal(true);
 };
 
-const submitPaymentClaim = async (plan: string) => {
+const submitPaymentClaim = async (plan: string, currency: Currency) => {
 if (!userId) return;
 setSubmittingPayment(true);
 try {
-await supabase.from('premium_requests').insert({ user_id: userId, status: 'pending', plan });
+const { data, error } = await supabase
+.from('premium_requests')
+.insert({ user_id: userId, status: 'pending', plan, currency })
+.select('id')
+.single();
+if (error) throw error;
+if (data?.id) notify('premium_request', data.id as string);
 setPremiumStatus('pending');
 setShowPremiumModal(false);
 } catch (err) {
@@ -387,7 +413,7 @@ to { opacity: 1; transform: translateY(0); filter: blur(0); }
 <div className="relative z-10">
 <div
 className="max-w-6xl mx-auto px-4 sm:px-6 pb-28 md:pb-16 w-full"
-style={{ paddingTop: 'max(calc(env(safe-area-inset-top) + 12px), 20px)' }}
+style={{ paddingTop: 'max(calc(env(safe-area-inset-top) + 12px), 52px)' }}
 >
 
 {/* Header: logo left, language + theme right. Premium badge sits on its own line so nothing overlaps. */}
@@ -469,6 +495,14 @@ className="font-display text-xs font-semibold rounded-full px-3 py-1"
 style={{ background: 'rgb(var(--gold) / 0.14)', color: 'rgb(var(--gold))', border: '1px solid rgb(var(--gold) / 0.35)' }}
 >
 {tierLabel ?? t('Scan to get your tier')}
+</button>
+<button
+onClick={() => setShowGlow(true)}
+className="font-body flex items-center gap-1.5 text-[11px] font-semibold rounded-full px-3.5 py-1.5"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))', boxShadow: '0 0 14px rgb(var(--gold) / 0.35)' }}
+>
+<Share2 className="w-3 h-3" />
+{t('Share my Glow Card')}
 </button>
 <button
 onClick={handleLogout}
@@ -756,6 +790,18 @@ if (goScan) setActiveTab('scan');
 onClose={() => setShowPremiumModal(false)}
 onConfirm={submitPaymentClaim}
 submitting={submittingPayment}
+/>
+)}
+
+{showGlow && (
+<GlowCard
+username={username}
+score={steadyScore}
+gender={gender}
+level={level}
+streak={streak}
+xp={totalXP}
+onClose={() => setShowGlow(false)}
 />
 )}
 

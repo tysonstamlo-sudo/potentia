@@ -1,21 +1,17 @@
 'use client';
 
-// app/admin/page.tsx — phone-first admin: approve premium, track revenue and team split, review sellers.
+// app/admin/page.tsx — phone-first admin: approve premium, shop orders, revenue + team split, sellers, notifications.
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { ThemeStyles, ThemeToggle, MarbleBackground } from '../../lib/theme';
-import { Check, X, Crown, ShieldAlert, Wallet, Store, RefreshCw, Loader2, Users, Bell, Send } from 'lucide-react';
+import { Check, X, Crown, ShieldAlert, Wallet, Store, RefreshCw, Loader2, Users, Bell, Send, ShoppingBag, Phone, MapPin, Eye, EyeOff } from 'lucide-react';
+import { PLANS, COMMISSION, fmt, fmtMMK, toMMK, planPrice, type Currency } from '../../lib/payments';
+import { notify } from '../../lib/notify';
 
 const ADMIN_USER_ID = '0ae23fa9-66ba-446d-8f3d-a06d49ee8760';
 
-// Fixed prices in MMK (keep in sync with PremiumModal)
-const PLANS: Record<string, { label: string; months: number; price: number }> = {
-'1month': { label: '1 Month', months: 1, price: 60000 },
-'6months': { label: '6 Months', months: 6, price: 299000 },
-'1year': { label: '1 Year', months: 12, price: 499000 },
-};
 
 const TEAM = [
 { name: 'Lucifer', share: 0.3 },
@@ -33,11 +29,42 @@ status: string;
 created_at: string;
 approved_at: string | null;
 amount_mmk: number | null;
+currency: Currency | null;
 profiles: { username: string | null; email: string | null } | null;
+};
+
+type Order = {
+id: string;
+seller_id: string;
+shop_name: string;
+product_name: string;
+qty: number;
+total_mmk: number;
+currency: Currency;
+amount_due: number;
+buyer_name: string;
+buyer_phone: string;
+buyer_address: string;
+note: string | null;
+status: 'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled';
+payout_status: 'unpaid' | 'paid';
+created_at: string;
+paid_at: string | null;
+};
+
+type AdminProduct = {
+id: string;
+shop_name: string;
+name: string;
+price_mmk: number;
+image_url: string | null;
+active: boolean;
+hidden_by_admin: boolean;
 };
 
 type SellerApp = {
 id: string;
+user_id: string;
 created_at: string;
 business_name: string;
 contact: string;
@@ -47,8 +74,11 @@ link: string | null;
 status: string;
 };
 
-const mmk = (n: number) => `${Math.round(n).toLocaleString('en-US')} MMK`;
-const priceOf = (r: PremiumRequest) => r.amount_mmk ?? PLANS[r.plan]?.price ?? 0;
+const mmk = fmtMMK;
+const curOf = (r: PremiumRequest): Currency => (r.currency === 'THB' ? 'THB' : 'MMK');
+const priceOf = (r: PremiumRequest) => r.amount_mmk ?? toMMK(planPrice(r.plan, curOf(r)), curOf(r));
+const SOLD = ['paid', 'shipped', 'completed'];
+const orderPaidAt = (o: Order) => new Date(o.paid_at ?? o.created_at);
 const paidAt = (r: PremiumRequest) => new Date(r.approved_at ?? r.created_at);
 
 const cardStyle: React.CSSProperties = {
@@ -76,7 +106,9 @@ export default function AdminPage() {
 const router = useRouter();
 const [checking, setChecking] = useState(true);
 const [isAdmin, setIsAdmin] = useState(false);
-const [tab, setTab] = useState<'approvals' | 'revenue' | 'sellers' | 'notify'>('approvals');
+const [tab, setTab] = useState<'approvals' | 'orders' | 'revenue' | 'sellers' | 'notify'>('approvals');
+const [orders, setOrders] = useState<Order[]>([]);
+const [products, setProducts] = useState<AdminProduct[]>([]);
 const [nTitle, setNTitle] = useState('');
 const [nBody, setNBody] = useState('');
 const [sending, setSending] = useState(false);
@@ -89,22 +121,32 @@ const [msg, setMsg] = useState('');
 
 const loadAll = useCallback(async () => {
 setLoading(true);
-const [p, a, s] = await Promise.all([
+const [p, a, s, o, pr] = await Promise.all([
 supabase
 .from('premium_requests')
-.select('id, user_id, plan, status, created_at, approved_at, amount_mmk, profiles(username, email)')
+.select('id, user_id, plan, status, created_at, approved_at, amount_mmk, currency, profiles(username, email)')
 .eq('status', 'pending')
 .order('created_at', { ascending: true }),
 supabase
 .from('premium_requests')
-.select('id, user_id, plan, status, created_at, approved_at, amount_mmk, profiles(username, email)')
+.select('id, user_id, plan, status, created_at, approved_at, amount_mmk, currency, profiles(username, email)')
 .eq('status', 'approved')
 .order('created_at', { ascending: false }),
 supabase
 .from('seller_applications')
-.select('id, created_at, business_name, contact, category, description, link, status')
+.select('id, user_id, created_at, business_name, contact, category, description, link, status')
 .order('created_at', { ascending: false }),
+supabase.from('orders').select('*').order('created_at', { ascending: false }).limit(500),
+supabase
+.from('products')
+.select('id, shop_name, name, price_mmk, image_url, active, hidden_by_admin')
+.order('created_at', { ascending: false })
+.limit(300),
 ]);
+if (o.error) console.error('orders', o.error);
+if (pr.error) console.error('products', pr.error);
+setOrders((o.data as unknown as Order[]) ?? []);
+setProducts((pr.data as unknown as AdminProduct[]) ?? []);
 if (p.error) console.error('pending', p.error);
 if (a.error) console.error('approved', a.error);
 if (s.error) console.error('sellers', s.error);
@@ -139,6 +181,8 @@ setBusyId(req.id);
 setMsg('');
 try {
 const plan = PLANS[req.plan] ?? PLANS['1month'];
+const cur = curOf(req);
+const paid = planPrice(req.plan, cur);
 // Renewals add on top of any time still left
 const { data: prof } = await supabase
 .from('profiles')
@@ -158,7 +202,7 @@ if (e1) throw e1;
 
 const { error: e2 } = await supabase
 .from('premium_requests')
-.update({ status: 'approved', approved_at: new Date().toISOString(), amount_mmk: plan.price })
+.update({ status: 'approved', approved_at: new Date().toISOString(), amount_mmk: toMMK(paid, cur), amount_paid: paid })
 .eq('id', req.id);
 if (e2) throw e2;
 
@@ -184,6 +228,44 @@ const setSellerStatus = async (app: SellerApp, status: 'approved' | 'rejected') 
 setBusyId(app.id);
 const { error } = await supabase.from('seller_applications').update({ status }).eq('id', app.id);
 if (error) setMsg('Could not update. Check you ran admin-onboarding.sql.');
+else if (status === 'approved') notify('seller_approved', app.id);
+setBusyId(null);
+await loadAll();
+};
+
+const setOrderStatus = async (o: Order, status: 'paid' | 'cancelled' | 'completed') => {
+if (status === 'cancelled' && !confirm(`Cancel ${o.buyer_name}'s order? Only do this if the money did not arrive.`)) return;
+setBusyId(o.id);
+setMsg('');
+const patch: Record<string, unknown> = { status };
+if (status === 'paid') patch.paid_at = new Date().toISOString();
+const { error } = await supabase.from('orders').update(patch).eq('id', o.id);
+if (error) setMsg('Could not update the order. Did you run marketplace.sql?');
+else if (status === 'paid') {
+notify('order_paid', o.id);
+setMsg(`Confirmed. ${o.shop_name} was told to ship ${o.product_name}.`);
+}
+setBusyId(null);
+await loadAll();
+};
+
+const payOutSeller = async (sellerId: string, shop: string, amount: number) => {
+if (!confirm(`Mark ${mmk(amount)} as paid to ${shop}? Do this after you have sent them the money.`)) return;
+setBusyId(sellerId);
+const { error } = await supabase
+.from('orders')
+.update({ payout_status: 'paid', paid_out_at: new Date().toISOString() })
+.eq('seller_id', sellerId)
+.eq('payout_status', 'unpaid')
+.in('status', ['shipped', 'completed']);
+setMsg(error ? 'Could not mark as paid.' : `Marked ${mmk(amount)} paid to ${shop}.`);
+setBusyId(null);
+await loadAll();
+};
+
+const toggleHidden = async (p: AdminProduct) => {
+setBusyId(p.id);
+await supabase.from('products').update({ hidden_by_admin: !p.hidden_by_admin }).eq('id', p.id);
 setBusyId(null);
 await loadAll();
 };
@@ -221,14 +303,38 @@ const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 const sum = (rows: PremiumRequest[]) => rows.reduce((s, r) => s + priceOf(r), 0);
 const today = approved.filter(r => paidAt(r) >= startToday);
 const month = approved.filter(r => paidAt(r) >= startMonth);
-const totalAll = sum(approved);
-const totalMonth = sum(month);
-const totalToday = sum(today);
+// Shop: Potentia keeps 20% of every paid order
+const soldOrders = orders.filter(o => SOLD.includes(o.status));
+const shopCut = (rows: Order[]) => rows.reduce((s, o) => s + o.total_mmk * COMMISSION, 0);
+const shopAll = shopCut(soldOrders);
+const shopMonth = shopCut(soldOrders.filter(o => orderPaidAt(o) >= startMonth));
+const shopToday = shopCut(soldOrders.filter(o => orderPaidAt(o) >= startToday));
+const premiumAll = sum(approved);
+const premiumMonth = sum(month);
+const totalAll = premiumAll + shopAll;
+const totalMonth = premiumMonth + shopMonth;
+const totalToday = sum(today) + shopToday;
+const pendingOrders = orders.filter(o => o.status === 'pending');
+const toShip = orders.filter(o => o.status === 'paid');
+// what each seller is owed (80% of shipped orders not paid out yet)
+const owedBySeller = Object.values(
+orders
+.filter(o => (o.status === 'shipped' || o.status === 'completed') && o.payout_status === 'unpaid')
+.reduce<Record<string, { seller_id: string; shop: string; amount: number; count: number }>>((acc, o) => {
+const k = o.seller_id;
+acc[k] = acc[k] ?? { seller_id: k, shop: o.shop_name, amount: 0, count: 0 };
+acc[k].amount += o.total_mmk * (1 - COMMISSION);
+acc[k].count += 1;
+return acc;
+}, {}),
+);
+const sellerContact = (uid: string) => sellers.find(s => s.user_id === uid && s.status === 'approved')?.contact ?? '';
 const byPlan = Object.keys(PLANS).map(k => ({
 key: k,
 label: PLANS[k].label,
 count: approved.filter(r => r.plan === k).length,
 money: sum(approved.filter(r => r.plan === k)),
+thb: approved.filter(r => r.plan === k && curOf(r) === 'THB').length,
 }));
 const pendingSellers = sellers.filter(s => s.status === 'pending');
 
@@ -252,7 +358,8 @@ return (
 }
 
 const tabs = [
-{ key: 'approvals' as const, label: 'Approvals', icon: Crown, badge: pending.length },
+{ key: 'approvals' as const, label: 'Premium', icon: Crown, badge: pending.length },
+{ key: 'orders' as const, label: 'Orders', icon: ShoppingBag, badge: pendingOrders.length },
 { key: 'revenue' as const, label: 'Revenue', icon: Wallet, badge: 0 },
 { key: 'sellers' as const, label: 'Sellers', icon: Store, badge: pendingSellers.length },
 { key: 'notify' as const, label: 'Notify', icon: Bell, badge: 0 },
@@ -267,19 +374,18 @@ return (
 .font-display { font-family: 'Space Grotesk', system-ui, sans-serif; }
 .font-body { font-family: 'Inter', sans-serif; }
 `}</style>
-<div className="fixed right-4 z-40" style={{ top: 'max(calc(env(safe-area-inset-top) + 8px), 16px)' }}>
-<ThemeToggle />
-</div>
-
-<div className="relative z-10 max-w-xl mx-auto px-4 pb-28" style={{ paddingTop: 'max(calc(env(safe-area-inset-top) + 12px), 24px)' }}>
-<div className="flex items-center justify-between mb-5 pr-12">
+<div className="relative z-10 max-w-xl mx-auto px-4 pb-28" style={{ paddingTop: 'max(calc(env(safe-area-inset-top) + 16px), 56px)' }}>
+<div className="flex items-center justify-between mb-5">
 <div>
 <span className="text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block">Potentia</span>
 <h1 className="font-display text-2xl font-semibold text-[rgb(var(--gold))]">Admin</h1>
 </div>
+<div className="flex items-center gap-2">
+<ThemeToggle />
 <button onClick={loadAll} className="w-10 h-10 rounded-xl flex items-center justify-center" style={ghostBtn} aria-label="Refresh">
 <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
 </button>
+</div>
 </div>
 
 {/* quick numbers */}
@@ -290,7 +396,7 @@ return (
 </div>
 <div className="rounded-2xl p-4" style={cardStyle}>
 <span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">Pending</span>
-<div className="font-display text-xl font-bold text-[rgb(var(--gold))] mt-1">{pending.length} to approve</div>
+<div className="font-display text-xl font-bold text-[rgb(var(--gold))] mt-1">{pending.length + pendingOrders.length} to check</div>
 </div>
 </div>
 
@@ -304,7 +410,7 @@ return (
 {tab === 'approvals' && (
 <div className="space-y-3">
 <p className="text-[11px] text-[rgb(var(--muted))] px-1">
-Check the payment arrived in your bank app, then approve. Renewals add on top of any time left.
+Check the payment arrived in the right bank app (Myanmar or Thai), then approve. Renewals add on top of any time left.
 </p>
 {loading ? (
 <Loader2 className="w-5 h-5 animate-spin text-[rgb(var(--gold))] mx-auto mt-8" />
@@ -316,6 +422,7 @@ Check the payment arrived in your bank app, then approve. Renewals add on top of
 ) : (
 pending.map(req => {
 const plan = PLANS[req.plan];
+const cur = curOf(req);
 return (
 <div key={req.id} className="rounded-2xl p-4" style={cardStyle}>
 <div className="flex items-start justify-between gap-3 mb-4">
@@ -328,7 +435,8 @@ return (
 </div>
 <div className="text-right flex-shrink-0">
 <p className="text-sm text-[rgb(var(--muted-hover))]">{plan?.label ?? req.plan}</p>
-<p className="font-display text-lg font-bold text-[rgb(var(--gold))]">{mmk(plan?.price ?? 0)}</p>
+<p className="font-display text-lg font-bold text-[rgb(var(--gold))]">{fmt(planPrice(req.plan, cur), cur)}</p>
+<p className="text-[10px] text-[rgb(var(--muted))]">{cur === 'THB' ? '🇹🇭 Thai bank' : '🇲🇲 Myanmar bank'}</p>
 </div>
 </div>
 <div className="grid grid-cols-3 gap-2">
@@ -370,9 +478,18 @@ Approve
 </div>
 <div>
 <span className="text-[10px] text-[rgb(var(--muted))] uppercase tracking-wide">Payments</span>
-<p className="font-display text-base font-semibold text-[rgb(var(--gold))]">{approved.length}</p>
+<p className="font-display text-base font-semibold text-[rgb(var(--gold))]">{approved.length + soldOrders.length}</p>
+</div>
+<div>
+<span className="text-[10px] text-[rgb(var(--muted))] uppercase tracking-wide">Premium</span>
+<p className="font-display text-base font-semibold text-[rgb(var(--gold))]">{mmk(premiumAll)}</p>
+</div>
+<div>
+<span className="text-[10px] text-[rgb(var(--muted))] uppercase tracking-wide">Shop 20%</span>
+<p className="font-display text-base font-semibold text-[rgb(var(--gold))]">{mmk(shopAll)}</p>
 </div>
 </div>
+<p className="text-[10px] text-[rgb(var(--muted))] mt-3">Thai baht payments are counted at 1 THB = 138.7 MMK.</p>
 </div>
 
 <div className="rounded-2xl p-5" style={cardStyle}>
@@ -408,7 +525,7 @@ style={{ borderBottom: '1px solid rgb(var(--muted) / 0.08)' }}
 {byPlan.map(p => (
 <div key={p.key} className="flex items-center justify-between py-2 text-sm">
 <span className="text-[rgb(var(--muted-hover))]">
-{p.label} <span className="text-[rgb(var(--muted))]">× {p.count}</span>
+{p.label} <span className="text-[rgb(var(--muted))]">× {p.count}{p.thb > 0 ? ` (${p.thb} 🇹🇭)` : ''}</span>
 </span>
 <span className="font-display text-[rgb(var(--gold))]">{mmk(p.money)}</span>
 </div>
@@ -430,9 +547,170 @@ style={{ borderBottom: '1px solid rgb(var(--muted) / 0.08)' }}
 <p className="text-[rgb(var(--muted-hover))] truncate">{r.profiles?.username || 'Unknown'}</p>
 <p className="text-[11px] text-[rgb(var(--muted))]">
 {PLANS[r.plan]?.label ?? r.plan} · {paidAt(r).toLocaleDateString()}
+{curOf(r) === 'THB' ? ` · ${fmt(planPrice(r.plan, 'THB'), 'THB')}` : ''}
 </p>
 </div>
 <span className="font-display text-[rgb(var(--gold))] flex-shrink-0">{mmk(priceOf(r))}</span>
+</div>
+))
+)}
+</div>
+</div>
+)}
+
+{/* ---------- shop orders ---------- */}
+{tab === 'orders' && (
+<div className="space-y-4">
+<div>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block px-1 mb-2">
+Check payment ({pendingOrders.length})
+</span>
+{pendingOrders.length === 0 ? (
+<div className="rounded-2xl p-6 text-center" style={cardStyle}>
+<Check className="w-5 h-5 mx-auto mb-1 text-[rgb(var(--gold))]" />
+<p className="text-sm text-[rgb(var(--muted-hover))]">No orders waiting.</p>
+</div>
+) : (
+<div className="space-y-3">
+{pendingOrders.map(o => (
+<div key={o.id} className="rounded-2xl p-4" style={cardStyle}>
+<div className="flex items-start justify-between gap-3 mb-3">
+<div className="min-w-0">
+<p className="text-base text-[rgb(var(--gold))] font-semibold">{o.buyer_name}</p>
+<p className="text-[11px] text-[rgb(var(--muted))]">
+{o.qty} × {o.product_name} · {o.shop_name}
+</p>
+<p className="text-[11px] text-[rgb(var(--muted))]">{timeAgo(o.created_at)}</p>
+</div>
+<div className="text-right flex-shrink-0">
+<p className="font-display text-lg font-bold text-[rgb(var(--gold))]">{fmt(o.amount_due, o.currency)}</p>
+<p className="text-[10px] text-[rgb(var(--muted))]">{o.currency === 'THB' ? '🇹🇭 Thai bank' : '🇲🇲 Myanmar bank'}</p>
+</div>
+</div>
+<div className="grid grid-cols-3 gap-2">
+<button
+onClick={() => setOrderStatus(o, 'cancelled')}
+disabled={busyId === o.id}
+className="flex items-center justify-center gap-1.5 text-sm rounded-xl py-3.5 disabled:opacity-50"
+style={ghostBtn}
+>
+<X className="w-4 h-4" /> Cancel
+</button>
+<button
+onClick={() => setOrderStatus(o, 'paid')}
+disabled={busyId === o.id}
+className="col-span-2 flex items-center justify-center gap-2 text-sm font-semibold rounded-xl py-3.5 disabled:opacity-50"
+style={primaryBtn}
+>
+{busyId === o.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+Money arrived
+</button>
+</div>
+</div>
+))}
+</div>
+)}
+</div>
+
+{owedBySeller.length > 0 && (
+<div className="rounded-2xl p-5" style={accentStyle}>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--gold))] uppercase block mb-3">Pay sellers (their 80%)</span>
+{owedBySeller.map(s => (
+<div key={s.seller_id} className="flex items-center justify-between gap-3 py-2.5" style={{ borderBottom: '1px solid rgb(var(--muted) / 0.1)' }}>
+<div className="min-w-0">
+<p className="text-sm text-[rgb(var(--muted-hover))] font-medium truncate">{s.shop}</p>
+<p className="text-[11px] text-[rgb(var(--muted))] truncate">
+{s.count} orders · {sellerContact(s.seller_id)}
+</p>
+</div>
+<button
+onClick={() => payOutSeller(s.seller_id, s.shop, s.amount)}
+disabled={busyId === s.seller_id}
+className="flex-shrink-0 text-xs font-semibold rounded-xl px-3 py-2.5 disabled:opacity-50"
+style={primaryBtn}
+>
+Paid {mmk(s.amount)}
+</button>
+</div>
+))}
+</div>
+)}
+
+{toShip.length > 0 && (
+<div className="rounded-2xl p-5" style={cardStyle}>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-3">Waiting for seller to ship</span>
+{toShip.map(o => (
+<div key={o.id} className="py-2" style={{ borderBottom: '1px solid rgb(var(--muted) / 0.08)' }}>
+<p className="text-sm text-[rgb(var(--muted-hover))]">
+{o.qty} × {o.product_name} <span className="text-[rgb(var(--muted))]">· {o.shop_name}</span>
+</p>
+<p className="text-[11px] text-[rgb(var(--muted))] flex items-center gap-1.5">
+<Phone className="w-3 h-3" /> {o.buyer_name} {o.buyer_phone}
+</p>
+<p className="text-[11px] text-[rgb(var(--muted))] flex items-start gap-1.5">
+<MapPin className="w-3 h-3 mt-0.5 flex-shrink-0" /> {o.buyer_address}
+</p>
+{o.paid_at && <p className="text-[10px] text-[rgb(var(--muted))]">paid {timeAgo(o.paid_at)}</p>}
+</div>
+))}
+</div>
+)}
+
+<div className="rounded-2xl p-5" style={cardStyle}>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-3">All orders</span>
+{orders.length === 0 ? (
+<p className="text-sm text-[rgb(var(--muted))]">No orders yet.</p>
+) : (
+orders.slice(0, 30).map(o => (
+<div key={o.id} className="flex items-center justify-between gap-3 py-2 text-sm" style={{ borderBottom: '1px solid rgb(var(--muted) / 0.08)' }}>
+<div className="min-w-0">
+<p className="text-[rgb(var(--muted-hover))] truncate">
+{o.qty} × {o.product_name}
+</p>
+<p className="text-[11px] text-[rgb(var(--muted))]">
+{o.shop_name} · {o.status}
+{o.payout_status === 'paid' ? ' · seller paid' : ''}
+</p>
+</div>
+<div className="text-right flex-shrink-0">
+<p className="font-display text-[rgb(var(--gold))]">{fmt(o.amount_due, o.currency)}</p>
+{SOLD.includes(o.status) && <p className="text-[10px] text-[rgb(var(--muted))]">we keep {mmk(o.total_mmk * COMMISSION)}</p>}
+</div>
+</div>
+))
+)}
+</div>
+
+<div className="rounded-2xl p-5" style={cardStyle}>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-1">Products ({products.length})</span>
+<p className="text-[11px] text-[rgb(var(--muted))] mb-3">Hide anything fake, unsafe or against the rules.</p>
+{products.length === 0 ? (
+<p className="text-sm text-[rgb(var(--muted))]">No products yet.</p>
+) : (
+products.map(p => (
+<div key={p.id} className="flex items-center gap-3 py-2" style={{ borderBottom: '1px solid rgb(var(--muted) / 0.08)', opacity: p.hidden_by_admin ? 0.5 : 1 }}>
+{p.image_url ? (
+// eslint-disable-next-line @next/next/no-img-element
+<img src={p.image_url} alt="" className="w-11 h-11 rounded-lg object-cover flex-shrink-0" />
+) : (
+<div className="w-11 h-11 rounded-lg flex-shrink-0" style={{ background: 'rgb(var(--muted) / 0.1)' }} />
+)}
+<div className="flex-1 min-w-0">
+<p className="text-sm text-[rgb(var(--muted-hover))] truncate">{p.name}</p>
+<p className="text-[11px] text-[rgb(var(--muted))] truncate">
+{p.shop_name} · {mmk(p.price_mmk)}
+{!p.active ? ' · paused' : ''}
+</p>
+</div>
+<button
+onClick={() => toggleHidden(p)}
+disabled={busyId === p.id}
+className="flex-shrink-0 flex items-center gap-1 text-[11px] rounded-lg px-2.5 py-2 disabled:opacity-50"
+style={p.hidden_by_admin ? primaryBtn : ghostBtn}
+>
+{p.hidden_by_admin ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+{p.hidden_by_admin ? 'Show' : 'Hide'}
+</button>
 </div>
 ))
 )}
@@ -553,7 +831,7 @@ borderTop: '1px solid rgb(var(--gold) / 0.12)',
 paddingBottom: 'env(safe-area-inset-bottom)',
 }}
 >
-<div className="max-w-xl mx-auto grid grid-cols-4">
+<div className="max-w-xl mx-auto grid grid-cols-5">
 {tabs.map(({ key, label, icon: Icon, badge }) => {
 const active = tab === key;
 return (

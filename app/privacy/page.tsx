@@ -27,6 +27,8 @@ body: [
 'Onboarding answers: what you want to improve, your routine and your goals.',
 'Premium requests: the plan you chose, its status and when it was approved. We do not receive your bank or card details; you pay through your own banking app.',
 'Seller applications: the business details and contact information you submit.',
+'Shop orders: the name, phone number and delivery address you give when you buy. We share these only with the seller of that order so they can deliver it.',
+'Product listings: the photos, names, descriptions and prices sellers post. These are public inside the app.',
 'Friends: who you add and who adds you.',
 ],
 ],

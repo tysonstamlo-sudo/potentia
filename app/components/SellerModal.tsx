@@ -16,7 +16,7 @@ border: '1px solid rgb(var(--muted) / 0.2)',
 fontSize: 16, // 16px stops iOS zooming into the field
 };
 
-export default function SellerModal({ onClose }: { onClose: () => void }) {
+export default function SellerModal({ onClose, onOpenShop }: { onClose: () => void; onOpenShop?: () => void }) {
 const { t } = useLang();
 const [userId, setUserId] = useState<string | null>(null);
 const [existing, setExisting] = useState<ExistingApp>(null);
@@ -153,12 +153,21 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 <p className="text-sm text-[rgb(var(--muted))] mb-6">
 {existing.business_name} ·{' '}
 {existing.status === 'approved'
-? t('We will contact you to set up your listings.')
+? t('You can add your products now.')
 : existing.status === 'rejected'
 ? t('You can contact us if you think this is a mistake.')
 : t('We will contact you once it has been reviewed.')}
 </p>
 <div className="flex flex-col gap-3 items-center">
+{existing.status === 'approved' && onOpenShop && (
+<button
+onClick={onOpenShop}
+className="font-medium py-3 px-8 rounded-xl text-[13px] tracking-wide"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
+>
+{t('Open my shop')}
+</button>
+)}
 {existing.status !== 'approved' && (
 <button
 onClick={() => {

@@ -34,7 +34,7 @@ body: [
 title: 'Premium and payment',
 body: [
 [
-'Prices: 1 Month 60,000 MMK, 6 Months 299,000 MMK, 1 Year 499,000 MMK. Prices may change for new purchases; we will show the current price before you pay.',
+'Prices: 1 Month 60,000 MMK / 430 THB, 6 Months 299,000 MMK / 2,160 THB, 1 Year 499,000 MMK / 3,600 THB. You can pay from a Myanmar or a Thai bank. Prices may change for new purchases; we will show the current price before you pay.',
 'You pay by scanning our QR code with your banking app and then tapping “I’ve Sent Payment”. Premium starts after we confirm the payment arrived.',
 'Premium lasts for the period you bought and then ends automatically. It does not renew by itself. If you renew early, the new time is added on top of the time you have left.',
 'Send the exact amount. If a payment cannot be matched, we may ask you for a screenshot of the transfer.',
@@ -64,7 +64,7 @@ title: 'Marketplace and sellers',
 body: [
 'Products shown in the Shop may be sold by third parties. Sellers must apply and be approved, and must only sell real, safe and legal products. We are not responsible for products sold by third-party sellers, but you can report a problem to us.',
 [
-'Buyers pay Potentia directly. Sellers ship orders after Potentia confirms the payment.',
+'Buyers pay Potentia directly, from a Myanmar or Thai bank. Sellers ship orders after Potentia confirms the payment. If a paid order is never shipped, we refund the buyer.',
 'Potentia keeps a 20% commission on every sale. Sellers receive the remaining 80%, paid out once a month for the previous month’s confirmed orders.',
 'Sellers may not ask buyers to pay them directly outside the app. Doing so can lead to removal from the Shop.',
 'If an order is refunded, the commission on that order is also cancelled.',

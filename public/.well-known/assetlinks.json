@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.potentiamm.app",
+        "sha256_cert_fingerprints": ["7D:45:93:D4:53:B3:9A:EA:4A:A5:B7:7F:FC:B0:56:3D:C5:48:F9:89:07:59:84:78:F6:E4:F5:1D:22:05:64:AD"]
+      }
+    }]

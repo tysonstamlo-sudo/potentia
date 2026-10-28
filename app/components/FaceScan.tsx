@@ -17,6 +17,8 @@ formatValue,
 formatIdeal,
 faceTier,
 faceTiers,
+topTierPending,
+TOP_TIER_MIN_SCANS,
 type FaceAnalysis,
 type GroupKey,
 } from '../../lib/faceAnalysis';
@@ -111,6 +113,9 @@ const [skin, setSkin] = useState<SkinReading | null>(null);
 const [frontBurst, setFrontBurst] = useState<string[]>([]);
 const [capturing, setCapturing] = useState(false);
 const [stableOverall, setStableOverall] = useState<number | null>(null);
+// how many camera scans the shown score is averaged from (top tier needs 3), and whether this one was a live camera scan
+const [scanCount, setScanCount] = useState(1);
+const [isCameraScan, setIsCameraScan] = useState(true);
 const [step, setStep] = useState<Step>('front');
 const [shots, setShots] = useState<Partial<Record<Step, string>>>({});
 const [source, setSource] = useState<'camera' | 'upload'>('camera');
@@ -317,20 +322,27 @@ const { data: { session } } = await supabase.auth.getSession();
 if (session) {
 const { data: prev } = await supabase
 .from('scans')
-.select('overall, groups, measurements, created_at')
+.select('overall, groups, measurements, created_at, source')
 .eq('user_id', session.user.id)
 .order('created_at', { ascending: false })
-.limit(5);
+.limit(8);
 fb = buildScanFeedback(
 { overall: analysis.overall, groups: analysis.groups, measurements: analysis.measurements },
 (prev ?? []) as ScanSnapshot[],
 );
-// Your score = average of this scan and up to 2 recent ones (last 3 weeks).
-// Faces don't change day to day, so this stops the number jumping between photos.
-const recent = (prev ?? [])
+// Your score = average of this camera scan and up to 4 recent camera scans (last 3 weeks).
+// Faces don't change day to day, so this stops the number jumping and stops one lucky photo
+// from deciding your tier. Uploaded photos are never mixed in (they can be edited).
+const camera = frontBurst.length > 1;
+setIsCameraScan(camera);
+const recent = camera
+? ((prev ?? []) as { overall: number; created_at: string; source?: string | null }[])
+.filter(p => (p.source ?? 'camera') !== 'upload')
 .filter(p => Date.now() - new Date(p.created_at).getTime() < 21 * 24 * 3600 * 1000)
-.slice(0, 2)
-.map(p => Number(p.overall));
+.slice(0, 4)
+.map(p => Number(p.overall))
+: [];
+setScanCount(1 + recent.length);
 if (recent.length) {
 const all = [analysis.overall, ...recent];
 setStableOverall(Math.round((all.reduce((a, b) => a + b, 0) / all.length) * 10) / 10);
@@ -379,6 +391,8 @@ setResult(null);
 setFeedback(null);
 setSkin(null);
 setStableOverall(null);
+setScanCount(1);
+setIsCameraScan(true);
 setFrontBurst([]);
 setShots({});
 setStep('front');
@@ -666,7 +680,18 @@ boxShadow: '0 0 6px rgb(var(--gold))',
 ))}
 </div>
 {(() => {
-const tier = faceTier(shownOverall, gender);
+if (!isCameraScan) {
+return (
+<div className="w-full mt-5 rounded-xl p-4 text-center" style={{ background: 'rgb(var(--muted) / 0.08)', border: '1px solid rgb(var(--muted) / 0.2)' }}>
+<span className="text-[10px] tracking-[0.25em] text-[rgb(var(--muted))] uppercase block mb-1">{t('Your tier')}</span>
+<p className="text-xs text-[rgb(var(--muted-hover))] leading-relaxed">
+{t('Tiers only come from live camera scans. Uploaded photos can be edited or filtered, so they are not ranked.')}
+</p>
+</div>
+);
+}
+const tier = faceTier(shownOverall, gender, scanCount);
+const pendingTop = topTierPending(shownOverall, gender, scanCount);
 const ladder = faceTiers(gender);
 const idx = ladder.findIndex(x => x.key === tier.key);
 return (
@@ -704,7 +729,14 @@ style={{ color: i === idx ? 'rgb(var(--gold))' : 'rgb(var(--muted))', fontWeight
 </div>
 ))}
 </div>
-{idx < ladder.length - 1 && (
+{pendingTop ? (
+<p className="text-[11px] text-[rgb(var(--gold))] text-center mt-3 font-medium">
+{t('Your score is in {tier} range. Do {n} more camera scans to confirm it.', {
+tier: ladder[ladder.length - 1].label,
+n: TOP_TIER_MIN_SCANS - scanCount,
+})}
+</p>
+) : idx < ladder.length - 1 && (
 <p className="text-[11px] text-[rgb(var(--muted))] text-center mt-3">
 {t('{n} points to {tier}', { n: (ladder[idx + 1].min - shownOverall).toFixed(1), tier: ladder[idx + 1].label })}
 </p>

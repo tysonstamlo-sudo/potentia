@@ -947,5 +947,29 @@ Pause: 'ခဏရပ်မည်',
 'Hide my score, show only my tier': 'ရမှတ် ဖျောက်ပြီး tier သာ ပြမည်',
 'Share to story': 'Story သို့ မျှဝေမည်',
 'Save image': 'ပုံ သိမ်းမည်',
+
+/* ---------- payment proof ---------- */
+'Upload payment screenshot': 'ငွေလွှဲပြေစာ screenshot တင်ရန်',
+'Payment screenshot added': 'ငွေလွှဲပြေစာ ထည့်ပြီးပါပြီ',
+'Tap to change it': 'ပြောင်းရန် နှိပ်ပါ',
+'The receipt from your banking app after you pay. Required.': 'ငွေလွှဲပြီးနောက် ဘဏ် app ထဲက ပြေစာ။ မဖြစ်မနေ လိုအပ်ပါတယ်။',
+'Could not upload the screenshot. Try again.': 'Screenshot တင်မရပါ။ ထပ်ကြိုးစားပါ။',
+'Upload a screenshot of your payment first.': 'ငွေလွှဲပြေစာ screenshot ကို အရင်တင်ပါ။',
+
+/* ---------- free trial ---------- */
+'Try Premium free for 7 days': 'Premium ကို ၇ ရက် အခမဲ့ စမ်းသုံးပါ',
+'No payment needed. It ends by itself.': 'ငွေပေးစရာ မလိုပါ။ သူ့အလိုလို ပြီးဆုံးပါမယ်။',
+'Full face report, skin analysis and your complete plan. No payment needed.':
+'မျက်နှာ အစီရင်ခံစာ အပြည့်၊ အသားအရေ စစ်ဆေးချက်နဲ့ အစီအစဉ် အပြည့်အစုံ။ ငွေပေးစရာ မလိုပါ။',
+'Start free': 'အခမဲ့ စမည်',
+'Free trial': 'အခမဲ့ စမ်းသုံး',
+'Could not start the trial. Try again.': 'အခမဲ့ စမ်းသုံးမှု မစတင်နိုင်ပါ။ ထပ်ကြိုးစားပါ။',
+'Your 7-day Premium trial is on. Enjoy the full reports!': '၇ ရက် Premium အခမဲ့ စမ်းသုံးမှု စတင်ပါပြီ။ အစီရင်ခံစာ အပြည့်အစုံကို ခံစားပါ!',
+
+/* ---------- face tiers (tuned) ---------- */
+'Tiers only come from live camera scans. Uploaded photos can be edited or filtered, so they are not ranked.':
+'Tier ကို ကင်မရာဖြင့် တိုက်ရိုက် စကင်န်ဖတ်မှသာ ပေးပါတယ်။ Upload တင်တဲ့ ဓာတ်ပုံတွေကို ပြင်ဆင်ထားနိုင်လို့ အဆင့် မသတ်မှတ်ပါ။',
+'Your score is in {tier} range. Do {n} more camera scans to confirm it.':
+'သင့်ရမှတ်က {tier} အဆင့်ထဲ ရောက်နေပါတယ်။ အတည်ပြုဖို့ ကင်မရာနဲ့ နောက်ထပ် {n} ကြိမ် စကင်န်ဖတ်ပါ။',
 };
 

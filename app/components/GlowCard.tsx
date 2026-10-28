@@ -7,12 +7,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLang } from '../../lib/i18n';
-import { faceTiers } from '../../lib/faceAnalysis';
+import { faceTiers, faceTier } from '../../lib/faceAnalysis';
 import { X, Share2, Download, Loader2, EyeOff, Eye } from 'lucide-react';
 
 type Props = {
 username: string;
 score: number | null; // steady face score, null if never scanned
+scanCount?: number; // camera scans the score is averaged from (top tier needs 3)
 gender: 'male' | 'female';
 level: number;
 streak: number;
@@ -143,9 +144,8 @@ ctx.stroke();
 ctx.shadowBlur = 0;
 
 const tiers = faceTiers(p.gender);
-let tierIdx = -1;
-if (p.score != null) tiers.forEach((t, i) => p.score! >= t.min && (tierIdx = i));
-const tier = tierIdx >= 0 ? tiers[tierIdx] : null;
+const tier = p.score != null ? faceTier(p.score, p.gender, p.scanCount ?? 3) : null;
+const tierIdx = tier ? tiers.findIndex(x => x.key === tier.key) : -1;
 
 if (hideScore || p.score == null) {
 ctx.fillStyle = `rgb(${gold})`;
@@ -255,7 +255,7 @@ if (old) URL.revokeObjectURL(old);
 return URL.createObjectURL(b);
 });
 // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [hideScore, data.score, data.level, data.streak, data.xp, data.username, data.gender]);
+}, [hideScore, data.score, data.scanCount, data.level, data.streak, data.xp, data.username, data.gender]);
 
 useEffect(() => {
 render();

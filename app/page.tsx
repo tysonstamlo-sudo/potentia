@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabase';
 import { ThemeStyles, ThemeToggle, MarbleBackground, MarbleImage } from '../lib/theme';
-import { Flame, Trophy, Target, Star, CheckCircle2, ArrowRight, Droplets, Dumbbell, Sparkles, LogOut, Crown, Share2 } from 'lucide-react';
+import { Flame, Trophy, Target, Star, CheckCircle2, ArrowRight, Droplets, Dumbbell, Sparkles, LogOut, Crown, Share2, Gift, Loader2 } from 'lucide-react';
 import FaceScan from './components/FaceScan';
 import Progress from './components/Progress';
 import Marketplace from './components/Marketplace';
@@ -74,12 +74,17 @@ const [streak, setStreak] = useState(0);
 const [isPremium, setIsPremium] = useState(false);
 const [premiumExpired, setPremiumExpired] = useState(false);
 const [premiumUntil, setPremiumUntil] = useState<string | null>(null);
+const [onTrial, setOnTrial] = useState(false);
+const [trialUsed, setTrialUsed] = useState(true); // hidden until we know for sure
+const [startingTrial, setStartingTrial] = useState(false);
+const [trialMsg, setTrialMsg] = useState('');
 const [premiumStatus, setPremiumStatus] = useState<'none' | 'pending'>('none');
 const [showPremiumModal, setShowPremiumModal] = useState(false);
 const [showPlan, setShowPlan] = useState(false);
 const [showOnboarding, setShowOnboarding] = useState(false);
 const [tierLabel, setTierLabel] = useState<string | null>(null);
 const [steadyScore, setSteadyScore] = useState<number | null>(null);
+const [steadyCount, setSteadyCount] = useState(0);
 const [gender, setGender] = useState<'male' | 'female'>('male');
 const [showGlow, setShowGlow] = useState(false);
 const [onboarding, setOnboarding] = useState<OnboardingAnswers | null>(null);
@@ -104,7 +109,7 @@ if (want && (ok as string[]).includes(want)) setActiveTab(want as TabKey);
 useEffect(() => {
 const init = async () => {
 const startTime = Date.now();
-const minDuration = 5000;
+const minDuration = 900; // short splash only, so the app feels fast
 
 try {
 const { data: { session } } = await supabase.auth.getSession();
@@ -146,45 +151,49 @@ setStreak(0);
 }
 }
 
-const { data: logs } = await supabase
+// Everything else loads at the same time (faster than one after another)
+const [{ data: logs }, , { data: ob, error: obError }, { data: requests }, { data: trial, error: trialError }] =
+await Promise.all([
+supabase
 .from('habit_logs')
 .select('id, habit_name')
 .eq('user_id', session.user.id)
 .gte('completed_at', `${todayStr()}T00:00:00`)
-.lte('completed_at', `${todayStr()}T23:59:59`);
+.lte('completed_at', `${todayStr()}T23:59:59`),
+loadLevelStatus(),
+// First-run quiz (separate query so the dashboard still loads if the column is missing)
+supabase.from('profiles').select('onboarding, onboarded_at').eq('id', session.user.id).single(),
+supabase
+.from('premium_requests')
+.select('status')
+.eq('user_id', session.user.id)
+.order('created_at', { ascending: false })
+.limit(1),
+supabase.from('profiles').select('trial_used_at, subscription_tier').eq('id', session.user.id).single(),
+]);
 
 if (logs) {
 const map: Record<number, string> = {};
-logs.forEach(log => {
+(logs as { id: string; habit_name: string }[]).forEach(log => {
 const match = tasksForLevel(profile?.level ?? 1).find(h => h.name === log.habit_name);
 if (match) map[match.id] = log.id;
 });
 setCompletedToday(map);
 }
 
-await loadLevelStatus();
-
-// First-run quiz (separate query so the dashboard still loads if the column is missing)
-const { data: ob, error: obError } = await supabase
-.from('profiles')
-.select('onboarding, onboarded_at')
-.eq('id', session.user.id)
-.single();
 if (!obError && ob) {
 if (ob.onboarding) setOnboarding(ob.onboarding as OnboardingAnswers);
 if (!ob.onboarded_at) setShowOnboarding(true);
 }
 
-// Check for a pending premium request
-const { data: requests } = await supabase
-.from('premium_requests')
-.select('status')
-.eq('user_id', session.user.id)
-.order('created_at', { ascending: false })
-.limit(1);
-
 if (requests && requests.length > 0 && requests[0].status === 'pending') {
 setPremiumStatus('pending');
+}
+
+if (!trialError && trial) {
+setTrialUsed(!!trial.trial_used_at);
+const exp = profile?.subscription_expires_at ? new Date(profile.subscription_expires_at) : null;
+setOnTrial(trial.subscription_tier === 'trial' && !!exp && exp.getTime() > Date.now());
 }
 } catch (err) {
 console.error('Init failed:', err);
@@ -205,19 +214,28 @@ router.push('/login');
 const loadTier = async (uid: string) => {
 const [{ data: prof }, { data: last }] = await Promise.all([
 supabase.from('profiles').select('gender').eq('id', uid).single(),
-supabase.from('scans').select('overall, created_at').eq('user_id', uid).order('created_at', { ascending: false }).limit(3),
+supabase
+.from('scans')
+.select('overall, created_at, source')
+.eq('user_id', uid)
+.order('created_at', { ascending: false })
+.limit(8),
 ]);
 const g = prof?.gender === 'female' ? 'female' : 'male';
 setGender(g);
-if (last && last[0]) {
-// same steady score as the scan screen: latest scan averaged with recent ones (3 weeks)
-const recent = last.filter(
-(s: { created_at: string }, i: number) => i === 0 || Date.now() - new Date(s.created_at).getTime() < 21 * 24 * 3600 * 1000,
+// Same rules as the scan screen: only camera scans, latest + up to 4 more from the last 3 weeks
+const camera = ((last ?? []) as { overall: number; created_at: string; source: string | null }[]).filter(
+s => (s.source ?? 'camera') !== 'upload',
 );
-const avg = recent.reduce((a: number, s: { overall: number }) => a + Number(s.overall), 0) / recent.length;
+if (camera.length) {
+const recent = camera
+.filter((s, i) => i === 0 || Date.now() - new Date(s.created_at).getTime() < 21 * 24 * 3600 * 1000)
+.slice(0, 5);
+const avg = recent.reduce((a, s) => a + Number(s.overall), 0) / recent.length;
 const steady = Math.round(avg * 10) / 10;
 setSteadyScore(steady);
-setTierLabel(faceTier(steady, g).label);
+setSteadyCount(recent.length);
+setTierLabel(faceTier(steady, g, recent.length).label);
 }
 };
 
@@ -325,13 +343,33 @@ const goPremium = async () => {
 setShowPremiumModal(true);
 };
 
-const submitPaymentClaim = async (plan: string, currency: Currency) => {
+const startTrial = async () => {
+if (startingTrial) return;
+setStartingTrial(true);
+setTrialMsg('');
+const { data, error } = await supabase.rpc('start_trial');
+setStartingTrial(false);
+if (error) {
+setTrialMsg(error.message || t('Could not start the trial. Try again.'));
+setTrialUsed(true);
+return;
+}
+setIsPremium(true);
+setOnTrial(true);
+setTrialUsed(true);
+setPremiumExpired(false);
+setPremiumUntil(typeof data === 'string' ? data : new Date(Date.now() + 7 * 86400000).toISOString());
+setShowPremiumModal(false);
+setTrialMsg(t('Your 7-day Premium trial is on. Enjoy the full reports!'));
+};
+
+const submitPaymentClaim = async (plan: string, currency: Currency, proofPath: string) => {
 if (!userId) return;
 setSubmittingPayment(true);
 try {
 const { data, error } = await supabase
 .from('premium_requests')
-.insert({ user_id: userId, status: 'pending', plan, currency })
+.insert({ user_id: userId, status: 'pending', plan, currency, proof_path: proofPath })
 .select('id')
 .single();
 if (error) throw error;
@@ -439,7 +477,7 @@ className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] tracki
 style={{ background: 'rgb(var(--gold) / 0.12)', border: '1px solid rgb(var(--gold) / 0.3)' }}
 >
 <Crown className="w-3 h-3" />
-{t("Premium")}
+{onTrial ? t('Free trial') : t("Premium")}
 {premiumUntil && (() => {
 const d = Math.ceil((new Date(premiumUntil).getTime() - Date.now()) / 86400000);
 return <span className="opacity-70 normal-case tracking-normal">· {t('{n}d left', { n: d })}</span>;
@@ -544,6 +582,36 @@ background: activeTab === tab ? 'rgb(var(--gold))' : 'transparent',
 ) : (
 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 <div className="lg:col-span-2 space-y-6">
+{trialMsg && (
+<div className="p-4 rounded-2xl text-sm text-[rgb(var(--gold))]" style={accentCardStyle}>
+{trialMsg}
+</div>
+)}
+
+{!isPremium && !trialUsed && premiumStatus !== 'pending' && (
+<div className="p-5 rounded-2xl flex items-center justify-between gap-4" style={accentCardStyle}>
+<div className="flex items-start gap-3 min-w-0">
+<span className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgb(var(--gold))' }}>
+<Gift className="w-5 h-5" style={{ color: 'rgb(var(--bg))' }} />
+</span>
+<div className="min-w-0">
+<p className="font-body text-sm font-semibold text-[rgb(var(--gold))]">{t('Try Premium free for 7 days')}</p>
+<p className="font-body text-[11px] text-[rgb(var(--muted-hover))] leading-relaxed">
+{t('Full face report, skin analysis and your complete plan. No payment needed.')}
+</p>
+</div>
+</div>
+<button
+onClick={startTrial}
+disabled={startingTrial}
+className="font-body flex-shrink-0 flex items-center gap-1.5 font-semibold py-2.5 px-4 rounded-xl text-xs disabled:opacity-60"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
+>
+{startingTrial ? <Loader2 className="w-4 h-4 animate-spin" /> : t('Start free')}
+</button>
+</div>
+)}
+
 {userId && <NotificationToggle userId={userId} />}
 
 <div className="relative p-6 rounded-2xl" style={accentCardStyle}>
@@ -790,6 +858,8 @@ if (goScan) setActiveTab('scan');
 onClose={() => setShowPremiumModal(false)}
 onConfirm={submitPaymentClaim}
 submitting={submittingPayment}
+onStartTrial={!isPremium && !trialUsed ? startTrial : undefined}
+startingTrial={startingTrial}
 />
 )}
 
@@ -797,6 +867,7 @@ submitting={submittingPayment}
 <GlowCard
 username={username}
 score={steadyScore}
+scanCount={steadyCount}
 gender={gender}
 level={level}
 streak={streak}

@@ -11,6 +11,7 @@ import { BANKS, fmt, fmtMMK, mmkToThb, type Currency } from '../../lib/payments'
 import { BankPicker, QrBox } from './PremiumModal';
 import SellerModal from './SellerModal';
 import SellerShop from './SellerShop';
+import ProofUpload from './ProofUpload';
 import {
 Sheet,
 ProductImage,
@@ -61,6 +62,7 @@ const [phone, setPhone] = useState(saved.phone ?? '');
 const [address, setAddress] = useState(saved.address ?? '');
 const [note, setNote] = useState('');
 const [currency, setCurrency] = useState<Currency>('MMK');
+const [proofPath, setProofPath] = useState<string | null>(null);
 const [busy, setBusy] = useState(false);
 const [error, setError] = useState('');
 
@@ -79,6 +81,7 @@ setStep('pay');
 
 const placeOrder = async () => {
 if (busy) return;
+if (!proofPath) return setError(t('Upload a screenshot of your payment first.'));
 setBusy(true);
 setError('');
 const { data, error: err } = await supabase.rpc('place_order', {
@@ -89,6 +92,7 @@ p_name: name.trim(),
 p_phone: phone.trim(),
 p_address: address.trim(),
 p_note: note.trim() || null,
+p_proof: proofPath,
 });
 setBusy(false);
 if (err) {
@@ -223,10 +227,13 @@ style={inputStyle}
 {qty} × {product.name}
 </span>
 </div>
+<div className="mb-5">
+<ProofUpload onChange={setProofPath} />
+</div>
 {error && <p className="text-xs text-[rgb(var(--err))] mb-3">{error}</p>}
 <button
 onClick={placeOrder}
-disabled={busy}
+disabled={busy || !proofPath}
 className="w-full flex items-center justify-center gap-2 font-semibold py-4 rounded-2xl text-[15px] disabled:opacity-60"
 style={primaryBtn}
 >

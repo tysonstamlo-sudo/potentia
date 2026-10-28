@@ -9,7 +9,7 @@ import { useLang } from '../../lib/i18n';
 import { faceTier, type Gender } from '../../lib/faceAnalysis';
 
 type LevelRow = { username: string; total_xp: number; level: number; current_streak: number };
-type LooksRow = { rank: number; username: string; score: number; level: number; is_me: boolean };
+type LooksRow = { rank: number; username: string; score: number; level: number; is_me: boolean; scans?: number };
 
 const cardStyle: React.CSSProperties = {
 background: 'rgb(var(--surface) / 0.5)',
@@ -171,7 +171,7 @@ fontWeight: board === b ? 600 : 400,
 <div className="flex-1 min-w-0">
 <p className="text-sm text-[rgb(var(--gold))] font-medium">{t('Your position')}</p>
 <p className="text-[11px] text-[rgb(var(--muted))]">
-{faceTier(Number(me.score), gender).label} · {Number(me.score).toFixed(1)}
+{faceTier(Number(me.score), gender, Number(me.scans ?? 3)).label} · {Number(me.score).toFixed(1)}
 </p>
 </div>
 </div>
@@ -193,7 +193,7 @@ looks.length === 0 ? (
 ) : (
 <div className="space-y-2.5">
 {looks.map(row => {
-const tier = faceTier(Number(row.score), gender);
+const tier = faceTier(Number(row.score), gender, Number(row.scans ?? 3));
 return (
 <div key={row.username + row.rank} className="rounded-2xl px-4 py-3.5 flex items-center gap-4" style={row.is_me ? meStyle : cardStyle}>
 <RankBadge rank={Number(row.rank)} />

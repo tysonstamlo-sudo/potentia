@@ -30,8 +30,11 @@ created_at: string;
 approved_at: string | null;
 amount_mmk: number | null;
 currency: Currency | null;
+proof_path: string | null;
 profiles: { username: string | null; email: string | null } | null;
 };
+
+type TrialRow = { id: string; subscription_tier: string | null; subscription_expires_at: string | null; trial_used_at: string };
 
 type Order = {
 id: string;
@@ -50,6 +53,7 @@ status: 'pending' | 'paid' | 'shipped' | 'completed' | 'cancelled';
 payout_status: 'unpaid' | 'paid';
 created_at: string;
 paid_at: string | null;
+proof_path: string | null;
 };
 
 type AdminProduct = {
@@ -109,6 +113,9 @@ const [isAdmin, setIsAdmin] = useState(false);
 const [tab, setTab] = useState<'approvals' | 'orders' | 'revenue' | 'sellers' | 'notify'>('approvals');
 const [orders, setOrders] = useState<Order[]>([]);
 const [products, setProducts] = useState<AdminProduct[]>([]);
+const [proofUrls, setProofUrls] = useState<Record<string, string>>({});
+const [viewing, setViewing] = useState<string | null>(null);
+const [trials, setTrials] = useState<TrialRow[]>([]);
 const [nTitle, setNTitle] = useState('');
 const [nBody, setNBody] = useState('');
 const [sending, setSending] = useState(false);
@@ -124,12 +131,12 @@ setLoading(true);
 const [p, a, s, o, pr] = await Promise.all([
 supabase
 .from('premium_requests')
-.select('id, user_id, plan, status, created_at, approved_at, amount_mmk, currency, profiles(username, email)')
+.select('id, user_id, plan, status, created_at, approved_at, amount_mmk, currency, proof_path, profiles(username, email)')
 .eq('status', 'pending')
 .order('created_at', { ascending: true }),
 supabase
 .from('premium_requests')
-.select('id, user_id, plan, status, created_at, approved_at, amount_mmk, currency, profiles(username, email)')
+.select('id, user_id, plan, status, created_at, approved_at, amount_mmk, currency, proof_path, profiles(username, email)')
 .eq('status', 'approved')
 .order('created_at', { ascending: false }),
 supabase
@@ -145,8 +152,34 @@ supabase
 ]);
 if (o.error) console.error('orders', o.error);
 if (pr.error) console.error('products', pr.error);
-setOrders((o.data as unknown as Order[]) ?? []);
+const ordersData = (o.data as unknown as Order[]) ?? [];
+setOrders(ordersData);
 setProducts((pr.data as unknown as AdminProduct[]) ?? []);
+
+// Payment screenshots are private: get short-lived links for the ones waiting to be checked
+const pendingReqs = (p.data as unknown as PremiumRequest[]) ?? [];
+const paths = [
+...pendingReqs.map(r => r.proof_path),
+...ordersData.filter(x => x.status === 'pending').map(x => x.proof_path),
+].filter((x): x is string => !!x);
+if (paths.length) {
+const { data: signed, error: signErr } = await supabase.storage.from('payment-proofs').createSignedUrls(paths, 3600);
+if (signErr) console.error('proof links', signErr);
+const map: Record<string, string> = {};
+((signed ?? []) as { path: string | null; signedUrl: string }[]).forEach(x => {
+if (x.path && x.signedUrl) map[x.path] = x.signedUrl;
+});
+setProofUrls(map);
+} else {
+setProofUrls({});
+}
+
+const { data: tr, error: trErr } = await supabase
+.from('profiles')
+.select('id, subscription_tier, subscription_expires_at, trial_used_at')
+.not('trial_used_at', 'is', null);
+if (trErr) console.error('trials', trErr);
+setTrials((tr as unknown as TrialRow[]) ?? []);
 if (p.error) console.error('pending', p.error);
 if (a.error) console.error('approved', a.error);
 if (s.error) console.error('sellers', s.error);
@@ -315,6 +348,40 @@ const totalAll = premiumAll + shopAll;
 const totalMonth = premiumMonth + shopMonth;
 const totalToday = sum(today) + shopToday;
 const pendingOrders = orders.filter(o => o.status === 'pending');
+const paidUserIds = new Set(approved.map(r => r.user_id));
+const trialsActive = trials.filter(
+x => x.subscription_tier === 'trial' && x.subscription_expires_at && new Date(x.subscription_expires_at).getTime() > Date.now(),
+).length;
+const trialsConverted = trials.filter(x => paidUserIds.has(x.id)).length;
+
+const ProofThumb = ({ path }: { path: string | null }) => {
+const url = path ? proofUrls[path] : null;
+if (!path) {
+return (
+<div className="rounded-xl px-3 py-2.5 mb-3 text-xs font-medium" style={{ background: 'rgb(var(--err) / 0.12)', color: 'rgb(var(--err))' }}>
+⚠️ No payment screenshot. Check your bank very carefully.
+</div>
+);
+}
+return (
+<button
+onClick={() => url && setViewing(url)}
+className="w-full flex items-center gap-3 rounded-xl p-2 mb-3 text-left"
+style={{ background: 'rgb(var(--muted) / 0.08)', border: '1px solid rgb(var(--muted) / 0.18)' }}
+>
+{url ? (
+// eslint-disable-next-line @next/next/no-img-element
+<img src={url} alt="Payment proof" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
+) : (
+<div className="w-14 h-14 rounded-lg flex-shrink-0" style={{ background: 'rgb(var(--muted) / 0.15)' }} />
+)}
+<span className="text-xs text-[rgb(var(--muted-hover))]">
+<span className="block text-[rgb(var(--gold))] font-medium">Payment screenshot</span>
+Tap to view full size. Still check your bank app before approving.
+</span>
+</button>
+);
+};
 const toShip = orders.filter(o => o.status === 'paid');
 // what each seller is owed (80% of shipped orders not paid out yet)
 const owedBySeller = Object.values(
@@ -439,6 +506,7 @@ return (
 <p className="text-[10px] text-[rgb(var(--muted))]">{cur === 'THB' ? '🇹🇭 Thai bank' : '🇲🇲 Myanmar bank'}</p>
 </div>
 </div>
+<ProofThumb path={req.proof_path} />
 <div className="grid grid-cols-3 gap-2">
 <button
 onClick={() => reject(req)}
@@ -521,6 +589,24 @@ style={{ borderBottom: '1px solid rgb(var(--muted) / 0.08)' }}
 </div>
 
 <div className="rounded-2xl p-5" style={cardStyle}>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-3">Free trials</span>
+<div className="grid grid-cols-3 gap-3 text-center">
+<div>
+<p className="font-display text-xl font-bold text-[rgb(var(--gold))]">{trials.length}</p>
+<span className="text-[10px] text-[rgb(var(--muted))] uppercase">Started</span>
+</div>
+<div>
+<p className="font-display text-xl font-bold text-[rgb(var(--gold))]">{trialsActive}</p>
+<span className="text-[10px] text-[rgb(var(--muted))] uppercase">On trial now</span>
+</div>
+<div>
+<p className="font-display text-xl font-bold text-[rgb(var(--gold))]">{trialsConverted}</p>
+<span className="text-[10px] text-[rgb(var(--muted))] uppercase">Then paid</span>
+</div>
+</div>
+</div>
+
+<div className="rounded-2xl p-5" style={cardStyle}>
 <span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-3">By plan</span>
 {byPlan.map(p => (
 <div key={p.key} className="flex items-center justify-between py-2 text-sm">
@@ -587,6 +673,7 @@ Check payment ({pendingOrders.length})
 <p className="text-[10px] text-[rgb(var(--muted))]">{o.currency === 'THB' ? '🇹🇭 Thai bank' : '🇲🇲 Myanmar bank'}</p>
 </div>
 </div>
+<ProofThumb path={o.proof_path} />
 <div className="grid grid-cols-3 gap-2">
 <button
 onClick={() => setOrderStatus(o, 'cancelled')}
@@ -821,6 +908,21 @@ style={primaryBtn}
 </div>
 )}
 </div>
+
+{viewing && (
+<button
+onClick={() => setViewing(null)}
+className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+style={{ background: 'rgb(0 0 0 / 0.92)' }}
+aria-label="Close"
+>
+{/* eslint-disable-next-line @next/next/no-img-element */}
+<img src={viewing} alt="Payment proof" className="max-w-full max-h-full object-contain rounded-xl" />
+<span className="absolute top-12 right-5 text-white text-sm rounded-full px-3 py-1.5" style={{ background: 'rgb(255 255 255 / 0.15)' }}>
+Close ✕
+</span>
+</button>
+)}
 
 {/* bottom tabs, thumb-friendly */}
 <nav

@@ -3,14 +3,18 @@
 // app/components/PremiumModal.tsx — pick a plan, pick a bank (Myanmar or Thai), scan the QR, tell us you paid.
 
 import React, { useState } from 'react';
-import { X, Crown, Loader2, Check } from 'lucide-react';
+import { X, Crown, Loader2, Check, Gift } from 'lucide-react';
+import ProofUpload from './ProofUpload';
 import { useLang } from '../../lib/i18n';
 import { PLANS, PLAN_IDS, BANKS, fmt, fmtMMK, fmtTHB, planPrice, type Currency } from '../../lib/payments';
 
 type PremiumModalProps = {
 onClose: () => void;
-onConfirm: (plan: string, currency: Currency) => void;
+onConfirm: (plan: string, currency: Currency, proofPath: string) => void;
 submitting: boolean;
+/** Shown only to people who have never used their free trial */
+onStartTrial?: () => void;
+startingTrial?: boolean;
 };
 
 const primaryBtn: React.CSSProperties = { background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' };
@@ -58,11 +62,12 @@ fontWeight: active ? 600 : 400,
 );
 }
 
-export default function PremiumModal({ onClose, onConfirm, submitting }: PremiumModalProps) {
+export default function PremiumModal({ onClose, onConfirm, submitting, onStartTrial, startingTrial }: PremiumModalProps) {
 const { t } = useLang();
 const [selectedPlan, setSelectedPlan] = useState('1month');
 const [currency, setCurrency] = useState<Currency>('MMK');
 const [step, setStep] = useState<'select' | 'pay'>('select');
+const [proofPath, setProofPath] = useState<string | null>(null);
 
 const plan = PLANS[selectedPlan];
 const bank = BANKS.find(b => b.id === currency)!;
@@ -97,6 +102,26 @@ style={{ background: 'rgb(var(--muted) / 0.12)' }}
 
 {step === 'select' ? (
 <>
+{onStartTrial && (
+<button
+onClick={onStartTrial}
+disabled={startingTrial}
+className="w-full flex items-center gap-3 rounded-2xl p-4 mb-5 text-left disabled:opacity-60"
+style={{ background: 'linear-gradient(135deg, rgb(var(--gold) / 0.22), rgb(var(--gold) / 0.06))', border: '1px solid rgb(var(--gold) / 0.6)' }}
+>
+<span className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgb(var(--gold))' }}>
+{startingTrial ? (
+<Loader2 className="w-5 h-5 animate-spin" style={{ color: 'rgb(var(--bg))' }} />
+) : (
+<Gift className="w-5 h-5" style={{ color: 'rgb(var(--bg))' }} />
+)}
+</span>
+<span>
+<span className="block text-sm font-semibold text-[rgb(var(--gold))]">{t('Try Premium free for 7 days')}</span>
+<span className="block text-[11px] text-[rgb(var(--muted-hover))]">{t('No payment needed. It ends by itself.')}</span>
+</span>
+</button>
+)}
 <p className="text-sm text-[rgb(var(--muted-hover))] mb-5 leading-relaxed">
 {t('Unlimited scans, full measurement tables and all weak-point reports. Choose your plan.')}
 </p>
@@ -152,14 +177,18 @@ boxShadow: active ? '0 0 16px rgb(var(--gold) / 0.15)' : 'none',
 <QrBox src={bank.qr} />
 </div>
 
-<p className="text-center text-xs text-[rgb(var(--muted))] mb-6">
+<p className="text-center text-xs text-[rgb(var(--muted))] mb-5">
 {t('Amount')}:{' '}
 <span className="text-[rgb(var(--gold))] font-semibold text-sm">{fmt(planPrice(selectedPlan, currency), currency)}</span>
 </p>
 
+<div className="mb-5">
+<ProofUpload onChange={setProofPath} />
+</div>
+
 <button
-onClick={() => onConfirm(selectedPlan, currency)}
-disabled={submitting}
+onClick={() => proofPath && onConfirm(selectedPlan, currency, proofPath)}
+disabled={submitting || !proofPath}
 className="w-full flex items-center justify-center gap-2 disabled:opacity-50 font-medium py-3.5 rounded-xl text-[13px] tracking-wide"
 style={primaryBtn}
 >

@@ -145,7 +145,7 @@ label: 'Left–right symmetry',
 group: 'symmetry',
 unit: 'pct',
 ideal: () => 0,
-tol: () => 3.5,
+tol: () => 2.8,
 weight: 1.6,
 note: 'Paired features sit at different distances from your midline.',
 compute: (p) => {
@@ -173,7 +173,7 @@ label: 'Eye / mouth level',
 group: 'symmetry',
 unit: 'pct',
 ideal: () => 0,
-tol: () => 3,
+tol: () => 1.6,
 weight: 0.8,
 note: 'One eye or mouth corner sits higher than the other.',
 compute: (p) => {
@@ -272,7 +272,7 @@ label: 'Eye spacing',
 group: 'eyes',
 unit: 'ratio',
 ideal: () => 1.3,
-tol: () => 0.2,
+tol: () => 0.14,
 weight: 0.7,
 note: 'Gap between eyes differs from one eye-width (set too wide or too close).',
 compute: (p) => {
@@ -287,7 +287,7 @@ label: 'Eye width : face width',
 group: 'eyes',
 unit: 'ratio',
 ideal: () => 0.2,
-tol: () => 0.03,
+tol: () => 0.018,
 weight: 0.8,
 note: 'Eyes read small or large relative to face width.',
 compute: (p) =>
@@ -312,7 +312,7 @@ label: 'Jaw : cheekbone width',
 group: 'jaw',
 unit: 'ratio',
 ideal: (g) => (g === 'male' ? 0.8 : 0.76),
-tol: () => 0.06,
+tol: () => 0.045,
 weight: 1.4,
 note: 'Jaw is narrow (or very wide) compared to the cheekbones.',
 compute: (p) => dist(p.g(I.rGonion), p.g(I.lGonion)) / p.faceW,
@@ -410,7 +410,8 @@ const spread = Math.sqrt(variance);
 // Honest mapping: raw metric means run high (most faces are "kind of close"
 // on most ratios), so compress with a power curve. PROVISIONAL.
 // Recentred 2026-10-18 after 3 real scans (eye spacing read ~1.31 on all three).
-const overallRaw = 1 + 9 * Math.pow(mean / 10, 4.0);
+// Tuned on 171 real camera scans (29 Oct 2026): average stays ~5.5, top tiers are rare.
+const overallRaw = 1 + 9 * Math.pow(mean / 10, 3.2);
 const overall = Math.round(clamp(overallRaw, 1, 10) * 10) / 10;
 
 // Potential (estimate): fixable-ish upside only. Ratios barely change; this
@@ -646,37 +647,52 @@ return m.ideal.toFixed(2);
 /* ---------- looksmaxxing tier (shown on the result) ---------- */
 export type FaceTier = { key: string; label: string; full: string; min: number };
 
+// Tier lines set from real user data (29 Oct 2026). Roughly what share of camera scans land in each:
+// Sub 3 ~2% · Sub 5 ~16% · LTN ~23% · MTN ~29% · HTN ~22% · Chadlite ~7% · Chad ~1.5% · True Adam/Eve <0.1% (and needs 3 scans)
 const MALE_TIERS: FaceTier[] = [
 { key: 'sub3', label: 'Sub 3', full: 'Sub 3', min: 0 },
-{ key: 'sub5', label: 'Sub 5', full: 'Sub 5', min: 3 },
-{ key: 'ltn', label: 'LTN', full: 'Low-tier normie', min: 4.5 },
+{ key: 'sub5', label: 'Sub 5', full: 'Sub 5', min: 3.5 },
+{ key: 'ltn', label: 'LTN', full: 'Low-tier normie', min: 4.6 },
 { key: 'mtn', label: 'MTN', full: 'Mid-tier normie', min: 5.3 },
-{ key: 'htn', label: 'HTN', full: 'High-tier normie', min: 6 },
-{ key: 'chadlite', label: 'Chadlite', full: 'Chadlite', min: 6.8 },
-{ key: 'chad', label: 'Chad', full: 'Chad', min: 7.6 },
-{ key: 'trueadam', label: 'True Adam', full: 'True Adam', min: 8.5 },
+{ key: 'htn', label: 'HTN', full: 'High-tier normie', min: 6.1 },
+{ key: 'chadlite', label: 'Chadlite', full: 'Chadlite', min: 7.0 },
+{ key: 'chad', label: 'Chad', full: 'Chad', min: 7.8 },
+{ key: 'trueadam', label: 'True Adam', full: 'True Adam', min: 8.7 },
 ];
 
 const FEMALE_TIERS: FaceTier[] = [
 { key: 'sub3', label: 'Sub 3', full: 'Sub 3', min: 0 },
-{ key: 'sub5', label: 'Sub 5', full: 'Sub 5', min: 3 },
-{ key: 'ltb', label: 'LTB', full: 'Low-tier becky', min: 4.5 },
+{ key: 'sub5', label: 'Sub 5', full: 'Sub 5', min: 3.5 },
+{ key: 'ltb', label: 'LTB', full: 'Low-tier becky', min: 4.6 },
 { key: 'mtb', label: 'MTB', full: 'Mid-tier becky', min: 5.3 },
-{ key: 'htb', label: 'HTB', full: 'High-tier becky', min: 6 },
-{ key: 'stacylite', label: 'Stacylite', full: 'Stacylite', min: 6.8 },
-{ key: 'stacy', label: 'Stacy', full: 'Stacy', min: 7.6 },
-{ key: 'gigastacy', label: 'Gigastacy', full: 'Gigastacy', min: 8.5 },
+{ key: 'htb', label: 'HTB', full: 'High-tier becky', min: 6.1 },
+{ key: 'stacylite', label: 'Stacylite', full: 'Stacylite', min: 7.0 },
+{ key: 'stacy', label: 'Stacy', full: 'Stacy', min: 7.8 },
+{ key: 'trueeve', label: 'True Eve', full: 'True Eve', min: 8.7 },
 ];
+
+/** The top tier (True Adam / True Eve) needs this many camera scans averaged, so one lucky photo can't get it. */
+export const TOP_TIER_MIN_SCANS = 3;
 
 export function faceTiers(gender: Gender) {
 return gender === 'female' ? FEMALE_TIERS : MALE_TIERS;
 }
 
-/** Which tier an overall score (1–10) falls in. */
-export function faceTier(overall: number, gender: Gender): FaceTier {
+/** Which tier an overall score (1–10) falls in. scanCount = how many camera scans the score is averaged from. */
+export function faceTier(overall: number, gender: Gender, scanCount: number = TOP_TIER_MIN_SCANS): FaceTier {
 const tiers = faceTiers(gender);
-let t = tiers[0];
-for (const x of tiers) if (overall >= x.min) t = x;
-return t;
+let i = 0;
+tiers.forEach((x, j) => {
+if (overall >= x.min) i = j;
+});
+// One great photo isn't enough for the very top: it has to hold up over several scans
+if (i === tiers.length - 1 && scanCount < TOP_TIER_MIN_SCANS) i = tiers.length - 2;
+return tiers[i];
+}
+
+/** True when the score is high enough for the top tier but it still needs more scans to confirm. */
+export function topTierPending(overall: number, gender: Gender, scanCount: number) {
+const tiers = faceTiers(gender);
+return overall >= tiers[tiers.length - 1].min && scanCount < TOP_TIER_MIN_SCANS;
 }
 

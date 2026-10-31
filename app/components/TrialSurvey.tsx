@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { useLang } from '../../lib/i18n';
 import { Check, Loader2 } from 'lucide-react';
+import { trialOfferMmk, fmtMMK } from '../../lib/payments';
 
 export const SURVEY_REASONS: { id: string; emoji: string; label: string }[] = [
 { id: 'price', emoji: '💸', label: 'It’s too expensive for me' },
@@ -65,7 +66,7 @@ onClick={onSeeOffer}
 className="w-full font-semibold py-4 rounded-2xl text-[15px] mb-3"
 style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 >
-{t('See my 39,000 MMK offer')}
+{t('See my {price} offer', { price: fmtMMK(trialOfferMmk()) })}
 </button>
 )}
 <button onClick={onClose} className="w-full text-sm text-[rgb(var(--muted))] py-2">

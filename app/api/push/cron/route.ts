@@ -1,14 +1,16 @@
 // app/api/push/cron/route.ts — runs once a day at 6pm Myanmar time (set in vercel.json).
 // Order of importance for each person:
-// 1. free trial ending soon / just ended (with the 39,000 MMK offer)
+// 1. free trial ending soon / just ended (with the first-month offer)
 // 2. Sunday weekly scan
 // 3. streak reminder if today's tasks aren't done
 
 import { adminDb, sendTo, type Sub, type Message } from '../../../../lib/pushServer';
+import { trialOfferMmk, planMmk } from '../../../../lib/payments';
 
 export const dynamic = 'force-dynamic';
 
 const H = 3600 * 1000;
+const toMyDigits = (s: string) => s.replace(/[0-9]/g, d => '၀၁၂၃၄၅၆၇၈၉'[Number(d)]);
 
 export async function GET(req: Request) {
 // Vercel sends "Authorization: Bearer <CRON_SECRET>" with cron requests
@@ -44,6 +46,10 @@ const now = Date.now();
 const today = new Date().toISOString().slice(0, 10); // the app uses UTC dates
 const isSunday = new Date(now + 6.5 * H).getUTCDay() === 0; // Sunday in Myanmar
 
+const offer = trialOfferMmk().toLocaleString('en-US');
+const normal = planMmk('1month').toLocaleString('en-US');
+const offerMy = toMyDigits(offer);
+
 let sent = 0;
 for (const sub of subs as Sub[]) {
 const p = byId.get(sub.user_id);
@@ -67,13 +73,13 @@ url: '/',
 };
 } else if (left <= 0 && left > -24 * H) {
 msg = {
-title: 'Your trial ended. 39,000 MMK first month 🎁',
-body: 'Special price for 48 hours only (normally 60,000).\nပထမလ ၃၉,၀၀၀ ကျပ်သာ။ ၄၈ နာရီသာ ရပါမယ်။',
+title: `Your trial ended. ${offer} MMK first month 🎁`,
+body: `Special price for 48 hours only (normally ${normal}).\nပထမလ ${offerMy} ကျပ်သာ။ ၄၈ နာရီသာ ရပါမယ်။`,
 url: '/',
 };
 } else if (left <= -24 * H && left > -48 * H) {
 msg = {
-title: 'Last chance: 39,000 MMK first month',
+title: `Last chance: ${offer} MMK first month`,
 body: 'Your trial offer ends today.\nအထူးဈေး ဒီနေ့ ကုန်ပါမယ်။',
 url: '/',
 };

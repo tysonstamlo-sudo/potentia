@@ -19,7 +19,7 @@ import { faceTier } from '../lib/faceAnalysis';
 import NotificationToggle from './components/NotificationToggle';
 import GlowCard from './components/GlowCard';
 import { notify } from '../lib/notify';
-import { PAID_TIERS, TRIAL_OFFER_MMK, fmtMMK, type Currency } from '../lib/payments';
+import { PAID_TIERS, trialOfferMmk, planMmk, fmtMMK, type Currency } from '../lib/payments';
 import { getDeviceId, getFingerprint } from '../lib/device';
 import NutritionTracker, { NutritionCard } from './components/NutritionTracker';
 import InviteCard, { rememberReferral, applyReferral } from './components/InviteCard';
@@ -88,7 +88,7 @@ const [showPlan, setShowPlan] = useState(false);
 const [showOnboarding, setShowOnboarding] = useState(false);
 const [tierLabel, setTierLabel] = useState<string | null>(null);
 const [subTier, setSubTier] = useState<string | null>(null);
-const [offerEnds, setOfferEnds] = useState<number | null>(null); // 39,000 MMK deal deadline (ms)
+const [offerEnds, setOfferEnds] = useState<number | null>(null); // trial-ending deal deadline (ms)
 const [showSurvey, setShowSurvey] = useState(false);
 const [showNutrition, setShowNutrition] = useState(false);
 const [nutritionKey, setNutritionKey] = useState(0);
@@ -689,9 +689,9 @@ style={{ background: 'linear-gradient(135deg, rgb(var(--gold) / 0.28), rgb(var(-
 🎁 {t('Trial offer · ends in {h}h', { h: Math.max(1, Math.ceil((offerEnds - Date.now()) / 3600000)) })}
 </span>
 <span className="font-display text-xl font-bold text-[rgb(var(--gold))] block">
-{t('First month {price}', { price: fmtMMK(TRIAL_OFFER_MMK) })}
+{t('First month {price}', { price: fmtMMK(trialOfferMmk()) })}
 </span>
-<span className="font-body text-xs text-[rgb(var(--muted-hover))]">{t('Normally 60,000 MMK. Keep your full report, plan and progress.')}</span>
+<span className="font-body text-xs text-[rgb(var(--muted-hover))]">{t('Normally {price}. Keep your full report, plan and progress.', { price: fmtMMK(planMmk('1month')) })}</span>
 </button>
 )}
 

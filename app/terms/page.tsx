@@ -34,7 +34,9 @@ body: [
 title: 'Premium and payment',
 body: [
 [
-'Prices: 1 Month 60,000 MMK / 430 THB, 6 Months 299,000 MMK / 2,160 THB, 1 Year 499,000 MMK / 3,600 THB. You can pay from a Myanmar or a Thai bank. Prices may change for new purchases; we will show the current price before you pay.',
+'Prices: 1 Month 60,000 MMK, 6 Months 299,000 MMK, 1 Year 499,000 MMK. Launch promo until 1 February 2027: 1 Month 39,000 MMK, 6 Months 179,000 MMK, 1 Year 299,000 MMK. You can pay from a Myanmar or a Thai bank; the Thai baht price follows the current exchange rate and is shown before you pay. Prices may change for new purchases.',
+'Free trial: new members can try Premium free for 7 days, once per person and once per phone. It ends by itself; nothing is charged. When it ends you may get a one-time first-month offer for a limited time.',
+'The AI morph ("Your best version") is only included with paid Premium, not with the free trial or invite rewards. Its images are AI previews of what may be possible with fat loss, skin care and grooming. They are not a promise of results.',
 'You pay by scanning our QR code with your banking app and then tapping “I’ve Sent Payment”. Premium starts after we confirm the payment arrived.',
 'Premium lasts for the period you bought and then ends automatically. It does not renew by itself. If you renew early, the new time is added on top of the time you have left.',
 'Send the exact amount. If a payment cannot be matched, we may ask you for a screenshot of the transfer.',

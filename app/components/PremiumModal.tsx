@@ -6,13 +6,29 @@ import React, { useState } from 'react';
 import { X, Crown, Loader2, Check, Gift } from 'lucide-react';
 import ProofUpload from './ProofUpload';
 import { useLang } from '../../lib/i18n';
-import { PLANS, PLAN_IDS, BANKS, fmt, fmtMMK, fmtTHB, planPrice, planThb, TRIAL_OFFER_MMK, type Currency } from '../../lib/payments';
+import {
+PLANS,
+PLAN_IDS,
+BANKS,
+fmt,
+fmtMMK,
+fmtTHB,
+planPrice,
+planThb,
+planMmk,
+regularMmk,
+trialOfferMmk,
+promoActive,
+percentOff,
+PROMO_ENDS,
+type Currency,
+} from '../../lib/payments';
 import { useThbRate } from '../../lib/fx';
 
 type PremiumModalProps = {
 onClose: () => void;
 onConfirm: (plan: string, currency: Currency, proofPath: string, promo?: 'trial_offer') => void;
-/** the 39,000 MMK first-month deal right after the free trial ends */
+/** the first-month deal right after the free trial ends */
 offer?: boolean;
 submitting: boolean;
 /** Shown only to people who have never used their free trial */
@@ -134,7 +150,18 @@ style={{ background: 'linear-gradient(135deg, rgb(var(--gold) / 0.25), rgb(var(-
 >
 <span className="text-[10px] tracking-[0.2em] text-[rgb(var(--gold))] uppercase font-bold block mb-1">🎁 {t('Trial offer · 48 hours only')}</span>
 <span className="text-sm text-[rgb(var(--muted-hover))]">
-{t('Your first month for {price} instead of {old}.', { price: fmtMMK(TRIAL_OFFER_MMK), old: fmtMMK(PLANS['1month'].mmk) })}
+{t('Your first month for {price} instead of {old}.', { price: fmtMMK(trialOfferMmk()), old: fmtMMK(planMmk('1month')) })}
+</span>
+</div>
+)}
+{promoActive() && !offer && (
+<div
+className="rounded-2xl px-4 py-3 mb-5 flex items-center justify-between gap-3"
+style={{ background: 'linear-gradient(135deg, rgb(var(--gold) / 0.22), rgb(var(--gold) / 0.05))', border: '1px solid rgb(var(--gold) / 0.6)' }}
+>
+<span className="text-[11px] tracking-[0.15em] text-[rgb(var(--gold))] uppercase font-bold">🔥 {t('Launch promo')}</span>
+<span className="text-[11px] text-[rgb(var(--muted-hover))]">
+{t('Until {date}', { date: PROMO_ENDS.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Yangon' }) })}
 </span>
 </div>
 )}
@@ -145,6 +172,9 @@ style={{ background: 'linear-gradient(135deg, rgb(var(--gold) / 0.25), rgb(var(-
 {PLAN_IDS.map(id => {
 const p = PLANS[id];
 const active = selectedPlan === id;
+const was = regularMmk(id);
+const now = offer && id === '1month' ? trialOfferMmk() : planMmk(id);
+const off = percentOff(now, was);
 return (
 <button
 key={id}
@@ -159,20 +189,25 @@ boxShadow: active ? '0 0 16px rgb(var(--gold) / 0.15)' : 'none',
 <div>
 <div className="flex items-center gap-2 mb-0.5">
 <span className="text-sm text-[rgb(var(--gold))] font-medium">{t(p.label)}</span>
-{p.note && (
-<span className="text-[9px] text-[rgb(var(--gold))] rounded-full px-2 py-0.5" style={{ background: 'rgb(var(--gold) / 0.14)' }}>
-{t(p.note)}
+{off > 0 && (
+<span
+className="text-[9px] font-bold rounded-full px-2 py-0.5"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
+>
+-{off}%
 </span>
 )}
 </div>
-{offer && id === '1month' ? (
-<span className="text-xs text-[rgb(var(--muted))]">
-<s className="opacity-60">{fmtMMK(p.mmk)}</s>{' '}
-<span className="text-[rgb(var(--gold))] font-semibold">{fmtMMK(TRIAL_OFFER_MMK)}</span> · {fmtTHB(planThb(TRIAL_OFFER_MMK, rate))}
+{now < was ? (
+<span className="block">
+<s className="text-[11px] text-[rgb(var(--muted))] opacity-70">{fmtMMK(was)}</s>
+<span className="block text-sm text-[rgb(var(--gold))] font-bold">
+{fmtMMK(now)} <span className="text-[11px] font-normal text-[rgb(var(--muted))]">· {fmtTHB(planThb(now, rate))}</span>
+</span>
 </span>
 ) : (
 <span className="text-xs text-[rgb(var(--muted))]">
-{fmtMMK(p.mmk)} · {fmtTHB(planThb(p.mmk, rate))}
+{fmtMMK(now)} · {fmtTHB(planThb(now, rate))}
 </span>
 )}
 </div>

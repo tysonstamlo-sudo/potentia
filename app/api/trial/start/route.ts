@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 
 const TRIAL_DAYS = 7;
 const REWARD_DAYS = 7;
-const MAX_REWARDS = 8; // max 8 invite rewards per person (56 days)
+const MAX_REWARDS = 1; // one invite reward per person: 7-day trial + 7 days = 14 free days max
 const NETWORK_LIMIT = 5; // max trials from one IP in 3 days
 
 const clean = (v: unknown) => (typeof v === 'string' ? v.trim().slice(0, 100) : '');

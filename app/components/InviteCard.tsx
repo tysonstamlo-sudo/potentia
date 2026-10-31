@@ -87,13 +87,14 @@ return (
 <Gift className="w-5 h-5 text-[rgb(var(--gold))]" />
 </span>
 <div className="min-w-0">
-<p className="font-body text-sm font-semibold text-[rgb(var(--gold))]">{t('Invite a friend, get 7 days Premium')}</p>
-<p className="font-body text-[11px] text-[rgb(var(--muted-hover))] leading-relaxed">
-{t('When your friend starts their free trial on their own phone, you get 7 days of Premium. Up to 8 times.')}
+<p className="font-body text-sm font-semibold text-[rgb(var(--gold))]">
+{rewards > 0 ? t('Invite your friends to Potentia') : t('Invite a friend, get 7 days Premium')}
 </p>
-{rewards > 0 && (
-<p className="font-body text-[11px] text-[rgb(var(--gold))] mt-1">{t('Friends joined: {n}', { n: rewards })}</p>
-)}
+<p className="font-body text-[11px] text-[rgb(var(--muted-hover))] leading-relaxed">
+{rewards > 0
+? t('You already got your free 7 days from inviting. Your friends still get their own 7-day free trial.')
+: t('When your first friend starts their free trial on their own phone, you get 7 more days of Premium (one time).')}
+</p>
 </div>
 </div>
 {link && (

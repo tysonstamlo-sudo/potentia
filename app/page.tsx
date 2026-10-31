@@ -19,7 +19,11 @@ import { faceTier } from '../lib/faceAnalysis';
 import NotificationToggle from './components/NotificationToggle';
 import GlowCard from './components/GlowCard';
 import { notify } from '../lib/notify';
-import type { Currency } from '../lib/payments';
+import { PAID_TIERS, TRIAL_OFFER_MMK, fmtMMK, type Currency } from '../lib/payments';
+import { getDeviceId, getFingerprint } from '../lib/device';
+import NutritionTracker, { NutritionCard } from './components/NutritionTracker';
+import InviteCard, { rememberReferral, applyReferral } from './components/InviteCard';
+import TrialSurvey from './components/TrialSurvey';
 import { tasksForLevel, daysRequired, needsScan, rankTitle, AREA_LABEL, MAX_LEVEL, type ProgramTask } from '../lib/program';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -83,6 +87,12 @@ const [showPremiumModal, setShowPremiumModal] = useState(false);
 const [showPlan, setShowPlan] = useState(false);
 const [showOnboarding, setShowOnboarding] = useState(false);
 const [tierLabel, setTierLabel] = useState<string | null>(null);
+const [subTier, setSubTier] = useState<string | null>(null);
+const [offerEnds, setOfferEnds] = useState<number | null>(null); // 39,000 MMK deal deadline (ms)
+const [showSurvey, setShowSurvey] = useState(false);
+const [showNutrition, setShowNutrition] = useState(false);
+const [nutritionKey, setNutritionKey] = useState(0);
+const [referralRewards, setReferralRewards] = useState(0);
 const [steadyScore, setSteadyScore] = useState<number | null>(null);
 const [steadyCount, setSteadyCount] = useState(0);
 const [gender, setGender] = useState<'male' | 'female'>('male');
@@ -98,6 +108,7 @@ const [saving, setSaving] = useState(false);
 // Notifications can open a tab directly, e.g. /?tab=marketplace
 useEffect(() => {
 try {
+rememberReferral(); // keep ?ref=CODE from an invite link until after sign-up
 const want = new URLSearchParams(window.location.search).get('tab');
 const ok: TabKey[] = ['dashboard', 'scan', 'progress', 'rankings', 'friends', 'marketplace'];
 if (want && (ok as string[]).includes(want)) setActiveTab(want as TabKey);
@@ -118,6 +129,7 @@ router.push('/login');
 return;
 }
 setUserId(session.user.id);
+applyReferral(); // links this account to the friend who invited them (only works for new accounts)
 
 const { data: profile, error: profileError } = await supabase
 .from('profiles')
@@ -192,9 +204,33 @@ setPremiumStatus('pending');
 
 if (!trialError && trial) {
 setTrialUsed(!!trial.trial_used_at);
+setSubTier(trial.subscription_tier ?? null);
 const exp = profile?.subscription_expires_at ? new Date(profile.subscription_expires_at) : null;
 setOnTrial(trial.subscription_tier === 'trial' && !!exp && exp.getTime() > Date.now());
+
+// Trial-ending deal: from 1 day before the trial ends until 48 hours after
+const lastStatus = requests && requests[0] ? requests[0].status : null;
+if (trial.subscription_tier === 'trial' && exp && lastStatus !== 'pending' && lastStatus !== 'approved') {
+const left = exp.getTime() - Date.now();
+if (left <= 24 * 3600 * 1000 && left > -48 * 3600 * 1000) setOfferEnds(exp.getTime() + 48 * 3600 * 1000);
+// "What stopped you?" once, after the trial has ended
+if (left <= 0) {
+let skipped = false;
+try {
+skipped = localStorage.getItem('ptn_survey_skip') === '1';
+} catch {
+/* ignore */
 }
+if (!skipped) {
+const { data: fb } = await supabase.from('trial_feedback').select('user_id').eq('user_id', session.user.id).maybeSingle();
+if (!fb) setShowSurvey(true);
+}
+}
+}
+}
+
+const { data: rw } = await supabase.from('profiles').select('referral_rewards').eq('id', session.user.id).single();
+if (rw) setReferralRewards(Number((rw as { referral_rewards?: number }).referral_rewards ?? 0));
 } catch (err) {
 console.error('Init failed:', err);
 } finally {
@@ -347,13 +383,36 @@ const startTrial = async () => {
 if (startingTrial) return;
 setStartingTrial(true);
 setTrialMsg('');
-const { data, error } = await supabase.rpc('start_trial');
+let data: string | null = null;
+try {
+const [{ data: { session } }, deviceId, fingerprint] = await Promise.all([supabase.auth.getSession(), getDeviceId(), getFingerprint()]);
+const res = await fetch('/api/trial/start', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
+body: JSON.stringify({ deviceId, fingerprint }),
+});
+const json = (await res.json().catch(() => ({}))) as { ends?: string; code?: string };
+if (!res.ok) {
+const msgs: Record<string, string> = {
+device: 'This phone already used its free trial. Go Premium to keep everything unlocked.',
+network: 'Too many free trials were started on this network today. Try again later on mobile data.',
+used: 'You already used your free trial.',
+member: 'The free trial is for new members.',
+already: 'You already have Premium.',
+};
 setStartingTrial(false);
-if (error) {
-setTrialMsg(error.message || t('Could not start the trial. Try again.'));
+setTrialMsg(t(msgs[json.code ?? ''] ?? 'Could not start the trial. Try again.'));
 setTrialUsed(true);
 return;
 }
+data = json.ends ?? null;
+} catch {
+setStartingTrial(false);
+setTrialMsg(t('Could not start the trial. Try again.'));
+return;
+}
+setStartingTrial(false);
+setSubTier('trial');
 setIsPremium(true);
 setOnTrial(true);
 setTrialUsed(true);
@@ -363,21 +422,24 @@ setShowPremiumModal(false);
 setTrialMsg(t('Your 7-day Premium trial is on. Enjoy the full reports!'));
 };
 
-const submitPaymentClaim = async (plan: string, currency: Currency, proofPath: string) => {
+const submitPaymentClaim = async (plan: string, currency: Currency, proofPath: string, promo?: 'trial_offer') => {
 if (!userId) return;
 setSubmittingPayment(true);
 try {
 const { data, error } = await supabase
 .from('premium_requests')
-.insert({ user_id: userId, status: 'pending', plan, currency, proof_path: proofPath })
+.insert({ user_id: userId, status: 'pending', plan, currency, proof_path: proofPath, promo: promo ?? null })
 .select('id')
 .single();
 if (error) throw error;
 if (data?.id) notify('premium_request', data.id as string);
 setPremiumStatus('pending');
+setOfferEnds(null);
 setShowPremiumModal(false);
 } catch (err) {
 console.error('Failed to submit payment claim:', err);
+setShowPremiumModal(false);
+setTrialMsg(t((err as { message?: string })?.message ?? 'Could not send. Please try again.'));
 } finally {
 setSubmittingPayment(false);
 }
@@ -570,7 +632,12 @@ background: activeTab === tab ? 'rgb(var(--gold))' : 'transparent',
 </div>
 
 {activeTab === 'scan' ? (
-<FaceScan isPremium={isPremium} onGoPremium={goPremium} />
+<FaceScan
+isPremium={isPremium}
+onGoPremium={goPremium}
+canMorph={isPremium && PAID_TIERS.includes(subTier ?? '')}
+onTrial={onTrial}
+/>
 ) : activeTab === 'progress' ? (
 <Progress totalXP={totalXP} level={level} streak={streak} tierLabel={tierLabel} />
 ) : activeTab === 'rankings' ? (
@@ -612,7 +679,27 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 </div>
 )}
 
+{offerEnds && offerEnds > Date.now() && premiumStatus !== 'pending' && (
+<button
+onClick={goPremium}
+className="w-full text-left p-5 rounded-2xl"
+style={{ background: 'linear-gradient(135deg, rgb(var(--gold) / 0.28), rgb(var(--gold) / 0.06))', border: '1px solid rgb(var(--gold) / 0.7)', boxShadow: '0 0 30px rgb(var(--gold) / 0.18)' }}
+>
+<span className="font-body text-[10px] tracking-[0.25em] text-[rgb(var(--gold))] uppercase font-bold block mb-1">
+🎁 {t('Trial offer · ends in {h}h', { h: Math.max(1, Math.ceil((offerEnds - Date.now()) / 3600000)) })}
+</span>
+<span className="font-display text-xl font-bold text-[rgb(var(--gold))] block">
+{t('First month {price}', { price: fmtMMK(TRIAL_OFFER_MMK) })}
+</span>
+<span className="font-body text-xs text-[rgb(var(--muted-hover))]">{t('Normally 60,000 MMK. Keep your full report, plan and progress.')}</span>
+</button>
+)}
+
+{userId && <NutritionCard userId={userId} onOpen={() => setShowNutrition(true)} refreshKey={nutritionKey} />}
+
 {userId && <NotificationToggle userId={userId} />}
+
+{userId && <InviteCard rewards={referralRewards} />}
 
 <div className="relative p-6 rounded-2xl" style={accentCardStyle}>
 <span className="font-body text-[10px] tracking-[0.3em] text-[rgb(var(--gold))] uppercase block mb-4">{t("Counsel")}</span>
@@ -860,6 +947,41 @@ onConfirm={submitPaymentClaim}
 submitting={submittingPayment}
 onStartTrial={!isPremium && !trialUsed ? startTrial : undefined}
 startingTrial={startingTrial}
+offer={!!offerEnds && offerEnds > Date.now()}
+/>
+)}
+
+{showNutrition && userId && (
+<NutritionTracker
+userId={userId}
+isPremium={isPremium}
+onGoPremium={() => {
+setShowNutrition(false);
+goPremium();
+}}
+onClose={() => {
+setShowNutrition(false);
+setNutritionKey(k => k + 1);
+}}
+/>
+)}
+
+{showSurvey && userId && (
+<TrialSurvey
+userId={userId}
+offerOpen={!!offerEnds && offerEnds > Date.now()}
+onClose={() => {
+try {
+localStorage.setItem('ptn_survey_skip', '1');
+} catch {
+/* ignore */
+}
+setShowSurvey(false);
+}}
+onSeeOffer={() => {
+setShowSurvey(false);
+goPremium();
+}}
 />
 )}
 

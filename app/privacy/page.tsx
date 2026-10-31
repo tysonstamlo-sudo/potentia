@@ -18,6 +18,18 @@ body: [
 ],
 },
 {
+title: 'AI features that send a photo',
+body: [
+'Three optional Premium features need a photo to be read by an AI service. They only run when you tap them:',
+[
+'Your best version (morph): your scan photo is sent to create a realistic preview. We ask for your permission the first time.',
+'Side profile scan: the side photo you choose is sent to be scored.',
+'Snap your meal: the meal photo you choose is sent to estimate calories.',
+],
+'These photos are processed by Google (Gemini API) on our behalf and are not stored by Potentia. We only keep the result you choose to save (for example the foods you add to your log). Google processes the photos under its paid API terms, which do not allow using them to train its models.',
+],
+},
+{
 title: 'What we collect',
 body: [
 [
@@ -30,6 +42,9 @@ body: [
 'Shop orders: the name, phone number and delivery address you give when you buy. We share these only with the seller of that order so they can deliver it.',
 'Product listings: the photos, names, descriptions and prices sellers post. These are public inside the app.',
 'Friends: who you add and who adds you.',
+'Nutrition: the foods you log and the goal details you enter (age, height, weight, activity and goal), used only to work out your daily targets.',
+'Payment screenshots: the receipt image you upload when you pay, so we can check your payment. Only you and the Potentia team can see it.',
+'Free trial and invite checks: when you start a free trial we record a random ID saved on your phone, a "fingerprint" of your phone (for example screen size, graphics chip and time zone, combined into a code) and your IP address. We use these only to stop the same phone from taking more than one free trial, and to check invite rewards.',
 ],
 ],
 },
@@ -39,7 +54,8 @@ body: [
 [
 'To run your account and show your scores, plan, tasks and progress.',
 'To decide when you can rank up (completed task days and scan results).',
-'To activate and expire Premium.',
+'To activate and expire Premium and the free trial.',
+'To prevent free-trial abuse (one free trial per phone).',
 'To review seller applications and contact sellers.',
 'To improve how accurate the scan is, using scan results in aggregate.',
 ],
@@ -73,6 +89,7 @@ body: [
 'You can stop using the app at any time.',
 'You can ask us for a copy of your data, to correct it, or to delete your account, using the contact details below.',
 'You can choose not to do skin close-ups; they are optional.',
+'You never have to use the AI features (morph, side profile, meal photo). Everything else works without them.',
 ],
 ],
 },
@@ -89,7 +106,9 @@ body: [
 },
 ];
 
-const SUMMARY_MY = `• သင့်ဓာတ်ပုံတွေက သင့်ဖုန်းထဲမှာပဲ ရှိပါတယ်။ ကျွန်ုပ်တို့ဆီ မပို့ပါ၊ မသိမ်းပါ။
+const SUMMARY_MY = `• မျက်နှာ စကင်န် ဓာတ်ပုံတွေက သင့်ဖုန်းထဲမှာပဲ ရှိပါတယ်။ ကျွန်ုပ်တို့ဆီ မပို့ပါ၊ မသိမ်းပါ။
+• Morph၊ ဘေးတိုက်မျက်နှာ စကင်န်နဲ့ အစားအစာ ဓာတ်ပုံ (Premium) ကို သုံးမှသာ ဓာတ်ပုံကို Google AI ဆီ ပို့ပါတယ်။ Potentia က မသိမ်းပါ။
+• အခမဲ့ စမ်းသုံးမှု တစ်ဖုန်း တစ်ကြိမ်သာ ဖြစ်အောင် ဖုန်း ID၊ ဖုန်း fingerprint နဲ့ IP ကို မှတ်ထားပါတယ်။
 • စကင်န်ရလဒ် (ရမှတ်နဲ့ တိုင်းတာချက် ဂဏန်းများ)၊ email၊ username၊ ကျား/မ၊ နေ့စဉ်အလုပ် မှတ်တမ်းနဲ့ ပရီမီယံ တောင်းဆိုချက်ကိုသာ သိမ်းပါတယ်။
 • သင့်ဘဏ် အချက်အလက် ကျွန်ုပ်တို့ မရပါ။ သင့်ဘဏ် app ကနေ ကိုယ်တိုင် ငွေပေးချေပါတယ်။
 • သင့် အချက်အလက်ကို မရောင်းပါ၊ ကြော်ငြာအတွက် မသုံးပါ။

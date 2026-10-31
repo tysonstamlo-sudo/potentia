@@ -11,7 +11,7 @@ import { ChevronLeft } from 'lucide-react';
 // >>> Put your real contact details here before launch <<<
 export const CONTACT_EMAIL = 'support@potentia.app';
 export const CONTACT_OTHER = 'Telegram / Viber: add your number here';
-export const LAST_UPDATED = '21 October 2026';
+export const LAST_UPDATED = '1 November 2026';
 
 export type Section = { title: string; body: (string | string[])[] };
 

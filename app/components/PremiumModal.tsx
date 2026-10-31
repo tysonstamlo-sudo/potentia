@@ -6,11 +6,14 @@ import React, { useState } from 'react';
 import { X, Crown, Loader2, Check, Gift } from 'lucide-react';
 import ProofUpload from './ProofUpload';
 import { useLang } from '../../lib/i18n';
-import { PLANS, PLAN_IDS, BANKS, fmt, fmtMMK, fmtTHB, planPrice, type Currency } from '../../lib/payments';
+import { PLANS, PLAN_IDS, BANKS, fmt, fmtMMK, fmtTHB, planPrice, planThb, TRIAL_OFFER_MMK, type Currency } from '../../lib/payments';
+import { useThbRate } from '../../lib/fx';
 
 type PremiumModalProps = {
 onClose: () => void;
-onConfirm: (plan: string, currency: Currency, proofPath: string) => void;
+onConfirm: (plan: string, currency: Currency, proofPath: string, promo?: 'trial_offer') => void;
+/** the 39,000 MMK first-month deal right after the free trial ends */
+offer?: boolean;
 submitting: boolean;
 /** Shown only to people who have never used their free trial */
 onStartTrial?: () => void;
@@ -62,7 +65,8 @@ fontWeight: active ? 600 : 400,
 );
 }
 
-export default function PremiumModal({ onClose, onConfirm, submitting, onStartTrial, startingTrial }: PremiumModalProps) {
+export default function PremiumModal({ onClose, onConfirm, submitting, onStartTrial, startingTrial, offer = false }: PremiumModalProps) {
+const rate = useThbRate();
 const { t } = useLang();
 const [selectedPlan, setSelectedPlan] = useState('1month');
 const [currency, setCurrency] = useState<Currency>('MMK');
@@ -70,6 +74,7 @@ const [step, setStep] = useState<'select' | 'pay'>('select');
 const [proofPath, setProofPath] = useState<string | null>(null);
 
 const plan = PLANS[selectedPlan];
+const useOffer = offer && selectedPlan === '1month';
 const bank = BANKS.find(b => b.id === currency)!;
 
 return (
@@ -122,6 +127,17 @@ style={{ background: 'linear-gradient(135deg, rgb(var(--gold) / 0.22), rgb(var(-
 </span>
 </button>
 )}
+{offer && (
+<div
+className="rounded-2xl p-4 mb-5"
+style={{ background: 'linear-gradient(135deg, rgb(var(--gold) / 0.25), rgb(var(--gold) / 0.06))', border: '1px solid rgb(var(--gold) / 0.7)' }}
+>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--gold))] uppercase font-bold block mb-1">🎁 {t('Trial offer · 48 hours only')}</span>
+<span className="text-sm text-[rgb(var(--muted-hover))]">
+{t('Your first month for {price} instead of {old}.', { price: fmtMMK(TRIAL_OFFER_MMK), old: fmtMMK(PLANS['1month'].mmk) })}
+</span>
+</div>
+)}
 <p className="text-sm text-[rgb(var(--muted-hover))] mb-5 leading-relaxed">
 {t('Unlimited scans, full measurement tables and all weak-point reports. Choose your plan.')}
 </p>
@@ -149,9 +165,16 @@ boxShadow: active ? '0 0 16px rgb(var(--gold) / 0.15)' : 'none',
 </span>
 )}
 </div>
+{offer && id === '1month' ? (
 <span className="text-xs text-[rgb(var(--muted))]">
-{fmtMMK(p.mmk)} · {fmtTHB(p.thb)}
+<s className="opacity-60">{fmtMMK(p.mmk)}</s>{' '}
+<span className="text-[rgb(var(--gold))] font-semibold">{fmtMMK(TRIAL_OFFER_MMK)}</span> · {fmtTHB(planThb(TRIAL_OFFER_MMK, rate))}
 </span>
+) : (
+<span className="text-xs text-[rgb(var(--muted))]">
+{fmtMMK(p.mmk)} · {fmtTHB(planThb(p.mmk, rate))}
+</span>
+)}
 </div>
 {active && <Check className="w-4 h-4 text-[rgb(var(--gold))] flex-shrink-0" />}
 </button>
@@ -179,7 +202,7 @@ boxShadow: active ? '0 0 16px rgb(var(--gold) / 0.15)' : 'none',
 
 <p className="text-center text-xs text-[rgb(var(--muted))] mb-5">
 {t('Amount')}:{' '}
-<span className="text-[rgb(var(--gold))] font-semibold text-sm">{fmt(planPrice(selectedPlan, currency), currency)}</span>
+<span className="text-[rgb(var(--gold))] font-semibold text-sm">{fmt(planPrice(selectedPlan, currency, rate, useOffer), currency)}</span>
 </p>
 
 <div className="mb-5">
@@ -187,7 +210,7 @@ boxShadow: active ? '0 0 16px rgb(var(--gold) / 0.15)' : 'none',
 </div>
 
 <button
-onClick={() => proofPath && onConfirm(selectedPlan, currency, proofPath)}
+onClick={() => proofPath && onConfirm(selectedPlan, currency, proofPath, useOffer ? 'trial_offer' : undefined)}
 disabled={submitting || !proofPath}
 className="w-full flex items-center justify-center gap-2 disabled:opacity-50 font-medium py-3.5 rounded-xl text-[13px] tracking-wide"
 style={primaryBtn}

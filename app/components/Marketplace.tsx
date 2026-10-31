@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { useLang } from '../../lib/i18n';
 import { notify } from '../../lib/notify';
 import { BANKS, fmt, fmtMMK, mmkToThb, type Currency } from '../../lib/payments';
+import { useThbRate } from '../../lib/fx';
 import { BankPicker, QrBox } from './PremiumModal';
 import SellerModal from './SellerModal';
 import SellerShop from './SellerShop';
@@ -54,6 +55,7 @@ localStorage.setItem(LS_KEY, JSON.stringify(v));
 /* ---------------- product detail + checkout ---------------- */
 function ProductSheet({ product, isMine, onClose, onOrdered }: { product: Product; isMine: boolean; onClose: () => void; onOrdered: () => void }) {
 const { t } = useLang();
+const rate = useThbRate();
 const [step, setStep] = useState<'view' | 'details' | 'pay' | 'done'>('view');
 const [qty, setQty] = useState(1);
 const saved = useMemo(loadBuyer, []);
@@ -67,7 +69,7 @@ const [busy, setBusy] = useState(false);
 const [error, setError] = useState('');
 
 const total = product.price_mmk * qty;
-const due = currency === 'THB' ? mmkToThb(total) : total;
+const due = currency === 'THB' ? mmkToThb(total, rate) : total;
 const bank = BANKS.find(b => b.id === currency)!;
 
 const toPay = () => {
@@ -119,7 +121,7 @@ return (
 </p>
 <div className="flex items-baseline gap-2 mb-5">
 <span className="font-display text-2xl font-bold text-[rgb(var(--gold))]">{fmtMMK(product.price_mmk)}</span>
-<span className="text-xs text-[rgb(var(--muted))]">≈ {fmt(mmkToThb(product.price_mmk), 'THB')}</span>
+<span className="text-xs text-[rgb(var(--muted))]">≈ {fmt(mmkToThb(product.price_mmk, rate), 'THB')}</span>
 </div>
 {product.description && (
 <p className="text-sm text-[rgb(var(--muted-hover))] leading-relaxed whitespace-pre-line mb-6">{product.description}</p>

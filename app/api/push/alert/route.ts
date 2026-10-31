@@ -49,16 +49,17 @@ try {
 if (event === 'premium_request') {
 const { data: r } = await db
 .from('premium_requests')
-.select('user_id, plan, status, currency, created_at')
+.select('user_id, plan, status, currency, created_at, amount_paid, promo')
 .eq('id', id)
 .single();
 if (!r || r.user_id !== me || r.status !== 'pending' || !recent(r.created_at)) return Response.json({ sent: 0 });
 const { data: p } = await db.from('profiles').select('username').eq('id', me).single();
 const plan = PLANS[r.plan] ?? PLANS['1month'];
 const cur = (r.currency as Currency) ?? 'MMK';
+const amount = Number(r.amount_paid ?? 0);
 const sent = await pushUser(ADMIN_USER_ID, {
 title: '💳 New Premium payment',
-body: `${p?.username ?? 'Someone'} · ${plan.label} · ${fmt(cur === 'THB' ? plan.thb : plan.mmk, cur)}. Check your ${cur === 'THB' ? 'Thai' : 'Myanmar'} bank, then approve.`,
+body: `${p?.username ?? 'Someone'} · ${plan.label} · ${fmt(amount, cur)}${r.promo === 'trial_offer' ? ' (trial offer)' : ''}. Check your ${cur === 'THB' ? 'Thai' : 'Myanmar'} bank, then approve.`,
 url: '/admin',
 });
 return Response.json({ sent });

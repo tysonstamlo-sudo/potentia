@@ -22,6 +22,8 @@ TOP_TIER_MIN_SCANS,
 type FaceAnalysis,
 type GroupKey,
 } from '../../lib/faceAnalysis';
+import MorphCard from './MorphCard';
+import SideProfileScan from './SideProfileScan';
 import {
 Camera,
 Upload,
@@ -43,6 +45,9 @@ ScanFace,
 type FaceScanProps = {
 isPremium: boolean;
 onGoPremium: () => void;
+/** paid Premium (not the free trial): unlocks the morph */
+canMorph?: boolean;
+onTrial?: boolean;
 };
 
 const cardStyle: React.CSSProperties = {
@@ -91,7 +96,8 @@ eye: { n: 2, title: 'Eye close-up', how: 'Hold the phone about 15 cm away. One e
 nose: { n: 3, title: 'Nose close-up', how: 'Fill the box with your nose. Good light, no flash, no filter.' },
 };
 
-export default function FaceScan({ isPremium, onGoPremium }: FaceScanProps) {
+export default function FaceScan({ isPremium, onGoPremium, canMorph = false, onTrial = false }: FaceScanProps) {
+const [showSide, setShowSide] = useState(false);
 const { t } = useLang();
 // translate the auto-built progress tags, e.g. "Jaw up 1.0" / "Eye spacing improved"
 const tTag = (w: string) => {
@@ -499,6 +505,13 @@ color: isPremium ? 'rgb(var(--gold))' : 'rgb(var(--muted))',
 </button>
 </div>
 )}
+<button
+onClick={() => setShowSide(true)}
+className="mt-6 flex items-center gap-2 text-[12px] font-medium rounded-full px-4 py-2"
+style={{ background: 'rgb(var(--gold) / 0.1)', color: 'rgb(var(--gold))', border: '1px solid rgb(var(--gold) / 0.3)' }}
+>
+{!isPremium && <Crown className="w-3.5 h-3.5" />} {t('Side profile scan')} →
+</button>
 </div>
 )}
 
@@ -748,6 +761,23 @@ n: TOP_TIER_MIN_SCANS - scanCount,
 {t(verdict(shownOverall))}
 </p>
 </div>
+
+{/* Your best version (AI morph). Paid Premium only; everyone else sees a blurred teaser. */}
+{isCameraScan && (
+<MorphCard photo={shots.front ?? result.croppedImage ?? null} gender={gender} canMorph={canMorph} onTrial={onTrial} onGoPremium={onGoPremium} />
+)}
+
+<button
+onClick={() => setShowSide(true)}
+className="w-full rounded-2xl p-5 flex items-center justify-between gap-3 text-left"
+style={cardStyle}
+>
+<span>
+<span className="block text-sm font-semibold text-[rgb(var(--gold))]">{t('Now scan your side profile')}</span>
+<span className="block text-[11px] text-[rgb(var(--muted))] mt-0.5">{t('Jawline, chin, neck, nose and posture from one side photo.')}</span>
+</span>
+{!isPremium ? <Crown className="w-5 h-5 text-[rgb(var(--gold))] flex-shrink-0" /> : <span className="text-[rgb(var(--gold))]">→</span>}
+</button>
 
 {/* Progress feedback: compares with your earlier scans (Premium only) */}
 {showFull && feedback && (
@@ -1193,6 +1223,7 @@ style={{ borderTop: '1px solid rgb(var(--muted) / 0.15)', opacity: 0.8 }}
 </div>
 </div>
 )}
+{showSide && <SideProfileScan isPremium={isPremium} onGoPremium={onGoPremium} onClose={() => setShowSide(false)} />}
 </div>
 );
 }

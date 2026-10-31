@@ -8,6 +8,8 @@ import { supabase } from '../../lib/supabase';
 import { ThemeStyles, ThemeToggle, MarbleBackground } from '../../lib/theme';
 import { Check, X, Crown, ShieldAlert, Wallet, Store, RefreshCw, Loader2, Users, Bell, Send, ShoppingBag, Phone, MapPin, Eye, EyeOff } from 'lucide-react';
 import { PLANS, COMMISSION, fmt, fmtMMK, toMMK, planPrice, type Currency } from '../../lib/payments';
+import { getThbRate, resetThbRate } from '../../lib/fx';
+import { SURVEY_REASONS } from '../components/TrialSurvey';
 import { notify } from '../../lib/notify';
 
 const ADMIN_USER_ID = '0ae23fa9-66ba-446d-8f3d-a06d49ee8760';
@@ -30,6 +32,9 @@ created_at: string;
 approved_at: string | null;
 amount_mmk: number | null;
 currency: Currency | null;
+amount_paid: number | null;
+fx_rate: number | null;
+promo: string | null;
 proof_path: string | null;
 profiles: { username: string | null; email: string | null } | null;
 };
@@ -80,7 +85,9 @@ status: string;
 
 const mmk = fmtMMK;
 const curOf = (r: PremiumRequest): Currency => (r.currency === 'THB' ? 'THB' : 'MMK');
-const priceOf = (r: PremiumRequest) => r.amount_mmk ?? toMMK(planPrice(r.plan, curOf(r)), curOf(r));
+const priceOf = (r: PremiumRequest) => r.amount_mmk ?? toMMK(planPrice(r.plan, curOf(r)), curOf(r), r.fx_rate ?? undefined);
+/** What the user was asked to pay (worked out by the server when they sent the request). */
+const dueOf = (r: PremiumRequest) => (r.amount_paid != null ? Number(r.amount_paid) : planPrice(r.plan, curOf(r)));
 const SOLD = ['paid', 'shipped', 'completed'];
 const orderPaidAt = (o: Order) => new Date(o.paid_at ?? o.created_at);
 const paidAt = (r: PremiumRequest) => new Date(r.approved_at ?? r.created_at);
@@ -116,6 +123,10 @@ const [products, setProducts] = useState<AdminProduct[]>([]);
 const [proofUrls, setProofUrls] = useState<Record<string, string>>({});
 const [viewing, setViewing] = useState<string | null>(null);
 const [trials, setTrials] = useState<TrialRow[]>([]);
+const [blockedTrials, setBlockedTrials] = useState(0);
+const [feedback, setFeedback] = useState<{ reason: string; note: string | null; created_at: string }[]>([]);
+const [rate, setRate] = useState('');
+const [savingRate, setSavingRate] = useState(false);
 const [nTitle, setNTitle] = useState('');
 const [nBody, setNBody] = useState('');
 const [sending, setSending] = useState(false);
@@ -131,12 +142,12 @@ setLoading(true);
 const [p, a, s, o, pr] = await Promise.all([
 supabase
 .from('premium_requests')
-.select('id, user_id, plan, status, created_at, approved_at, amount_mmk, currency, proof_path, profiles(username, email)')
+.select('id, user_id, plan, status, created_at, approved_at, amount_mmk, amount_paid, fx_rate, promo, currency, proof_path, profiles(username, email)')
 .eq('status', 'pending')
 .order('created_at', { ascending: true }),
 supabase
 .from('premium_requests')
-.select('id, user_id, plan, status, created_at, approved_at, amount_mmk, currency, proof_path, profiles(username, email)')
+.select('id, user_id, plan, status, created_at, approved_at, amount_mmk, amount_paid, fx_rate, promo, currency, proof_path, profiles(username, email)')
 .eq('status', 'approved')
 .order('created_at', { ascending: false }),
 supabase
@@ -180,6 +191,15 @@ const { data: tr, error: trErr } = await supabase
 .not('trial_used_at', 'is', null);
 if (trErr) console.error('trials', trErr);
 setTrials((tr as unknown as TrialRow[]) ?? []);
+
+const [{ count: blocked }, { data: fb }, r] = await Promise.all([
+supabase.from('trial_claims').select('id', { count: 'exact', head: true }).eq('blocked', true),
+supabase.from('trial_feedback').select('reason, note, created_at').order('created_at', { ascending: false }).limit(200),
+getThbRate(),
+]);
+setBlockedTrials(blocked ?? 0);
+setFeedback((fb as { reason: string; note: string | null; created_at: string }[]) ?? []);
+setRate(String(r));
 if (p.error) console.error('pending', p.error);
 if (a.error) console.error('approved', a.error);
 if (s.error) console.error('sellers', s.error);
@@ -215,7 +235,6 @@ setMsg('');
 try {
 const plan = PLANS[req.plan] ?? PLANS['1month'];
 const cur = curOf(req);
-const paid = planPrice(req.plan, cur);
 // Renewals add on top of any time still left
 const { data: prof } = await supabase
 .from('profiles')
@@ -235,7 +254,12 @@ if (e1) throw e1;
 
 const { error: e2 } = await supabase
 .from('premium_requests')
-.update({ status: 'approved', approved_at: new Date().toISOString(), amount_mmk: toMMK(paid, cur), amount_paid: paid })
+.update({
+status: 'approved',
+approved_at: new Date().toISOString(),
+amount_mmk: req.amount_mmk ?? toMMK(dueOf(req), cur, req.fx_rate ?? undefined),
+amount_paid: dueOf(req),
+})
 .eq('id', req.id);
 if (e2) throw e2;
 
@@ -301,6 +325,19 @@ setBusyId(p.id);
 await supabase.from('products').update({ hidden_by_admin: !p.hidden_by_admin }).eq('id', p.id);
 setBusyId(null);
 await loadAll();
+};
+
+const saveRate = async () => {
+const v = Number(rate);
+if (!(v > 10 && v < 10000)) return setMsg('Enter a real rate, e.g. 142.2');
+setSavingRate(true);
+const { error } = await supabase
+.from('app_settings')
+.upsert({ key: 'thb_rate', value: v, updated_at: new Date().toISOString() });
+setSavingRate(false);
+if (error) return setMsg('Could not save the rate. Did you run nov1.sql?');
+resetThbRate(v);
+setMsg(`Saved. 1 THB = ${v} MMK. Thai prices updated for everyone.`);
 };
 
 const sendBroadcast = async () => {
@@ -502,7 +539,10 @@ return (
 </div>
 <div className="text-right flex-shrink-0">
 <p className="text-sm text-[rgb(var(--muted-hover))]">{plan?.label ?? req.plan}</p>
-<p className="font-display text-lg font-bold text-[rgb(var(--gold))]">{fmt(planPrice(req.plan, cur), cur)}</p>
+{req.promo === 'trial_offer' && (
+<p className="text-[10px] font-bold text-[rgb(var(--gold))] uppercase tracking-wide">🎁 Trial offer</p>
+)}
+<p className="font-display text-lg font-bold text-[rgb(var(--gold))]">{fmt(dueOf(req), cur)}</p>
 <p className="text-[10px] text-[rgb(var(--muted))]">{cur === 'THB' ? '🇹🇭 Thai bank' : '🇲🇲 Myanmar bank'}</p>
 </div>
 </div>
@@ -536,6 +576,35 @@ Approve
 {/* ---------- revenue ---------- */}
 {tab === 'revenue' && (
 <div className="space-y-4">
+<div className="rounded-2xl p-5" style={cardStyle}>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-2">Thai baht rate</span>
+<div className="flex items-center gap-2">
+<span className="text-sm text-[rgb(var(--muted-hover))] whitespace-nowrap">1 THB =</span>
+<input
+value={rate}
+onChange={e => setRate(e.target.value.replace(/[^0-9.]/g, ''))}
+inputMode="decimal"
+className="flex-1 min-w-0 rounded-xl px-3 py-2.5 bg-transparent text-[rgb(var(--gold))] font-display text-lg focus:outline-none"
+style={{ border: '1px solid rgb(var(--muted) / 0.25)', fontSize: 18 }}
+/>
+<span className="text-sm text-[rgb(var(--muted-hover))]">MMK</span>
+<button
+onClick={saveRate}
+disabled={savingRate}
+className="text-sm font-semibold rounded-xl px-4 py-2.5 disabled:opacity-50"
+style={primaryBtn}
+>
+{savingRate ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+</button>
+</div>
+{Number(rate) > 10 && (
+<p className="text-[11px] text-[rgb(var(--muted))] mt-2">
+Thai prices now: 1 Month {planPrice('1month', 'THB', Number(rate))} · 6 Months {planPrice('6months', 'THB', Number(rate))} · 1 Year{' '}
+{planPrice('1year', 'THB', Number(rate))} · Trial offer {planPrice('1month', 'THB', Number(rate), true)} THB
+</p>
+)}
+</div>
+
 <div className="rounded-2xl p-5" style={accentStyle}>
 <span className="text-[10px] tracking-[0.2em] text-[rgb(var(--gold))] uppercase">All time</span>
 <div className="font-display text-3xl font-bold text-[rgb(var(--gold))] mt-1">{mmk(totalAll)}</div>
@@ -604,6 +673,43 @@ style={{ borderBottom: '1px solid rgb(var(--muted) / 0.08)' }}
 <span className="text-[10px] text-[rgb(var(--muted))] uppercase">Then paid</span>
 </div>
 </div>
+<p className="text-[11px] text-[rgb(var(--muted))] mt-3">
+🛡️ Blocked repeat trials (same phone): <span className="text-[rgb(var(--gold))] font-semibold">{blockedTrials}</span>
+</p>
+</div>
+
+<div className="rounded-2xl p-5" style={cardStyle}>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-3">
+Why trials didn&apos;t buy ({feedback.length} answers)
+</span>
+{feedback.length === 0 ? (
+<p className="text-sm text-[rgb(var(--muted))]">No answers yet.</p>
+) : (
+<>
+{SURVEY_REASONS.map(o => {
+const n = feedback.filter(f => f.reason === o.id).length;
+const pct = Math.round((n / feedback.length) * 100);
+return (
+<div key={o.id} className="mb-2.5">
+<div className="flex justify-between text-xs mb-1">
+<span className="text-[rgb(var(--muted-hover))]">
+{o.emoji} {o.label}
+</span>
+<span className="text-[rgb(var(--gold))] font-semibold">
+{n} · {pct}%
+</span>
+</div>
+<div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--muted) / 0.15)' }}>
+<div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'rgb(var(--gold))' }} />
+</div>
+</div>
+);
+})}
+{feedback.filter(f => f.note).slice(0, 8).map(f => (
+<p key={f.created_at} className="text-[11px] text-[rgb(var(--muted-hover))] italic mt-2">“{f.note}”</p>
+))}
+</>
+)}
 </div>
 
 <div className="rounded-2xl p-5" style={cardStyle}>
@@ -633,7 +739,7 @@ style={{ borderBottom: '1px solid rgb(var(--muted) / 0.08)' }}
 <p className="text-[rgb(var(--muted-hover))] truncate">{r.profiles?.username || 'Unknown'}</p>
 <p className="text-[11px] text-[rgb(var(--muted))]">
 {PLANS[r.plan]?.label ?? r.plan} · {paidAt(r).toLocaleDateString()}
-{curOf(r) === 'THB' ? ` · ${fmt(planPrice(r.plan, 'THB'), 'THB')}` : ''}
+{curOf(r) === 'THB' ? ` · ${fmt(dueOf(r), 'THB')}` : ''}{r.promo === 'trial_offer' ? ' · 🎁 offer' : ''}
 </p>
 </div>
 <span className="font-display text-[rgb(var(--gold))] flex-shrink-0">{mmk(priceOf(r))}</span>

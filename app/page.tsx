@@ -548,6 +548,8 @@ return <span className="opacity-70 normal-case tracking-normal">· {t('{n}d left
 )}
 </div>
 
+{/* Welcome card: only on Home and Progress */}
+{(activeTab === 'dashboard' || activeTab === 'progress') && (
 <div
 className="flex flex-col md:flex-row items-start md:items-center justify-between gap-10 mb-10 p-6 sm:p-8 rounded-2xl w-full"
 style={cardStyle}
@@ -613,6 +615,7 @@ className="font-body flex items-center gap-1.5 text-[11px] text-[rgb(var(--muted
 </button>
 </div>
 </div>
+)}
 
 {/* Top tabs stay for desktop; BottomNav takes over on phone (rendered below, fixed) */}
 <div className="hidden md:flex gap-2 mb-10 p-1.5 rounded-xl" style={cardStyle}>

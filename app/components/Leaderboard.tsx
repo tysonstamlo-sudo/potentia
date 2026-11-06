@@ -96,7 +96,7 @@ const { data, error } = await supabase
 .select('username, total_xp, level, current_streak')
 .order('level', { ascending: false })
 .order('total_xp', { ascending: false })
-.limit(50);
+.limit(2000);
 if (error) console.error('leaderboard', error);
 setLevels((data as LevelRow[]) ?? []);
 }

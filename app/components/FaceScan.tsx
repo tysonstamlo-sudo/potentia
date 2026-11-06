@@ -152,6 +152,7 @@ const [cameraActive, setCameraActive] = useState(false);
 // AI judge (null = not used: no key yet, offline, or limit reached) + raw scores for the admin test view
 const [aiRating, setAiRating] = useState<AiRating | null>(null);
 const [geoOverall, setGeoOverall] = useState<number | null>(null);
+const [aiNote, setAiNote] = useState('');
 const [uid, setUid] = useState<string | null>(null);
 
 const fileInputRef = useRef<HTMLInputElement>(null);
@@ -336,13 +337,19 @@ frontBurst.length > 1 ? await analyzeFaceBurst(frontBurst, gender) : await analy
 
 // AI judge: one cropped frame. Sees face fat, jaw definition, eye area, skin.
 let ai: AiRating | null = null;
+let note = '';
 try {
 const img = await toAiImage(geoAnalysis.croppedImage ?? sh.front, 640, 0.85);
 const r = await callAi<AiRating>('/api/ai/rate', { image: img, gender });
-if (r.ok) ai = r.data;
-} catch {
+if (r.ok) {
+ai = r.data;
+if (!r.data.usable) note = `not usable: ${r.data.reason ?? (r.data.minor ? 'minor' : '?')}`;
+} else note = `error: ${r.code}`;
+} catch (e) {
+note = `crash: ${(e as Error).message}`;
 /* AI is optional: fall back to the on-device score */
 }
+setAiNote(note);
 if (ai?.minor) {
 setErrorMsg(
 L(
@@ -893,7 +900,7 @@ return (
 <div className="rounded-2xl p-4 font-mono text-[11px] leading-relaxed" style={{ ...cardStyle, border: '1px dashed rgb(var(--gold) / 0.5)' }}>
 <p className="text-[rgb(var(--gold))] font-semibold mb-1">ADMIN TEST VIEW</p>
 <p className="text-[rgb(var(--muted-hover))]">
-final {result.overall.toFixed(1)} · shown {shownOverall.toFixed(1)} · geo {geoOverall?.toFixed(1) ?? '-'} · ai {aiRating?.score?.toFixed(1) ?? 'off'} · bloat {aiRating?.bloat ?? '-'} · scans {scanCount} · {isCameraScan ? 'camera' : 'upload'}
+final {result.overall.toFixed(1)} · shown {shownOverall.toFixed(1)} · geo {geoOverall?.toFixed(1) ?? '-'} · ai {aiRating?.score?.toFixed(1) ?? `off (${aiNote || '?'})`} · bloat {aiRating?.bloat ?? '-'} · scans {scanCount} · {isCameraScan ? 'camera' : 'upload'}
 </p>
 {aiRating?.sub && (
 <p className="text-[rgb(var(--muted-hover))]">

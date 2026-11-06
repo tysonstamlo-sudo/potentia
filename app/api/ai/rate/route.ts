@@ -111,6 +111,7 @@ if (left < 0) return Response.json({ code: 'limit', perDay: PER_DAY }, { status:
 try {
 const r = await visionJSON<Raw>(image, prompt(gender));
 if (!r.usable) {
+console.warn('rate not usable', r.reason);
 await refundAiCredit(user.id, 'rate');
 return Response.json({ usable: false, reason: r.reason ?? 'Use a clear front photo' } satisfies AiRating);
 }

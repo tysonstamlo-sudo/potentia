@@ -89,7 +89,8 @@ canMorph: boolean; // paid Premium
 onTrial: boolean;
 onGoPremium: () => void;
 }) {
-const { t } = useLang();
+const { t, lang } = useLang();
+const L = (en: string, my: string) => (lang === 'my' ? my : en);
 const [state, setState] = useState<'idle' | 'consent' | 'loading' | 'done' | 'error'>('idle');
 const [result, setResult] = useState<string | null>(null);
 const [before, setBefore] = useState<string | null>(null);
@@ -182,7 +183,7 @@ return (
 {t('See yourself at your peak')}
 </p>
 <p className="text-xs text-white/85 mt-1.5 max-w-[240px]" style={{ textShadow: '0 1px 8px rgb(0 0 0 / 0.6)' }}>
-{t('A realistic preview of you after fat loss, clear skin and better grooming.')}
+{L('See yourself fully looksmaxxed: lean, sharp jaw, clear skin, styled hair.', 'အပြည့်အဝ looksmax လုပ်ထားတဲ့ သင့်ကိုယ်သင် ကြည့်ပါ: ပိန်သွယ်၊ မေးရိုးထင်ရှား၊ အသားအရေကြည်၊ ဆံပင်လှ။')}
 </p>
 </div>
 </div>
@@ -238,7 +239,7 @@ return (
 <div className="rounded-2xl p-4" style={{ background: 'rgb(var(--muted) / 0.08)' }}>
 <p className="text-sm text-[rgb(var(--gold))] font-semibold mb-2">{t('Before we start')}</p>
 <p className="text-xs text-[rgb(var(--muted-hover))] leading-relaxed mb-4">
-{t('To make your best version, your scan photo is sent to Google’s AI. Potentia does not store it. The result is an AI preview of what is realistically possible, not a promise.')}
+{L('To make your best version, your scan photo is sent to Google’s AI. Potentia does not store it. The result is an AI picture of your peak potential, not a promise of results.', 'သင့်အကောင်းဆုံးပုံစံ ဖန်တီးဖို့ စကင်န်ပုံကို Google AI ဆီ ပို့ပါတယ်။ Potentia က မသိမ်းပါ။ ရလဒ်က သင့်အမြင့်ဆုံး အလားအလာကို ပြတဲ့ AI ပုံသာဖြစ်ပြီး ရလဒ်အာမခံချက် မဟုတ်ပါ။')}
 </p>
 <button
 onClick={() => {
@@ -265,7 +266,7 @@ style={primaryBtn}
 <img src={photo} alt="" className="absolute inset-0 w-full h-full object-cover" />
 <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, transparent 50%, rgb(0 0 0 / 0.7))' }} />
 <p className="absolute bottom-4 inset-x-4 text-center text-white text-sm font-medium">
-{t('See what you could look like after fat loss, clear skin and better grooming.')}
+{L('See what you could look like at your absolute peak.', 'သင့်အမြင့်ဆုံး အခြေအနေမှာ ဘယ်လိုပုံပေါက်မလဲ ကြည့်ပါ။')}
 </p>
 </div>
 {error && <p className="text-xs text-[rgb(var(--err))] mb-3">{error}</p>}
@@ -275,7 +276,7 @@ style={primaryBtn}
 </>
 )}
 <p className="text-[10px] text-[rgb(var(--muted))] text-center mt-3 leading-relaxed">
-{t('AI preview of a realistic glow-up (fat loss, skin, grooming). Bone structure is not changed. Not a guarantee.')}
+{L('AI picture of your max potential. Some changes take years of work or can’t be reached naturally. Not a guarantee.', 'သင့်အမြင့်ဆုံး အလားအလာကို ပြတဲ့ AI ပုံ။ တချို့အပြောင်းအလဲတွေက နှစ်ချီကြာနိုင်ပြီး သဘာဝအတိုင်း မရောက်နိုင်တာလည်း ရှိပါတယ်။ အာမခံချက် မဟုတ်ပါ။')}
 </p>
 </div>
 );

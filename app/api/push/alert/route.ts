@@ -1,6 +1,7 @@
 // app/api/push/alert/route.ts — sends the right notification when something happens:
-// new premium payment / new order -> you (admin), order confirmed -> seller + buyer,
-// order shipped -> buyer, seller approved -> seller.
+// new premium payment -> you (admin) · new order -> the seller (or you, for old orders) ·
+// seller confirms / refuses payment -> buyer · order shipped -> buyer · seller approved -> seller ·
+// seller paid their monthly bill -> you.
 // The server checks the database itself, so nobody can use this to spam people.
 
 import { adminDb, sendTo, ADMIN_USER_ID, type Sub, type Message } from '../../../../lib/pushServer';
@@ -31,6 +32,8 @@ status: string;
 created_at: string;
 paid_at: string | null;
 shipped_at: string | null;
+pay_to: string | null;
+cancel_reason: string | null;
 };
 
 export async function POST(req: Request) {
@@ -77,10 +80,21 @@ url: '/?tab=marketplace',
 return Response.json({ sent });
 }
 
+if (event === 'bill_paid') {
+const { data: b } = await db.from('seller_bills').select('seller_id, shop_name, status, commission_mmk, month').eq('id', id).single();
+if (!b || b.seller_id !== me || b.status !== 'pending') return Response.json({ sent: 0 });
+const sent = await pushUser(ADMIN_USER_ID, {
+title: '🧾 Seller paid their bill',
+body: `${b.shop_name || 'A seller'} sent ${Number(b.commission_mmk).toLocaleString('en-US')} MMK for ${String(b.month).slice(0, 7)}. Check your bank, then approve in Sellers.`,
+url: '/admin',
+});
+return Response.json({ sent });
+}
+
 // order events
 const { data: o } = await db
 .from('orders')
-.select('id, buyer_id, seller_id, product_name, qty, total_mmk, currency, amount_due, status, created_at, paid_at, shipped_at')
+.select('id, buyer_id, seller_id, product_name, qty, total_mmk, currency, amount_due, status, created_at, paid_at, shipped_at, pay_to, cancel_reason')
 .eq('id', id)
 .single();
 const order = o as Order | null;
@@ -88,6 +102,14 @@ if (!order) return Response.json({ sent: 0 });
 
 if (event === 'order_placed') {
 if (order.buyer_id !== me || order.status !== 'pending' || !recent(order.created_at)) return Response.json({ sent: 0 });
+if (order.pay_to === 'seller') {
+const sent = await pushUser(order.seller_id, {
+title: '🛍️ New order! Check the payment',
+body: `${order.qty} × ${order.product_name} · ${fmt(order.amount_due, order.currency)}. Check your bank, then tap "Payment received" in your shop.\nအော်ဒါအသစ် ရပါပြီ။ ဘဏ်မှာ ငွေစစ်ပြီး Shop ထဲမှာ အတည်ပြုပါ။`,
+url: '/?tab=marketplace',
+});
+return Response.json({ sent });
+}
 const sent = await pushUser(ADMIN_USER_ID, {
 title: '🛍️ New shop order',
 body: `${order.qty} × ${order.product_name} · ${fmt(order.amount_due, order.currency)}. Check the payment, then confirm.`,
@@ -109,6 +131,26 @@ body: `Your order for ${order.product_name} is confirmed. The seller will ship i
 url: '/?tab=marketplace',
 });
 return Response.json({ sent: a + b });
+}
+
+if (event === 'order_confirmed') {
+if (order.seller_id !== me || order.status !== 'paid') return Response.json({ sent: 0 });
+const sent = await pushUser(order.buyer_id, {
+title: 'Payment confirmed ✅',
+body: `The seller got your payment for ${order.product_name} and will ship it soon.\nရောင်းသူ ငွေလက်ခံရရှိပါပြီ။ မကြာခင် ပို့ပေးပါမယ်။`,
+url: '/?tab=marketplace',
+});
+return Response.json({ sent });
+}
+
+if (event === 'order_rejected') {
+if (order.seller_id !== me || order.status !== 'cancelled') return Response.json({ sent: 0 });
+const sent = await pushUser(order.buyer_id, {
+title: 'Order not accepted',
+body: `${order.product_name}: ${order.cancel_reason ?? 'Payment not received'}. If you did pay, tap Report in My orders.\nငွေချေခဲ့ပြီးရင် My orders ထဲမှာ Report နှိပ်ပါ။`,
+url: '/?tab=marketplace',
+});
+return Response.json({ sent });
 }
 
 if (event === 'order_shipped') {

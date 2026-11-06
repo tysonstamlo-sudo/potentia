@@ -8,13 +8,13 @@ const SECTIONS: Section[] = [
 {
 title: 'Agreement',
 body: [
-'By creating an account or using Potentia you agree to these terms. If you do not agree, please do not use the app. You must be 16 or older.',
+'By creating an account or using Potentia you agree to these terms. If you do not agree, please do not use the app. You must be 18 or older.',
 ],
 },
 {
 title: 'What Potentia is, and is not',
 body: [
-'Potentia gives you estimates based on facial landmark ratios and simple skin image analysis, plus a daily habit program. It is for general self-improvement and entertainment.',
+'Potentia gives you estimates based on facial landmark ratios, an AI judge (Google Gemini) that rates one photo of your face, and simple skin image analysis, plus a daily habit program. It is for general self-improvement and entertainment.',
 [
 'Scores are estimates, not facts about your worth or attractiveness. Lighting, camera angle and expression change them.',
 'Potentia is not medical, dermatological, dental or psychological advice and does not diagnose anything.',
@@ -66,10 +66,11 @@ title: 'Marketplace and sellers',
 body: [
 'Products shown in the Shop may be sold by third parties. Sellers must apply and be approved, and must only sell real, safe and legal products. We are not responsible for products sold by third-party sellers, but you can report a problem to us.',
 [
-'Buyers pay Potentia directly, from a Myanmar or Thai bank. Sellers ship orders after Potentia confirms the payment. If a paid order is never shipped, we refund the buyer.',
-'Potentia keeps a 20% commission on every sale. Sellers receive the remaining 80%, paid out once a month for the previous month’s confirmed orders.',
-'Sellers may not ask buyers to pay them directly outside the app. Doing so can lead to removal from the Shop.',
-'If an order is refunded, the commission on that order is also cancelled.',
+'Buyers pay the seller directly, using the payment QR and bank details the seller added in the app, and upload a screenshot of the payment. The seller confirms the payment and ships the order.',
+'Potentia records every order. If a seller refuses a payment you made, or an order is not shipped, report it in My orders and we will look into it. Potentia does not hold buyers’ money, so refunds are made by the seller; sellers who do not resolve valid reports are removed from the Shop.',
+'Sellers pay Potentia a 20% commission on every order they confirm. On the 1st of each month Potentia sends a bill for the previous month, due by the 7th. If a bill is still unpaid after the 7th, the seller’s products are hidden until it is paid.',
+'Sellers must take every order for products listed on Potentia through the app, and may not move buyers to outside deals to avoid the commission. Doing so, or marking real payments as not received, leads to removal from the Shop.',
+'If an order is cancelled before the bill is made, there is no commission on it.',
 ],
 ],
 },
@@ -105,7 +106,8 @@ const SUMMARY_MY = `• Potentia ရဲ့ ရမှတ်တွေက ခန့
 • သက်တမ်းကုန်ရင် အလိုအလျောက် ပိတ်သွားပြီး ကိုယ်တိုင် ပြန်ဝယ်ရပါမယ်။ စောစော သက်တမ်းတိုးရင် ကျန်တဲ့ရက်ပေါ် ပေါင်းထည့်ပါမယ်။
 • ငွေပေးပြီး ၄၈ နာရီအတွင်း မဖွင့်ပေးနိုင်ရင် ငွေပြန်အမ်းပါမယ်။ ဖွင့်ပြီးသွားရင် ငွေပြန်မအမ်းပါ။
 • အခြားသူတွေကို အနိုင်ကျင့်ဖို့ ဒါမှမဟုတ် ခွင့်ပြုချက်မရှိဘဲ သူတို့ဓာတ်ပုံ စကင်န်ဖို့ မသုံးရပါ။
-• အသက် ၁၆ နှစ်နှင့်အထက်သာ သုံးရပါမယ်။`;
+• အသက် ၁၈ နှစ်နှင့်အထက်သာ သုံးရပါမယ်။
+• Shop: ရောင်းသူကို တိုက်ရိုက် ငွေချေပါ။ ပြဿနာရှိရင် My orders ထဲက Report ကို နှိပ်ပါ။ ရောင်းသူတွေက လစဉ် အရောင်းရဲ့ 20% ကို Potentia ကို ၇ ရက်နေ့မတိုင်ခင် ပေးရပါမယ်။`;
 
 export default function TermsPage() {
 return <LegalPage title="Terms of Use" summaryMy={SUMMARY_MY} sections={SECTIONS} />;

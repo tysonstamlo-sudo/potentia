@@ -2,7 +2,11 @@
 * Potentia face analysis — real landmark-ratio engine.
 *
 * Runs fully in the browser with MediaPipe FaceLandmarker (478 landmarks).
-* Photos never leave the device.
+* This file never sends photos anywhere. (The separate AI judge in /api/ai/rate
+* gets one cropped frame and is blended in by blendScores() below.)
+*
+* 5 Nov 2026: added face-fat / bloat measures, and strong features (wide male jaw,
+* longer lean face) are no longer punished — they now sit inside an "ideal band".
 *
 * HONESTY NOTES (also shown to the user in the UI):
 * - Ratios are a weak proxy for attractiveness. Skin, hair, grooming,
@@ -27,6 +31,7 @@ unit: 'ratio' | 'deg' | 'pct';
 score: number; // 0..10
 weight: number;
 note: string;
+band?: [number, number]; // when set, anything inside this range counts as ideal
 };
 
 export type OverlayPoint = { x: number; y: number }; // normalised 0..1 in the source image
@@ -104,6 +109,11 @@ lGonion: 397,
 // brows
 rBrow: 105,
 lBrow: 334,
+// face outline between cheekbone and jaw (used for face fat / bloat)
+rCheekLow: 132, // about nose-base height
+lCheekLow: 361,
+rMouthLine: 58, // about mouth height
+lMouthLine: 288,
 };
 
 /* ---------- helpers ---------- */
@@ -127,6 +137,8 @@ note: string; // what "off" means
 compute: (p: Pts) => number;
 // Optional custom deviation (e.g. a band of acceptable values instead of one ideal)
 dev?: (value: number, ideal: number) => number;
+// Optional ideal band: inside it = perfect score, outside = penalised by distance to the band
+band?: (g: Gender) => [number, number];
 };
 
 type Pts = {
@@ -215,10 +227,12 @@ key: 'face_hw',
 label: 'Face height : width',
 group: 'proportions',
 unit: 'ratio',
-ideal: (g) => (g === 'male' ? 1.27 : 1.33),
-tol: () => 0.12,
+ideal: (g) => (g === 'male' ? 1.3 : 1.35),
+tol: () => 0.1,
 weight: 1.2,
-note: 'Face is notably longer or shorter than typical ideal proportions.',
+note: 'Face is notably shorter/rounder (or much longer) than ideal proportions.',
+// a longer, leaner face is fine; a short, round face is penalised
+band: (g) => (g === 'male' ? [1.22, 1.4] : [1.28, 1.44]),
 compute: (p) => p.faceH / p.faceW,
 },
 {
@@ -311,11 +325,50 @@ key: 'jaw_cheek',
 label: 'Jaw : cheekbone width',
 group: 'jaw',
 unit: 'ratio',
-ideal: (g) => (g === 'male' ? 0.8 : 0.76),
+ideal: (g) => (g === 'male' ? 0.83 : 0.76),
 tol: () => 0.045,
 weight: 1.4,
-note: 'Jaw is narrow (or very wide) compared to the cheekbones.',
+note: 'Jaw is narrow compared to the cheekbones.',
+// men: a wide, strong jaw is GOOD (no longer punished). Women: a softer jaw band.
+band: (g) => (g === 'male' ? [0.78, 0.9] : [0.72, 0.8]),
 compute: (p) => dist(p.g(I.rGonion), p.g(I.lGonion)) / p.faceW,
+},
+{
+key: 'cheek_fullness',
+label: 'Lower cheek fullness',
+group: 'jaw',
+unit: 'ratio',
+ideal: (g) => (g === 'male' ? 0.86 : 0.84),
+tol: () => 0.035,
+weight: 1.1,
+note: 'Lower cheeks are full: the face stays wide below the cheekbones (often face fat / bloating).',
+// only "too full" is penalised. Hollow, lean cheeks score full marks.
+band: (g) => (g === 'male' ? [0, 0.9] : [0, 0.88]),
+compute: (p) => dist(p.g(I.rMouthLine), p.g(I.lMouthLine)) / p.faceW,
+},
+{
+key: 'face_to_eyes',
+label: 'Face width : eye line',
+group: 'jaw',
+unit: 'ratio',
+ideal: () => 1.6,
+tol: () => 0.07,
+weight: 0.9,
+note: 'Face is wide for the eye line (face fat widens the face, the eyes stay the same).',
+band: () => [0, 1.68],
+compute: (p) => p.faceW / dist(p.g(I.rOuter), p.g(I.lOuter)),
+},
+{
+key: 'jaw_taper',
+label: 'Cheek-to-jaw taper',
+group: 'jaw',
+unit: 'ratio',
+ideal: () => 0.9,
+tol: () => 0.04,
+weight: 0.8,
+note: 'The outline barely narrows from cheek to jaw: a round, soft lower face.',
+band: () => [0, 0.95],
+compute: (p) => dist(p.g(I.rMouthLine), p.g(I.lMouthLine)) / dist(p.g(I.rCheekLow), p.g(I.lCheekLow)),
 },
 {
 key: 'chin_width',
@@ -387,6 +440,12 @@ const measurements: Measurement[] = METRIC_DEFS.map((d) => {
 const value = d.compute(pts);
 const ideal = d.ideal(gender);
 const tolerance = d.tol(gender);
+const band = d.band ? d.band(gender) : undefined;
+const dev = band
+? Math.max(0, band[0] - value, value - band[1])
+: d.dev
+? d.dev(value, ideal)
+: Math.abs(value - ideal);
 return {
 key: d.key,
 label: d.label,
@@ -395,9 +454,10 @@ value,
 ideal,
 tolerance,
 unit: d.unit,
-score: scoreDev(d.dev ? d.dev(value, ideal) : Math.abs(value - ideal), tolerance),
+score: scoreDev(dev, tolerance),
 weight: d.weight,
 note: d.note,
+band,
 };
 });
 
@@ -639,6 +699,10 @@ if (m.unit === 'pct') return `${m.value.toFixed(1)}%`;
 return m.value.toFixed(2);
 }
 export function formatIdeal(m: Measurement): string {
+if (m.band) {
+const [lo, hi] = m.band;
+return lo <= 0 ? `≤ ${hi.toFixed(2)}` : `${lo.toFixed(2)}–${hi.toFixed(2)}`;
+}
 if (m.unit === 'deg') return `${(m.ideal - 1).toFixed(0)}–${(m.ideal + 4).toFixed(0)}°`;
 if (m.unit === 'pct') return `≈ 0%`;
 return m.ideal.toFixed(2);
@@ -671,8 +735,9 @@ const FEMALE_TIERS: FaceTier[] = [
 { key: 'trueeve', label: 'True Eve', full: 'True Eve', min: 8.7 },
 ];
 
-/** The top tier (True Adam / True Eve) needs this many camera scans averaged, so one lucky photo can't get it. */
+/** The top 2 tiers (Chad/Stacy and True Adam/Eve) need this many camera scans averaged, so one lucky photo can't get them. */
 export const TOP_TIER_MIN_SCANS = 3;
+const LOCKED_TOP_TIERS = 2;
 
 export function faceTiers(gender: Gender) {
 return gender === 'female' ? FEMALE_TIERS : MALE_TIERS;
@@ -685,14 +750,30 @@ let i = 0;
 tiers.forEach((x, j) => {
 if (overall >= x.min) i = j;
 });
-// One great photo isn't enough for the very top: it has to hold up over several scans
-if (i === tiers.length - 1 && scanCount < TOP_TIER_MIN_SCANS) i = tiers.length - 2;
+// One great photo isn't enough for the top: it has to hold up over several scans
+const firstLocked = tiers.length - LOCKED_TOP_TIERS;
+if (i >= firstLocked && scanCount < TOP_TIER_MIN_SCANS) i = firstLocked - 1;
 return tiers[i];
 }
 
 /** True when the score is high enough for the top tier but it still needs more scans to confirm. */
 export function topTierPending(overall: number, gender: Gender, scanCount: number) {
 const tiers = faceTiers(gender);
-return overall >= tiers[tiers.length - 1].min && scanCount < TOP_TIER_MIN_SCANS;
+return overall >= tiers[tiers.length - LOCKED_TOP_TIERS].min && scanCount < TOP_TIER_MIN_SCANS;
+}
+
+/* ---------- AI judge blend ---------- */
+/** How much the on-device measurements count when the AI judge also scored the photo. */
+export const GEO_WEIGHT = 0.3;
+
+/**
+* Final score = 70% AI judge (sees face fat, jaw definition, eye area, skin)
+* + 30% on-device measurements.
+* Without an AI score, the measurements are used alone.
+*/
+export function blendScores(geo: number, ai: number | null | undefined): number {
+if (ai == null || !Number.isFinite(ai)) return geo;
+const v = GEO_WEIGHT * geo + (1 - GEO_WEIGHT) * ai;
+return Math.round(clamp(v, 1, 10) * 10) / 10;
 }
 

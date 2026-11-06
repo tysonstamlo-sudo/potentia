@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { ThemeStyles, ThemeToggle, MarbleBackground } from '../../lib/theme';
-import { Check, X, Crown, ShieldAlert, Wallet, Store, RefreshCw, Loader2, Users, Bell, Send, ShoppingBag, Phone, MapPin, Eye, EyeOff } from 'lucide-react';
+import { Check, X, Crown, ShieldAlert, Wallet, Store, RefreshCw, Loader2, Users, Bell, Send, ShoppingBag, Phone, MapPin, Eye, EyeOff, ReceiptText, Flag } from 'lucide-react';
 import { PLANS, COMMISSION, fmt, fmtMMK, toMMK, planPrice, type Currency } from '../../lib/payments';
 import { getThbRate, resetThbRate } from '../../lib/fx';
 import { SURVEY_REASONS } from '../components/TrialSurvey';
@@ -59,7 +59,30 @@ payout_status: 'unpaid' | 'paid';
 created_at: string;
 paid_at: string | null;
 proof_path: string | null;
+pay_to: 'potentia' | 'seller' | null;
+commission_mmk: number | null;
+cancel_reason: string | null;
+disputed: boolean | null;
+dispute_note: string | null;
 };
+
+type Bill = {
+id: string;
+seller_id: string;
+shop_name: string;
+month: string;
+orders_count: number;
+sales_mmk: number;
+commission_mmk: number;
+due_at: string;
+status: 'unpaid' | 'pending' | 'paid' | 'waived';
+currency: Currency;
+proof_path: string | null;
+note: string | null;
+submitted_at: string | null;
+paid_at: string | null;
+};
+const monthName = (m: string) => new Date(`${m.slice(0, 10)}T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
 type AdminProduct = {
 id: string;
@@ -119,6 +142,7 @@ const [checking, setChecking] = useState(true);
 const [isAdmin, setIsAdmin] = useState(false);
 const [tab, setTab] = useState<'approvals' | 'orders' | 'revenue' | 'sellers' | 'notify'>('approvals');
 const [orders, setOrders] = useState<Order[]>([]);
+const [bills, setBills] = useState<Bill[]>([]);
 const [products, setProducts] = useState<AdminProduct[]>([]);
 const [proofUrls, setProofUrls] = useState<Record<string, string>>({});
 const [viewing, setViewing] = useState<string | null>(null);
@@ -139,7 +163,7 @@ const [msg, setMsg] = useState('');
 
 const loadAll = useCallback(async () => {
 setLoading(true);
-const [p, a, s, o, pr] = await Promise.all([
+const [p, a, s, o, pr, bl] = await Promise.all([
 supabase
 .from('premium_requests')
 .select('id, user_id, plan, status, created_at, approved_at, amount_mmk, amount_paid, fx_rate, promo, currency, proof_path, profiles(username, email)')
@@ -160,7 +184,11 @@ supabase
 .select('id, shop_name, name, price_mmk, image_url, active, hidden_by_admin')
 .order('created_at', { ascending: false })
 .limit(300),
+supabase.from('seller_bills').select('*').order('month', { ascending: false }).limit(300),
 ]);
+if (bl.error) console.error('bills', bl.error);
+const billsData = (bl.data as unknown as Bill[]) ?? [];
+setBills(billsData);
 if (o.error) console.error('orders', o.error);
 if (pr.error) console.error('products', pr.error);
 const ordersData = (o.data as unknown as Order[]) ?? [];
@@ -171,7 +199,8 @@ setProducts((pr.data as unknown as AdminProduct[]) ?? []);
 const pendingReqs = (p.data as unknown as PremiumRequest[]) ?? [];
 const paths = [
 ...pendingReqs.map(r => r.proof_path),
-...ordersData.filter(x => x.status === 'pending').map(x => x.proof_path),
+...ordersData.filter(x => x.status === 'pending' || x.disputed).map(x => x.proof_path),
+...billsData.filter(x => x.status === 'pending').map(x => x.proof_path),
 ].filter((x): x is string => !!x);
 if (paths.length) {
 const { data: signed, error: signErr } = await supabase.storage.from('payment-proofs').createSignedUrls(paths, 3600);
@@ -320,6 +349,39 @@ setBusyId(null);
 await loadAll();
 };
 
+const makeBills = async () => {
+if (!confirm("Make last month's bills for every seller now? (It also happens automatically on the 1st.)")) return;
+setBusyId('make-bills');
+const { data, error } = await supabase.rpc('make_seller_bills');
+setBusyId(null);
+setMsg(error ? `Could not make bills: ${error.message}` : `Made ${data ?? 0} new bill(s).`);
+await loadAll();
+};
+
+const setBillStatus = async (b: Bill, status: 'paid' | 'unpaid' | 'waived') => {
+let note: string | null = null;
+if (status === 'unpaid') {
+note = prompt('Why are you refusing it? The seller sees this.', 'Payment not received');
+if (note === null) return;
+}
+if (status === 'waived' && !confirm(`Waive ${mmk(b.commission_mmk)} for ${b.shop_name}? They won't have to pay it.`)) return;
+setBusyId(b.id);
+const patch: Record<string, unknown> = { status, note };
+if (status === 'paid') patch.paid_at = new Date().toISOString();
+if (status === 'unpaid') patch.proof_path = null;
+const { error } = await supabase.from('seller_bills').update(patch).eq('id', b.id);
+setMsg(error ? 'Could not update the bill.' : status === 'paid' ? `Marked ${b.shop_name} as paid. Their shop is live.` : 'Updated.');
+setBusyId(null);
+await loadAll();
+};
+
+const clearDispute = async (o: Order) => {
+setBusyId(o.id);
+await supabase.from('orders').update({ disputed: false }).eq('id', o.id);
+setBusyId(null);
+await loadAll();
+};
+
 const toggleHidden = async (p: AdminProduct) => {
 setBusyId(p.id);
 await supabase.from('products').update({ hidden_by_admin: !p.hidden_by_admin }).eq('id', p.id);
@@ -373,18 +435,31 @@ const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 const sum = (rows: PremiumRequest[]) => rows.reduce((s, r) => s + priceOf(r), 0);
 const today = approved.filter(r => paidAt(r) >= startToday);
 const month = approved.filter(r => paidAt(r) >= startMonth);
-// Shop: Potentia keeps 20% of every paid order
+// Shop: old orders (paid to Potentia) count 20% straight away;
+// new orders (paid to the seller) count when the seller pays their monthly bill.
 const soldOrders = orders.filter(o => SOLD.includes(o.status));
+const legacySold = soldOrders.filter(o => o.pay_to !== 'seller');
 const shopCut = (rows: Order[]) => rows.reduce((s, o) => s + o.total_mmk * COMMISSION, 0);
-const shopAll = shopCut(soldOrders);
-const shopMonth = shopCut(soldOrders.filter(o => orderPaidAt(o) >= startMonth));
-const shopToday = shopCut(soldOrders.filter(o => orderPaidAt(o) >= startToday));
+const paidBills = bills.filter(b => b.status === 'paid');
+const billSum = (rows: Bill[]) => rows.reduce((s, b) => s + Number(b.commission_mmk), 0);
+const billPaidAt = (b: Bill) => new Date(b.paid_at ?? b.submitted_at ?? b.due_at);
+const shopAll = shopCut(legacySold) + billSum(paidBills);
+const shopMonth = shopCut(legacySold.filter(o => orderPaidAt(o) >= startMonth)) + billSum(paidBills.filter(b => billPaidAt(b) >= startMonth));
+const shopToday = shopCut(legacySold.filter(o => orderPaidAt(o) >= startToday)) + billSum(paidBills.filter(b => billPaidAt(b) >= startToday));
+const pendingBills = bills.filter(b => b.status === 'pending');
+const unpaidBills = bills.filter(b => b.status === 'unpaid');
+const disputes = orders.filter(o => o.disputed);
+// Potentia's 20% from orders paid to sellers this month (not billed yet)
+const accruing = orders
+.filter(o => o.pay_to === 'seller' && SOLD.includes(o.status) && orderPaidAt(o) >= startMonth)
+.reduce((s, o) => s + (o.commission_mmk ?? o.total_mmk * COMMISSION), 0);
 const premiumAll = sum(approved);
 const premiumMonth = sum(month);
 const totalAll = premiumAll + shopAll;
 const totalMonth = premiumMonth + shopMonth;
 const totalToday = sum(today) + shopToday;
-const pendingOrders = orders.filter(o => o.status === 'pending');
+// only old orders paid to Potentia need you; new ones are checked by the seller
+const pendingOrders = orders.filter(o => o.status === 'pending' && o.pay_to !== 'seller');
 const paidUserIds = new Set(approved.map(r => r.user_id));
 const trialsActive = trials.filter(
 x => x.subscription_tier === 'trial' && x.subscription_expires_at && new Date(x.subscription_expires_at).getTime() > Date.now(),
@@ -423,7 +498,7 @@ const toShip = orders.filter(o => o.status === 'paid');
 // what each seller is owed (80% of shipped orders not paid out yet)
 const owedBySeller = Object.values(
 orders
-.filter(o => (o.status === 'shipped' || o.status === 'completed') && o.payout_status === 'unpaid')
+.filter(o => o.pay_to !== 'seller' && (o.status === 'shipped' || o.status === 'completed') && o.payout_status === 'unpaid')
 .reduce<Record<string, { seller_id: string; shop: string; amount: number; count: number }>>((acc, o) => {
 const k = o.seller_id;
 acc[k] = acc[k] ?? { seller_id: k, shop: o.shop_name, amount: 0, count: 0 };
@@ -465,7 +540,7 @@ const tabs = [
 { key: 'approvals' as const, label: 'Premium', icon: Crown, badge: pending.length },
 { key: 'orders' as const, label: 'Orders', icon: ShoppingBag, badge: pendingOrders.length },
 { key: 'revenue' as const, label: 'Revenue', icon: Wallet, badge: 0 },
-{ key: 'sellers' as const, label: 'Sellers', icon: Store, badge: pendingSellers.length },
+{ key: 'sellers' as const, label: 'Sellers', icon: Store, badge: pendingSellers.length + pendingBills.length + disputes.length },
 { key: 'notify' as const, label: 'Notify', icon: Bell, badge: 0 },
 ];
 
@@ -500,7 +575,9 @@ return (
 </div>
 <div className="rounded-2xl p-4" style={cardStyle}>
 <span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">Pending</span>
-<div className="font-display text-xl font-bold text-[rgb(var(--gold))] mt-1">{pending.length + pendingOrders.length} to check</div>
+<div className="font-display text-xl font-bold text-[rgb(var(--gold))] mt-1">
+{pending.length + pendingOrders.length + pendingBills.length + disputes.length} to check
+</div>
 </div>
 </div>
 
@@ -624,6 +701,10 @@ Thai prices now: 1 Month {planPrice('1month', 'THB', Number(rate))} · 6 Months 
 <div>
 <span className="text-[10px] text-[rgb(var(--muted))] uppercase tracking-wide">Shop 20%</span>
 <p className="font-display text-base font-semibold text-[rgb(var(--gold))]">{mmk(shopAll)}</p>
+</div>
+<div className="col-span-2">
+<span className="text-[10px] text-[rgb(var(--muted))] uppercase tracking-wide">Shop 20% building up this month (billed on the 1st)</span>
+<p className="font-display text-base font-semibold text-[rgb(var(--gold))]">{mmk(accruing)}</p>
 </div>
 </div>
 <p className="text-[10px] text-[rgb(var(--muted))] mt-3">Thai baht payments are counted at 1 THB = 138.7 MMK.</p>
@@ -862,7 +943,8 @@ orders.slice(0, 30).map(o => (
 </p>
 <p className="text-[11px] text-[rgb(var(--muted))]">
 {o.shop_name} · {o.status}
-{o.payout_status === 'paid' ? ' · seller paid' : ''}
+{o.pay_to === 'seller' ? ' · paid to seller' : o.payout_status === 'paid' ? ' · seller paid' : ''}
+{o.disputed ? ' · ⚠️ reported' : ''}
 </p>
 </div>
 <div className="text-right flex-shrink-0">
@@ -951,6 +1033,123 @@ style={primaryBtn}
 {/* ---------- sellers ---------- */}
 {tab === 'sellers' && (
 <div className="space-y-3">
+{/* ---- monthly bills (Potentia's 20%) ---- */}
+<div className="rounded-2xl p-5" style={accentStyle}>
+<div className="flex items-center justify-between gap-3 mb-1">
+<span className="flex items-center gap-2 text-[10px] tracking-[0.2em] text-[rgb(var(--gold))] uppercase">
+<ReceiptText className="w-4 h-4" /> Seller bills
+</span>
+<button
+onClick={makeBills}
+disabled={busyId === 'make-bills'}
+className="text-[11px] font-semibold rounded-lg px-3 py-2 disabled:opacity-50"
+style={ghostBtn}
+>
+{busyId === 'make-bills' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Make last month's bills"}
+</button>
+</div>
+<p className="text-[11px] text-[rgb(var(--muted))] mb-3">
+Made automatically on the 1st, due the 7th. Late sellers&apos; products hide by themselves until they pay.
+</p>
+
+{pendingBills.length > 0 && (
+<div className="space-y-3 mb-3">
+{pendingBills.map(b => (
+<div key={b.id} className="rounded-xl p-3" style={cardStyle}>
+<div className="flex items-start justify-between gap-3 mb-2">
+<div className="min-w-0">
+<p className="text-sm text-[rgb(var(--gold))] font-semibold truncate">{b.shop_name}</p>
+<p className="text-[11px] text-[rgb(var(--muted))]">
+{monthName(b.month)} · {b.orders_count} orders · sales {mmk(b.sales_mmk)}
+</p>
+</div>
+<div className="text-right flex-shrink-0">
+<p className="font-display text-lg font-bold text-[rgb(var(--gold))]">{mmk(b.commission_mmk)}</p>
+<p className="text-[10px] text-[rgb(var(--muted))]">{b.currency === 'THB' ? '🇹🇭 Thai bank' : '🇲🇲 Myanmar bank'}</p>
+</div>
+</div>
+<ProofThumb path={b.proof_path} />
+<div className="grid grid-cols-3 gap-2">
+<button
+onClick={() => setBillStatus(b, 'unpaid')}
+disabled={busyId === b.id}
+className="flex items-center justify-center gap-1.5 text-sm rounded-xl py-3 disabled:opacity-50"
+style={ghostBtn}
+>
+<X className="w-4 h-4" /> Refuse
+</button>
+<button
+onClick={() => setBillStatus(b, 'paid')}
+disabled={busyId === b.id}
+className="col-span-2 flex items-center justify-center gap-2 text-sm font-semibold rounded-xl py-3 disabled:opacity-50"
+style={primaryBtn}
+>
+{busyId === b.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Money arrived
+</button>
+</div>
+</div>
+))}
+</div>
+)}
+
+{unpaidBills.length === 0 && pendingBills.length === 0 ? (
+<p className="text-sm text-[rgb(var(--muted-hover))]">Nobody owes you right now.</p>
+) : (
+unpaidBills.map(b => {
+const late = new Date(b.due_at).getTime() < Date.now();
+return (
+<div key={b.id} className="flex items-center justify-between gap-3 py-2.5" style={{ borderBottom: '1px solid rgb(var(--muted) / 0.1)' }}>
+<div className="min-w-0">
+<p className="text-sm text-[rgb(var(--muted-hover))] font-medium truncate">{b.shop_name}</p>
+<p className="text-[11px] truncate" style={{ color: late ? 'rgb(var(--err))' : 'rgb(var(--muted))' }}>
+{monthName(b.month)} · {late ? 'OVERDUE · shop hidden' : `due ${new Date(b.due_at).toLocaleDateString()}`} · {sellerContact(b.seller_id)}
+</p>
+</div>
+<div className="flex items-center gap-2 flex-shrink-0">
+<span className="font-display text-sm text-[rgb(var(--gold))]">{mmk(b.commission_mmk)}</span>
+<button onClick={() => setBillStatus(b, 'waived')} disabled={busyId === b.id} className="text-[10px] rounded-lg px-2 py-1.5" style={ghostBtn}>
+Waive
+</button>
+</div>
+</div>
+);
+})
+)}
+
+{paidBills.length > 0 && (
+<p className="text-[11px] text-[rgb(var(--muted))] mt-3">
+Collected from sellers so far: <span className="text-[rgb(var(--gold))] font-semibold">{mmk(billSum(paidBills))}</span>
+</p>
+)}
+</div>
+
+{/* ---- buyer reports ---- */}
+{disputes.length > 0 && (
+<div className="rounded-2xl p-5" style={{ ...cardStyle, border: '1px solid rgb(var(--err) / 0.35)' }}>
+<span className="flex items-center gap-2 text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: 'rgb(var(--err))' }}>
+<Flag className="w-4 h-4" /> Buyer reports ({disputes.length})
+</span>
+{disputes.map(o => (
+<div key={o.id} className="py-3" style={{ borderBottom: '1px solid rgb(var(--muted) / 0.1)' }}>
+<p className="text-sm text-[rgb(var(--muted-hover))]">
+{o.qty} × {o.product_name} <span className="text-[rgb(var(--muted))]">· {o.shop_name} · {o.status}</span>
+</p>
+<p className="text-[11px] text-[rgb(var(--muted))]">
+Buyer {o.buyer_name} {o.buyer_phone} · seller {sellerContact(o.seller_id)} · {fmt(o.amount_due, o.currency)}
+</p>
+{o.cancel_reason && <p className="text-[11px] text-[rgb(var(--muted))]">Seller said: “{o.cancel_reason}”</p>}
+{o.dispute_note && <p className="text-[11px] text-[rgb(var(--gold))]">Buyer says: “{o.dispute_note}”</p>}
+<div className="mt-2">
+<ProofThumb path={o.proof_path} />
+</div>
+<button onClick={() => clearDispute(o)} disabled={busyId === o.id} className="text-[11px] rounded-lg px-3 py-2" style={ghostBtn}>
+Mark as sorted
+</button>
+</div>
+))}
+</div>
+)}
+
 {sellers.length === 0 ? (
 <div className="rounded-2xl p-8 text-center" style={cardStyle}>
 <p className="text-sm text-[rgb(var(--muted-hover))]">No seller applications yet.</p>

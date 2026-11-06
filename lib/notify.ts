@@ -3,7 +3,15 @@
 
 import { supabase } from './supabase';
 
-export type AlertEvent = 'premium_request' | 'order_placed' | 'order_paid' | 'order_shipped' | 'seller_approved';
+export type AlertEvent =
+| 'premium_request'
+| 'order_placed'
+| 'order_paid'
+| 'order_confirmed'
+| 'order_rejected'
+| 'order_shipped'
+| 'seller_approved'
+| 'bill_paid';
 
 export async function notify(event: AlertEvent, id: string) {
 try {

@@ -1,15 +1,16 @@
 'use client';
 
 // app/components/Marketplace.tsx — the real shop. Products come from approved sellers.
-// Buyers pay Potentia (Myanmar or Thai bank), you confirm, the seller ships, you pay the seller 80%.
+// Buyers pay the SELLER directly with the seller's own QR, the seller confirms and ships.
+// Potentia records every sale and bills the seller 20% once a month.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useLang } from '../../lib/i18n';
 import { notify } from '../../lib/notify';
-import { BANKS, fmt, fmtMMK, mmkToThb, type Currency } from '../../lib/payments';
+import { fmt, fmtMMK, mmkToThb, type Currency } from '../../lib/payments';
 import { useThbRate } from '../../lib/fx';
-import { BankPicker, QrBox } from './PremiumModal';
+import { QrBox } from './PremiumModal';
 import SellerModal from './SellerModal';
 import SellerShop from './SellerShop';
 import ProofUpload from './ProofUpload';
@@ -23,6 +24,7 @@ primaryBtn,
 PRODUCT_CATEGORIES,
 type Product,
 type Order,
+type SellerPay,
 } from './shopShared';
 import {
 Search,
@@ -34,6 +36,10 @@ Loader2,
 CheckCircle2,
 Package,
 ShoppingBag,
+Copy,
+Check,
+Flag,
+ShieldCheck,
 } from 'lucide-react';
 
 const LS_KEY = 'potentia_buyer';
@@ -54,8 +60,30 @@ localStorage.setItem(LS_KEY, JSON.stringify(v));
 
 /* ---------------- product detail + checkout ---------------- */
 function ProductSheet({ product, isMine, onClose, onOrdered }: { product: Product; isMine: boolean; onClose: () => void; onOrdered: () => void }) {
-const { t } = useLang();
+const { t, lang } = useLang();
+const L = (en: string, my: string) => (lang === 'my' ? my : en);
 const rate = useThbRate();
+// the seller's own bank details + QR
+const [pay, setPay] = useState<SellerPay | null | 'loading'>('loading');
+const [copied, setCopied] = useState(false);
+useEffect(() => {
+let alive = true;
+supabase
+.from('seller_pay')
+.select('*')
+.eq('user_id', product.seller_id)
+.maybeSingle()
+.then(({ data }) => {
+if (alive) setPay((data as SellerPay | null) ?? null);
+});
+return () => {
+alive = false;
+};
+}, [product.seller_id]);
+const sp = pay === 'loading' ? null : pay;
+const canMMK = !!sp?.mmk_qr;
+const canTHB = !!sp?.thb_qr;
+const payReady = canMMK || canTHB;
 const [step, setStep] = useState<'view' | 'details' | 'pay' | 'done'>('view');
 const [qty, setQty] = useState(1);
 const saved = useMemo(loadBuyer, []);
@@ -70,7 +98,27 @@ const [error, setError] = useState('');
 
 const total = product.price_mmk * qty;
 const due = currency === 'THB' ? mmkToThb(total, rate) : total;
-const bank = BANKS.find(b => b.id === currency)!;
+// pick a currency the seller actually accepts
+useEffect(() => {
+if (currency === 'MMK' && !canMMK && canTHB) setCurrency('THB');
+if (currency === 'THB' && !canTHB && canMMK) setCurrency('MMK');
+}, [currency, canMMK, canTHB]);
+const bankInfo =
+sp && currency === 'THB'
+? { qr: sp.thb_qr, bank: sp.thb_bank, name: sp.thb_name, number: sp.thb_number }
+: sp
+? { qr: sp.mmk_qr, bank: sp.mmk_bank, name: sp.mmk_name, number: sp.mmk_number }
+: null;
+const copyNumber = async () => {
+if (!bankInfo?.number) return;
+try {
+await navigator.clipboard.writeText(bankInfo.number);
+setCopied(true);
+setTimeout(() => setCopied(false), 1500);
+} catch {
+/* ignore */
+}
+};
 
 const toPay = () => {
 if (name.trim().length < 2) return setError(t('Add your name.'));
@@ -126,11 +174,25 @@ return (
 {product.description && (
 <p className="text-sm text-[rgb(var(--muted-hover))] leading-relaxed whitespace-pre-line mb-6">{product.description}</p>
 )}
-<div className="rounded-xl p-4 mb-6 text-[12px] text-[rgb(var(--muted-hover))] leading-relaxed" style={cardStyle}>
-🔒 {t('You pay Potentia, not the seller. The seller only gets paid after your order ships.')}
+<div className="rounded-xl p-4 mb-6 text-[12px] text-[rgb(var(--muted-hover))] leading-relaxed flex gap-2.5" style={cardStyle}>
+<ShieldCheck className="w-4 h-4 flex-shrink-0 mt-0.5 text-[rgb(var(--gold))]" />
+<span>
+{L(
+'You pay the seller directly with their QR and upload a screenshot. Every order is recorded by Potentia. Paid but nothing happened? Report it in My orders and we step in.',
+'ရောင်းသူရဲ့ QR နဲ့ တိုက်ရိုက်ငွေချေပြီး screenshot တင်ပါ။ အော်ဒါတိုင်းကို Potentia က မှတ်တမ်းတင်ထားပါတယ်။ ငွေချေပြီး ဘာမှမဖြစ်ရင် My orders ထဲကနေ report လုပ်ပါ၊ ကျွန်ုပ်တို့ ကူညီပေးပါမယ်။'
+)}
+</span>
 </div>
 {isMine ? (
 <p className="text-center text-sm text-[rgb(var(--muted))]">{t('This is your product.')}</p>
+) : pay === 'loading' ? (
+<div className="flex justify-center py-4">
+<Loader2 className="w-5 h-5 animate-spin text-[rgb(var(--gold))]" />
+</div>
+) : !payReady ? (
+<p className="text-center text-sm text-[rgb(var(--muted))] rounded-xl p-4" style={cardStyle}>
+{L('This seller is still setting up payments. Check back soon.', 'ဒီရောင်းသူက ငွေလက်ခံစနစ် ပြင်ဆင်နေဆဲပါ။ ခဏနေ ပြန်ကြည့်ပါ။')}
+</p>
 ) : (
 <>
 <div className="flex items-center justify-between mb-4">
@@ -213,15 +275,51 @@ style={inputStyle}
 </div>
 )}
 
-{step === 'pay' && (
+{step === 'pay' && bankInfo && (
 <div>
-<span className="text-[11px] text-[rgb(var(--muted))] block mb-2">{t('Which bank will you pay from?')}</span>
-<div className="mb-4">
-<BankPicker value={currency} onChange={setCurrency} />
+<p className="text-sm text-[rgb(var(--muted-hover))] mb-3">
+{L('Pay {shop} directly with this QR:', '{shop} ကို ဒီ QR နဲ့ တိုက်ရိုက် ငွေချေပါ:').replace('{shop}', product.shop_name || t('the seller'))}
+</p>
+{canMMK && canTHB && (
+<div className="grid grid-cols-2 gap-2 mb-4">
+{(['MMK', 'THB'] as Currency[]).map(c => {
+const active = currency === c;
+return (
+<button
+key={c}
+type="button"
+onClick={() => setCurrency(c)}
+className="flex items-center justify-center gap-2 rounded-xl py-3 text-[13px]"
+style={{
+background: active ? 'rgb(var(--gold) / 0.12)' : 'rgb(var(--surface) / 0.5)',
+border: `1px solid ${active ? 'rgb(var(--gold) / 0.65)' : 'rgb(var(--muted) / 0.2)'}`,
+color: active ? 'rgb(var(--gold))' : 'rgb(var(--muted-hover))',
+fontWeight: active ? 600 : 400,
+}}
+>
+{c === 'MMK' ? '🇲🇲 ' + t('Myanmar bank') : '🇹🇭 ' + t('Thai bank')}
+</button>
+);
+})}
 </div>
-<div className="mb-4">
-<QrBox src={bank.qr} />
+)}
+{bankInfo.qr && (
+<div className="mb-3">
+<QrBox src={bankInfo.qr} />
 </div>
+)}
+{(bankInfo.bank || bankInfo.name || bankInfo.number) && (
+<div className="rounded-2xl p-4 mb-4 text-sm" style={cardStyle}>
+{bankInfo.bank && <p className="text-[rgb(var(--gold))] font-semibold">{bankInfo.bank}</p>}
+{bankInfo.name && <p className="text-[rgb(var(--muted-hover))]">{bankInfo.name}</p>}
+{bankInfo.number && (
+<button onClick={copyNumber} className="mt-1 flex items-center gap-2 text-[rgb(var(--muted-hover))] font-mono">
+{bankInfo.number}
+{copied ? <Check className="w-3.5 h-3.5 text-[rgb(var(--gold))]" /> : <Copy className="w-3.5 h-3.5" />}
+</button>
+)}
+</div>
+)}
 <div className="rounded-2xl p-4 mb-5 text-center" style={cardStyle}>
 <span className="text-[11px] text-[rgb(var(--muted))] block">{t('Amount to send')}</span>
 <span className="font-display text-2xl font-bold text-[rgb(var(--gold))]">{fmt(due, currency)}</span>
@@ -242,7 +340,10 @@ style={primaryBtn}
 {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : t("I've Sent Payment")}
 </button>
 <p className="text-center text-[11px] text-[rgb(var(--muted))] mt-3 leading-relaxed">
-{t('Only tap this after you have paid. We check every payment before the order is sent to the seller.')}
+{L(
+'Only tap this after you have paid. The seller checks their bank, confirms, then ships.',
+'ငွေချေပြီးမှ နှိပ်ပါ။ ရောင်းသူက ဘဏ်မှာ စစ်ပြီး အတည်ပြုကာ ပို့ပေးပါမယ်။'
+)}
 </p>
 <button onClick={() => setStep('details')} className="w-full text-xs text-[rgb(var(--muted))] py-3">
 {t('Back')}
@@ -255,7 +356,10 @@ style={primaryBtn}
 <CheckCircle2 className="w-12 h-12 mx-auto mb-5 text-[rgb(var(--gold))]" />
 <h2 className="font-display text-2xl font-semibold text-[rgb(var(--gold))] mb-2">{t('Order placed')}</h2>
 <p className="text-sm text-[rgb(var(--muted-hover))] leading-relaxed mb-8 max-w-xs mx-auto">
-{t("We'll check your payment, then the seller ships it. You can follow it under My orders.")}
+{L(
+'The seller will check your payment and ship it. Follow it under My orders.',
+'ရောင်းသူက သင့်ငွေကို စစ်ပြီး ပို့ပေးပါမယ်။ My orders ထဲမှာ ကြည့်နိုင်ပါတယ်။'
+)}
 </p>
 <button onClick={onClose} className="font-semibold py-3.5 px-10 rounded-2xl text-[14px]" style={primaryBtn}>
 {t('Done')}
@@ -268,9 +372,31 @@ style={primaryBtn}
 
 /* ---------------- buyer's orders ---------------- */
 function MyOrders({ orders, onChanged }: { orders: Order[]; onChanged: () => void }) {
-const { t } = useLang();
+const { t, lang } = useLang();
+const L = (en: string, my: string) => (lang === 'my' ? my : en);
 const [busyId, setBusyId] = useState<string | null>(null);
 if (orders.length === 0) return null;
+
+const canReport = (o: Order) =>
+!o.disputed &&
+(o.status === 'cancelled' ||
+((o.status === 'pending' || o.status === 'paid') && Date.now() - new Date(o.created_at).getTime() > 3 * 86400000));
+
+const report = async (o: Order) => {
+const note = prompt(
+L(
+'What happened? (e.g. "I paid but the seller said not received")',
+'ဘာဖြစ်ခဲ့လဲ? (ဥပမာ "ငွေချေပြီးပါပြီ၊ ရောင်းသူက မရဘူးပြောတယ်")'
+)
+);
+if (note === null) return;
+setBusyId(o.id);
+const { error } = await supabase.rpc('report_order', { p_order: o.id, p_note: note });
+setBusyId(null);
+if (error) alert(error.message);
+else alert(L('Reported. Potentia will check it and contact you.', 'Report လုပ်ပြီးပါပြီ။ Potentia က စစ်ဆေးပြီး ဆက်သွယ်ပါမယ်။'));
+onChanged();
+};
 
 const received = async (o: Order) => {
 setBusyId(o.id);
@@ -297,7 +423,11 @@ return (
 <p className="text-[11px] text-[rgb(var(--muted))]">
 {fmt(o.amount_due, o.currency)} · {new Date(o.created_at).toLocaleDateString()}
 </p>
+{o.status === 'cancelled' && o.cancel_reason && (
+<p className="text-[11px] text-[rgb(var(--err))]">{o.cancel_reason}</p>
+)}
 </div>
+<div className="flex flex-col items-end gap-1.5 flex-shrink-0">
 {o.status === 'shipped' ? (
 <button
 onClick={() => received(o)}
@@ -310,6 +440,18 @@ style={primaryBtn}
 ) : (
 <StatusPill status={o.status} />
 )}
+{o.disputed ? (
+<span className="text-[10px] text-[rgb(var(--gold))]">{L('Reported', 'Report လုပ်ထား')}</span>
+) : canReport(o) ? (
+<button
+onClick={() => report(o)}
+disabled={busyId === o.id}
+className="flex items-center gap-1 text-[10px] text-[rgb(var(--muted))] underline underline-offset-2"
+>
+<Flag className="w-3 h-3" /> {L('Report', 'Report')}
+</button>
+) : null}
+</div>
 </div>
 ))}
 </div>
@@ -319,7 +461,8 @@ style={primaryBtn}
 
 /* ---------------- main ---------------- */
 export default function Marketplace() {
-const { t } = useLang();
+const { t, lang } = useLang();
+const L = (en: string, my: string) => (lang === 'my' ? my : en);
 const [userId, setUserId] = useState<string | null>(null);
 const [products, setProducts] = useState<Product[]>([]);
 const [orders, setOrders] = useState<Order[]>([]);
@@ -377,7 +520,10 @@ return (
 <span className="text-[10px] tracking-[0.3em] text-[rgb(var(--muted))] uppercase block mb-1.5">{t('Provisions')}</span>
 <h2 className="font-display text-xl text-[rgb(var(--gold))] font-semibold">{t('Marketplace')}</h2>
 <p className="text-xs text-[rgb(var(--muted-hover))] mt-2 leading-relaxed">
-{t('Products from approved sellers. You pay Potentia, so your money is safe until it ships.')}
+{L(
+'Products from approved sellers. Pay the seller directly, every order is recorded by Potentia.',
+'အတည်ပြုထားသော ရောင်းသူများ၏ ပစ္စည်းများ။ ရောင်းသူကို တိုက်ရိုက်ငွေချေပါ၊ အော်ဒါတိုင်းကို Potentia က မှတ်တမ်းတင်ထားပါတယ်။'
+)}
 </p>
 </div>
 {isSeller && (

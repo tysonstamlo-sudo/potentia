@@ -3,8 +3,12 @@
 // 1. free trial ending soon / just ended (with the first-month offer)
 // 2. Sunday weekly scan
 // 3. streak reminder if today's tasks aren't done
+// Plus the shop's monthly bills (Myanmar dates):
+// 1st: make last month's bills (20% of each seller's confirmed sales) and tell each seller
+// 5th and 7th: remind sellers who haven't paid
+// 8th: tell late sellers their shop is hidden until they pay (the hiding itself is automatic)
 
-import { adminDb, sendTo, type Sub, type Message } from '../../../../lib/pushServer';
+import { adminDb, sendTo, ADMIN_USER_ID, type Sub, type Message } from '../../../../lib/pushServer';
 import { trialOfferMmk, planMmk } from '../../../../lib/payments';
 
 export const dynamic = 'force-dynamic';
@@ -19,9 +23,19 @@ return new Response('Unauthorized', { status: 401 });
 }
 
 const db = adminDb();
+
+// ---- shop bills ----
+let billing: Record<string, unknown> = {};
+try {
+billing = await shopBills(db);
+} catch (e) {
+console.error('shop bills failed', e);
+billing = { error: (e as Error).message };
+}
+
 const { data: subs, error } = await db.from('push_subscriptions').select('id, user_id, endpoint, p256dh, auth');
 if (error) return Response.json({ error: error.message }, { status: 500 });
-if (!subs || subs.length === 0) return Response.json({ sent: 0 });
+if (!subs || subs.length === 0) return Response.json({ sent: 0, billing });
 
 const userIds = Array.from(new Set((subs as Sub[]).map(s => s.user_id)));
 const [{ data: profiles }, { data: requests }] = await Promise.all([
@@ -112,6 +126,79 @@ url: '/',
 if (msg && (await sendTo(sub, msg))) sent++;
 }
 
-return Response.json({ sent, total: subs.length });
+return Response.json({ sent, total: subs.length, billing });
+}
+
+/* ---------------- monthly shop bills ---------------- */
+type Db = ReturnType<typeof adminDb>;
+
+async function pushUser(db: Db, userId: string, msg: Message) {
+const { data } = await db.from('push_subscriptions').select('id, user_id, endpoint, p256dh, auth').eq('user_id', userId);
+let n = 0;
+for (const s of (data ?? []) as Sub[]) if (await sendTo(s, msg)) n++;
+return n;
+}
+
+async function shopBills(db: Db) {
+const day = new Date(Date.now() + 6.5 * H).getUTCDate(); // today's date in Myanmar
+if (![1, 5, 7, 8].includes(day)) return { day, skipped: true };
+
+let made = 0;
+if (day === 1) {
+const { data, error } = await db.rpc('make_seller_bills');
+if (error) throw error;
+made = Number(data ?? 0);
+}
+
+type Bill = { id: string; seller_id: string; shop_name: string; commission_mmk: number; due_at: string; status: string };
+const { data: rows } = await db.from('seller_bills').select('id, seller_id, shop_name, commission_mmk, due_at, status').eq('status', 'unpaid');
+const unpaid = (rows ?? []) as Bill[];
+const now = Date.now();
+let told = 0;
+for (const b of unpaid) {
+const amount = Number(b.commission_mmk).toLocaleString('en-US');
+const late = new Date(b.due_at).getTime() < now;
+let msg: Message | null = null;
+if (day === 1 && !late) {
+msg = {
+title: `🧾 Your Potentia bill: ${amount} MMK`,
+body: `20% of last month's shop sales. Pay by the 7th in My Shop → Bills.\nပြီးခဲ့တဲ့လ အရောင်းရဲ့ 20% (${amount} ကျပ်) ကို ၇ ရက်နေ့မတိုင်ခင် ပေးချေပါ။`,
+url: '/?tab=marketplace',
+};
+} else if ((day === 5 || day === 7) && !late) {
+msg = {
+title: day === 7 ? `Last day to pay your ${amount} MMK bill` : `Reminder: ${amount} MMK bill due on the 7th`,
+body: `Pay in My Shop → Bills so your products stay in the Shop.\nသင့်ပစ္စည်းတွေ ဆက်ပေါ်နေဖို့ My Shop → Bills မှာ ပေးချေပါ။`,
+url: '/?tab=marketplace',
+};
+} else if (day === 8 && late) {
+msg = {
+title: 'Your shop is hidden ⚠️',
+body: `Your ${amount} MMK bill is overdue. Pay in My Shop → Bills and your products come back.\nငွေတောင်းခံလွှာ ရက်ကျော်နေလို့ ဆိုင်ကို ဖျောက်ထားပါတယ်။ ပေးချေပြီးတာနဲ့ ပြန်ပေါ်ပါမယ်။`,
+url: '/?tab=marketplace',
+};
+}
+if (msg) told += await pushUser(db, b.seller_id, msg);
+}
+
+if (day === 1 && made > 0) {
+const total = unpaid.reduce((s, b) => s + Number(b.commission_mmk), 0);
+await pushUser(db, ADMIN_USER_ID, {
+title: `🧾 ${made} seller bill(s) made`,
+body: `Sellers owe you ${total.toLocaleString('en-US')} MMK, due on the 7th.`,
+url: '/admin',
+});
+}
+if (day === 8) {
+const late = unpaid.filter(b => new Date(b.due_at).getTime() < now);
+if (late.length) {
+await pushUser(db, ADMIN_USER_ID, {
+title: `⚠️ ${late.length} seller(s) didn't pay`,
+body: `${late.map(b => b.shop_name).join(', ')}. Their products are hidden until they pay.`,
+url: '/admin',
+});
+}
+}
+return { day, made, unpaid: unpaid.length, told };
 }
 

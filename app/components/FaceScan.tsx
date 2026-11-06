@@ -19,9 +19,12 @@ faceTier,
 faceTiers,
 topTierPending,
 TOP_TIER_MIN_SCANS,
+blendScores,
 type FaceAnalysis,
 type GroupKey,
 } from '../../lib/faceAnalysis';
+import { callAi, toAiImage } from '../../lib/aiClient';
+import type { AiRating } from '../api/ai/rate/route';
 import MorphCard from './MorphCard';
 import SideProfileScan from './SideProfileScan';
 import {
@@ -88,6 +91,23 @@ IMAGE_FAILED: 'That image could not be read. Try a different photo.',
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const ADMIN_ID = '0ae23fa9-66ba-446d-8f3d-a06d49ee8760';
+
+/** Upside estimate: grooming/leanness/skin. More upside when the AI saw face fat (losing it changes a lot). */
+function potentialFor(overall: number, bloat?: AiRating['bloat']) {
+const extra = bloat === 'heavy' ? 1.2 : bloat === 'moderate' ? 0.7 : 0;
+const up = Math.min(1.4 + extra, (10 - overall) * 0.18 + 0.2 + extra);
+return Math.round(Math.min(10, Math.max(1, overall + up)) * 10) / 10;
+}
+
+const AI_PARTS: { key: keyof NonNullable<AiRating['sub']>; en: string; my: string }[] = [
+{ key: 'leanness', en: 'Leanness (no bloat)', my: 'မျက်နှာ အဆီ နည်းမှု' },
+{ key: 'jaw', en: 'Jaw & chin', my: 'မေးရိုး နှင့် မေးစေ့' },
+{ key: 'eyes', en: 'Eye area', my: 'မျက်လုံး ပတ်ဝန်းကျင်' },
+{ key: 'dimorphism', en: 'Masculine / feminine', my: 'ယောကျာ်းဆန်မှု / မိန်းမဆန်မှု' },
+{ key: 'skin', en: 'Skin', my: 'အသားအရေ' },
+{ key: 'harmony', en: 'Harmony', my: 'ဟန်ချက်ညီမှု' },
+];
 
 type Step = 'front' | 'eye' | 'nose';
 const STEP_COPY: Record<Step, { n: number; title: string; how: string }> = {
@@ -98,7 +118,8 @@ nose: { n: 3, title: 'Nose close-up', how: 'Fill the box with your nose. Good li
 
 export default function FaceScan({ isPremium, onGoPremium, canMorph = false, onTrial = false }: FaceScanProps) {
 const [showSide, setShowSide] = useState(false);
-const { t } = useLang();
+const { t, lang } = useLang();
+const L = (en: string, my: string) => (lang === 'my' ? my : en);
 // translate the auto-built progress tags, e.g. "Jaw up 1.0" / "Eye spacing improved"
 const tTag = (w: string) => {
 const m = w.match(/^(.*) (up|down) ([\d.]+)$/);
@@ -128,6 +149,10 @@ const [source, setSource] = useState<'camera' | 'upload'>('camera');
 const [errorMsg, setErrorMsg] = useState('');
 const [imagePreview, setImagePreview] = useState<string | null>(null);
 const [cameraActive, setCameraActive] = useState(false);
+// AI judge (null = not used: no key yet, offline, or limit reached) + raw scores for the admin test view
+const [aiRating, setAiRating] = useState<AiRating | null>(null);
+const [geoOverall, setGeoOverall] = useState<number | null>(null);
+const [uid, setUid] = useState<string | null>(null);
 
 const fileInputRef = useRef<HTMLInputElement>(null);
 const videoRef = useRef<HTMLVideoElement>(null);
@@ -141,6 +166,7 @@ if (!session) {
 setLimitLoaded(true);
 return;
 }
+setUid(session.user.id);
 const { data: last } = await supabase
 .from('scans')
 .select('created_at')
@@ -305,8 +331,37 @@ setStatus('scanning');
 const started = Date.now();
 try {
 // Camera: combine the 5 frames. Upload: single photo.
-const analysis =
+const geoAnalysis =
 frontBurst.length > 1 ? await analyzeFaceBurst(frontBurst, gender) : await analyzeFace(sh.front, gender);
+
+// AI judge: one cropped frame. Sees face fat, jaw definition, eye area, skin.
+let ai: AiRating | null = null;
+try {
+const img = await toAiImage(geoAnalysis.croppedImage ?? sh.front, 640, 0.85);
+const r = await callAi<AiRating>('/api/ai/rate', { image: img, gender });
+if (r.ok) ai = r.data;
+} catch {
+/* AI is optional: fall back to the on-device score */
+}
+if (ai?.minor) {
+setErrorMsg(
+L(
+'Potentia is for people 18 and over, so we can’t rate this face. If you are 18+, try again in better light or contact us.',
+'Potentia ကို အသက် ၁၈ နှစ်နှင့်အထက်သာ သုံးနိုင်ပါတယ်။ ဒါကြောင့် ဒီမျက်နှာကို အဆင့်မသတ်မှတ်ပေးနိုင်ပါ။ ၁၈ နှစ်ပြည့်ပြီးဆိုရင် အလင်းကောင်းကောင်းနဲ့ ပြန်ကြိုးစားပါ (သို့) ကျွန်ုပ်တို့ကို ဆက်သွယ်ပါ။'
+)
+);
+setStatus('error');
+return;
+}
+const aiOk = ai?.usable && typeof ai.score === 'number' ? ai : null;
+const finalOverall = blendScores(geoAnalysis.overall, aiOk?.score);
+const analysis: FaceAnalysis = {
+...geoAnalysis,
+overall: finalOverall,
+potential: aiOk ? potentialFor(finalOverall, aiOk.bloat) : geoAnalysis.potential,
+};
+setGeoOverall(geoAnalysis.overall);
+setAiRating(aiOk);
 let skinReading: SkinReading | null = null;
 try {
 skinReading = await analyzeSkin({
@@ -373,6 +428,8 @@ potential: analysis.potential,
 groups: analysis.groups,
 skin: skinReading,
 source: frontBurst.length > 1 ? 'camera' : 'upload',
+geo_overall: geoAnalysis.overall,
+ai: aiOk ? { score: aiOk.score, sub: aiOk.sub, bloat: aiOk.bloat } : null,
 measurements: analysis.measurements.map(m => ({
 key: m.key,
 value: Math.round(m.value * 1000) / 1000,
@@ -399,6 +456,8 @@ setSkin(null);
 setStableOverall(null);
 setScanCount(1);
 setIsCameraScan(true);
+setAiRating(null);
+setGeoOverall(null);
 setFrontBurst([]);
 setShots({});
 setStep('front');
@@ -483,7 +542,10 @@ color: isPremium ? 'rgb(var(--gold))' : 'rgb(var(--muted))',
 {t("We map 478 facial landmarks and measure real ratios: symmetry, thirds, canthal tilt, eye spacing, jaw width.")}
 </p>
 <p className="text-[11px] text-[rgb(var(--muted))] mb-8 max-w-xs">
-{t("Front-facing, neutral expression, hair off the face, even lighting. Runs on your device. Your photo is not uploaded.")}
+{L(
+'Front-facing, neutral expression, hair off the face, even lighting. Measurements run on your device; one cropped face photo is checked by our AI judge (Google Gemini) and is not stored.',
+'ရှေ့တည့်တည့်ကြည့်၊ မျက်နှာ ပုံမှန်ထား၊ ဆံပင် မျက်နှာပေါ် မကျစေနဲ့၊ အလင်း ညီညီ။ တိုင်းတာမှုတွေကို သင့်ဖုန်းပေါ်မှာ လုပ်ပြီး၊ မျက်နှာပုံ တစ်ပုံကို AI (Google Gemini) က စစ်ဆေးပါတယ်။ ပုံကို သိမ်းမထားပါ။'
+)}
 </p>
 
 {canScan ? (
@@ -745,7 +807,7 @@ style={{ color: i === idx ? 'rgb(var(--gold))' : 'rgb(var(--muted))', fontWeight
 {pendingTop ? (
 <p className="text-[11px] text-[rgb(var(--gold))] text-center mt-3 font-medium">
 {t('Your score is in {tier} range. Do {n} more camera scans to confirm it.', {
-tier: ladder[ladder.length - 1].label,
+tier: faceTier(shownOverall, gender, TOP_TIER_MIN_SCANS).label,
 n: TOP_TIER_MIN_SCANS - scanCount,
 })}
 </p>
@@ -761,6 +823,92 @@ n: TOP_TIER_MIN_SCANS - scanCount,
 {t(verdict(shownOverall))}
 </p>
 </div>
+
+{/* AI judge breakdown */}
+{aiRating?.sub && (
+<div className="rounded-2xl p-5" style={cardStyle}>
+<div className="flex items-center justify-between mb-4">
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">{L('AI judge', 'AI အကဲဖြတ်ချက်')}</span>
+{aiRating.bloat && aiRating.bloat !== 'none' && (
+<span
+className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+style={{
+background: aiRating.bloat === 'slight' ? 'rgb(var(--muted) / 0.15)' : 'rgb(var(--err) / 0.12)',
+color: aiRating.bloat === 'slight' ? 'rgb(var(--muted-hover))' : 'rgb(var(--err))',
+}}
+>
+{aiRating.bloat === 'slight'
+? L('Slight bloat', 'အနည်းငယ် ဖောင်းနေ')
+: aiRating.bloat === 'moderate'
+? L('Bloated face', 'မျက်နှာ ဖောင်းနေ')
+: L('Heavy bloat', 'အများကြီး ဖောင်းနေ')}
+</span>
+)}
+</div>
+<div className="space-y-2.5">
+{AI_PARTS.map(p => {
+const v = aiRating.sub![p.key];
+return (
+<div key={p.key}>
+<div className="flex justify-between text-xs mb-1">
+<span className="text-[rgb(var(--muted-hover))]">{L(p.en, p.my)}</span>
+<span className="font-semibold" style={{ color: scoreColor(v) }}>{v.toFixed(1)}</span>
+</div>
+<div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgb(var(--muted) / 0.15)' }}>
+<div className="h-full rounded-full" style={{ width: `${v * 10}%`, background: scoreColor(v) }} />
+</div>
+</div>
+);
+})}
+</div>
+{showFull ? (
+<div className="mt-4 grid gap-3">
+{!!aiRating.strengths?.length && (
+<div>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-1">{L('Strengths', 'အားသာချက်')}</span>
+{aiRating.strengths.map((x, i) => (
+<p key={i} className="text-xs text-[rgb(var(--gold))] leading-relaxed">+ {x}</p>
+))}
+</div>
+)}
+{!!aiRating.weaknesses?.length && (
+<div>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-1">{L('Holding you back', 'နောက်ဆွဲနေတာ')}</span>
+{aiRating.weaknesses.map((x, i) => (
+<p key={i} className="text-xs text-[rgb(var(--muted-hover))] leading-relaxed">− {x}</p>
+))}
+</div>
+)}
+</div>
+) : (
+<button onClick={onGoPremium} className="mt-4 w-full flex items-center justify-center gap-2 text-xs font-semibold py-2.5 rounded-xl" style={{ background: 'rgb(var(--gold) / 0.12)', color: 'rgb(var(--gold))' }}>
+<Lock className="w-3.5 h-3.5" /> {L('See what’s holding you back', 'ဘာက နောက်ဆွဲနေလဲ ကြည့်ရန်')}
+</button>
+)}
+</div>
+)}
+
+{/* Admin-only test view: raw numbers for tuning the scanner */}
+{uid === ADMIN_ID && (
+<div className="rounded-2xl p-4 font-mono text-[11px] leading-relaxed" style={{ ...cardStyle, border: '1px dashed rgb(var(--gold) / 0.5)' }}>
+<p className="text-[rgb(var(--gold))] font-semibold mb-1">ADMIN TEST VIEW</p>
+<p className="text-[rgb(var(--muted-hover))]">
+final {result.overall.toFixed(1)} · shown {shownOverall.toFixed(1)} · geo {geoOverall?.toFixed(1) ?? '-'} · ai {aiRating?.score?.toFixed(1) ?? 'off'} · bloat {aiRating?.bloat ?? '-'} · scans {scanCount} · {isCameraScan ? 'camera' : 'upload'}
+</p>
+{aiRating?.sub && (
+<p className="text-[rgb(var(--muted-hover))]">
+{Object.entries(aiRating.sub).map(([k, v]) => `${k} ${v}`).join(' · ')}
+</p>
+)}
+<div className="mt-2 grid grid-cols-1 gap-0.5">
+{result.measurements.map(m => (
+<span key={m.key} className="text-[rgb(var(--muted))]">
+{m.key}: {m.value.toFixed(3)} → {m.score.toFixed(1)}
+</span>
+))}
+</div>
+</div>
+)}
 
 {/* Your best version (AI morph). Paid Premium only; everyone else sees a blurred teaser. */}
 {isCameraScan && (

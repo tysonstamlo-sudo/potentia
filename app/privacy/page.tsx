@@ -12,15 +12,16 @@ body: [
 ],
 },
 {
-title: 'Your photos stay on your phone',
+title: 'How your face scan photo is used',
 body: [
-'Face scans run entirely on your device. The photos you take or upload for a scan are not sent to us or stored on our servers. We only save the results of the scan (numbers like your scores and measurements), so we can show your progress over time.',
+'The face measurements run on your device. To judge things measurements can’t see (face fat, jaw definition, eye area, skin), one cropped photo of your face is also sent to our AI judge (Google Gemini) each time you scan. It is not stored by Potentia or shown to anyone. We only save the results of the scan (numbers like your scores and measurements), so we can show your progress over time.',
+'Potentia is for people aged 18 and over. If the AI judge thinks the person in the photo is under 18, the face is not rated.',
 ],
 },
 {
 title: 'AI features that send a photo',
 body: [
-'Three optional Premium features need a photo to be read by an AI service. They only run when you tap them:',
+'Three more optional Premium features also send a photo to an AI service. They only run when you tap them:',
 [
 'Your best version (morph): your scan photo is sent to create a realistic preview. We ask for your permission the first time.',
 'Side profile scan: the side photo you choose is sent to be scored.',
@@ -43,7 +44,8 @@ body: [
 'Product listings: the photos, names, descriptions and prices sellers post. These are public inside the app.',
 'Friends: who you add and who adds you.',
 'Nutrition: the foods you log and the goal details you enter (age, height, weight, activity and goal), used only to work out your daily targets.',
-'Payment screenshots: the receipt image you upload when you pay, so we can check your payment. Only you and the Potentia team can see it.',
+'Payment screenshots: the receipt image you upload when you pay, so the payment can be checked. Only you, the Potentia team and (for shop orders) the seller of that order can see it.',
+'Seller payment details: the bank name, account name, account number and payment QR a seller adds. These are shown to buyers at checkout.',
 'Free trial and invite checks: when you start a free trial we record a random ID saved on your phone, a "fingerprint" of your phone (for example screen size, graphics chip and time zone, combined into a code) and your IP address. We use these only to stop the same phone from taking more than one free trial, and to check invite rewards.',
 ],
 ],

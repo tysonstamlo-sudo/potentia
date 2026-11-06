@@ -45,12 +45,54 @@ created_at: string;
 paid_at: string | null;
 shipped_at: string | null;
 paid_out_at: string | null;
+proof_path?: string | null;
+/** 'seller' = buyer paid the seller directly (new). 'potentia' = old orders paid to Potentia. */
+pay_to?: 'potentia' | 'seller';
+commission_mmk?: number | null;
+cancel_reason?: string | null;
+disputed?: boolean;
 };
+
+/** A seller's bank details + payment QR, shown to buyers at checkout. */
+export type SellerPay = {
+user_id: string;
+mmk_bank: string;
+mmk_name: string;
+mmk_number: string;
+mmk_qr: string | null;
+thb_bank: string;
+thb_name: string;
+thb_number: string;
+thb_qr: string | null;
+};
+
+/** Potentia's monthly 20% bill to a seller. */
+export type SellerBill = {
+id: string;
+seller_id: string;
+shop_name: string;
+month: string; // 'YYYY-MM-01'
+orders_count: number;
+sales_mmk: number;
+commission_mmk: number;
+due_at: string;
+status: 'unpaid' | 'pending' | 'paid' | 'waived';
+currency: 'MMK' | 'THB';
+proof_path: string | null;
+note: string | null;
+submitted_at: string | null;
+paid_at: string | null;
+created_at: string;
+};
+
+/** "October 2026" */
+export const monthLabel = (month: string) =>
+new Date(`${month.slice(0, 10)}T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
 export const PRODUCT_CATEGORIES = ['Skincare', 'Fitness', 'Nutrition', 'Grooming', 'Style', 'Other'];
 
 export const ORDER_STATUS_LABEL: Record<Order['status'], string> = {
-pending: 'Checking payment',
+pending: 'Seller is checking payment',
 paid: 'Paid · waiting to ship',
 shipped: 'Shipped',
 completed: 'Delivered',

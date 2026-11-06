@@ -17,6 +17,8 @@ if (fwd) return fwd.split(',')[0].trim();
 return req.headers.get('x-real-ip') ?? '';
 }
 
+export type AiKind = 'morph' | 'profile' | 'food' | 'rate';
+
 export const PAID_TIERS = ['1month', '6months', '1year'];
 
 type Prof = { is_premium: boolean | null; subscription_tier: string | null; subscription_expires_at: string | null };
@@ -48,7 +50,7 @@ return active(p) && PAID_TIERS.includes(p?.subscription_tier ?? '');
 * Daily limit for AI features so nobody can run up the bill.
 * Returns how many are left today (after counting this one), or -1 if the limit is reached.
 */
-export async function takeAiCredit(userId: string, kind: 'morph' | 'profile' | 'food', perDay: number): Promise<number> {
+export async function takeAiCredit(userId: string, kind: AiKind, perDay: number): Promise<number> {
 const db = adminDb();
 const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
 const { count } = await db
@@ -64,7 +66,7 @@ return perDay - used - 1;
 }
 
 /** Give back a credit when the AI call failed (so users aren't charged for errors). */
-export async function refundAiCredit(userId: string, kind: 'morph' | 'profile' | 'food') {
+export async function refundAiCredit(userId: string, kind: AiKind) {
 const db = adminDb();
 const { data } = await db
 .from('ai_usage')

@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../lib/supabase';
-import { ThemeStyles, ThemeToggle, MarbleBackground, MarbleImage } from '../lib/theme';
-import { Flame, Trophy, Target, Star, CheckCircle2, ArrowRight, Droplets, Dumbbell, Sparkles, LogOut, Crown, Share2, Gift, Loader2 } from 'lucide-react';
+import { ThemeStyles, MarbleBackground, MarbleImage } from '../lib/theme';
+import { Flame, Trophy, Target, Star, CheckCircle2, ArrowRight, Droplets, Dumbbell, Sparkles, LogOut, Crown, Share2, Gift, Loader2, XCircle, X } from 'lucide-react';
 import FaceScan from './components/FaceScan';
 import Progress from './components/Progress';
 import Marketplace from './components/Marketplace';
@@ -18,6 +18,8 @@ import { useLang, LanguageToggle, LanguageStyles } from '../lib/i18n';
 import { faceTier } from '../lib/faceAnalysis';
 import NotificationToggle from './components/NotificationToggle';
 import GlowCard from './components/GlowCard';
+import Splash from './components/Splash';
+import Settings, { Avatar } from './components/Settings';
 import { notify } from '../lib/notify';
 import { PAID_TIERS, trialOfferMmk, planMmk, fmtMMK, type Currency } from '../lib/payments';
 import { getDeviceId, getFingerprint } from '../lib/device';
@@ -65,12 +67,15 @@ backdropFilter: 'blur(10px)',
 };
 
 export default function Dashboard() {
-const { t } = useLang();
+const { t, lang } = useLang();
 const router = useRouter();
 const [checkingAuth, setCheckingAuth] = useState(true);
 const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
 const [username, setUsername] = useState('');
 const [userId, setUserId] = useState<string | null>(null);
+const [email, setEmail] = useState('');
+const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+const [showSettings, setShowSettings] = useState(false);
 
 const [totalXP, setTotalXP] = useState(0);
 const [level, setLevel] = useState(1);
@@ -83,6 +88,8 @@ const [trialUsed, setTrialUsed] = useState(true); // hidden until we know for su
 const [startingTrial, setStartingTrial] = useState(false);
 const [trialMsg, setTrialMsg] = useState('');
 const [premiumStatus, setPremiumStatus] = useState<'none' | 'pending'>('none');
+// last Premium payment you (admin) rejected, with the reason, shown once on Home
+const [rejected, setRejected] = useState<{ id: string; reason: string } | null>(null);
 const [showPremiumModal, setShowPremiumModal] = useState(false);
 const [showPlan, setShowPlan] = useState(false);
 const [showOnboarding, setShowOnboarding] = useState(false);
@@ -120,7 +127,7 @@ if (want && (ok as string[]).includes(want)) setActiveTab(want as TabKey);
 useEffect(() => {
 const init = async () => {
 const startTime = Date.now();
-const minDuration = 900; // short splash only, so the app feels fast
+const minDuration = 1700; // long enough to see the logo intro, short enough to feel fast
 
 try {
 const { data: { session } } = await supabase.auth.getSession();
@@ -129,6 +136,7 @@ router.push('/login');
 return;
 }
 setUserId(session.user.id);
+setEmail(session.user.email ?? '');
 applyReferral(); // links this account to the friend who invited them (only works for new accounts)
 
 const { data: profile, error: profileError } = await supabase
@@ -177,7 +185,7 @@ loadLevelStatus(),
 supabase.from('profiles').select('onboarding, onboarded_at').eq('id', session.user.id).single(),
 supabase
 .from('premium_requests')
-.select('status')
+.select('id, status, reject_reason, rejected_at')
 .eq('user_id', session.user.id)
 .order('created_at', { ascending: false })
 .limit(1),
@@ -200,6 +208,17 @@ if (!ob.onboarded_at) setShowOnboarding(true);
 
 if (requests && requests.length > 0 && requests[0].status === 'pending') {
 setPremiumStatus('pending');
+}
+// Rejected in the last 14 days and not dismissed yet -> tell them why
+const last = requests?.[0] as { id: string; status: string; reject_reason?: string | null; rejected_at?: string | null } | undefined;
+if (last && last.status === 'rejected' && (!last.rejected_at || Date.now() - new Date(last.rejected_at).getTime() < 14 * 86400000)) {
+let seen = false;
+try {
+seen = localStorage.getItem('ptn_rej_seen') === last.id;
+} catch {
+/* ignore */
+}
+if (!seen) setRejected({ id: last.id, reason: last.reject_reason || '' });
 }
 
 if (!trialError && trial) {
@@ -229,6 +248,9 @@ if (!fb) setShowSurvey(true);
 }
 }
 
+// profile picture (own query, so the app still loads if the column is missing)
+const { data: av } = await supabase.from('profiles').select('avatar_url').eq('id', session.user.id).single();
+if (av) setAvatarUrl(((av as { avatar_url?: string | null }).avatar_url as string | null) ?? null);
 const { data: rw } = await supabase.from('profiles').select('referral_rewards').eq('id', session.user.id).single();
 if (rw) setReferralRewards(Number((rw as { referral_rewards?: number }).referral_rewards ?? 0));
 } catch (err) {
@@ -461,38 +483,15 @@ const achievements = [
 
 if (checkingAuth) {
 return (
-<div className="min-h-screen bg-[rgb(var(--bg))] flex flex-col items-center justify-center gap-6 relative overflow-hidden transition-colors">
+<>
 <ThemeStyles />
-<MarbleBackground />
-<MarbleImage />
-<style>{`
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap');
-.font-display { font-family: 'Space Grotesk', system-ui, sans-serif; }
-@keyframes float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
-@keyframes glowPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
-.float-seal { animation: float 3s ease-in-out infinite; }
-.glow-pulse { animation: glowPulse 3s ease-in-out infinite; }
-`}</style>
-<div className="relative w-20 h-20 float-seal z-10">
-<div
-className="absolute inset-0 rounded-full glow-pulse"
-style={{ boxShadow: '0 0 30px 6px rgb(var(--glow) / 0.35)' }}
-/>
-<svg className="w-20 h-20" viewBox="0 0 108 108">
-<circle cx="54" cy="54" r="52" fill="none" style={{ stroke: 'rgb(var(--muted) / 0.3)' }} strokeWidth="1.5" />
-<circle cx="54" cy="54" r="40" fill="none" style={{ stroke: 'rgb(var(--gold))' }} strokeWidth="1.5" />
-</svg>
-<div className="absolute inset-0 flex items-center justify-center">
-<span className="font-display text-2xl font-bold text-[rgb(var(--gold))]">P</span>
-</div>
-</div>
-<span className="font-display text-xs tracking-[0.3em] text-[rgb(var(--muted))] uppercase z-10">{t("Potentia")}</span>
-</div>
+<Splash tagline={t('Become your best version')} />
+</>
 );
 }
 
 return (
-<div className="min-h-screen bg-[rgb(var(--bg))] text-[rgb(var(--gold))] overflow-x-hidden relative transition-colors">
+<div className="min-h-screen bg-[rgb(var(--bg))] text-[rgb(var(--gold))] overflow-x-hidden relative transition-colors app-enter">
 <ThemeStyles />
 <MarbleBackground />
 <MarbleImage />
@@ -507,6 +506,10 @@ from { opacity: 0; transform: translateY(0.4em); filter: blur(4px); }
 to { opacity: 1; transform: translateY(0); filter: blur(0); }
 }
 .word-reveal { display: inline-block; opacity: 0; animation: wordReveal 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+@keyframes appEnter { from { opacity: 0; transform: scale(0.985); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+.app-enter { animation: appEnter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes logoFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.logo-float { animation: logoFloat 3.2s ease-in-out infinite; filter: drop-shadow(0 0 8px rgb(var(--gold) / 0.5)); }
 `}</style>
 
 <LanguageStyles />
@@ -519,17 +522,15 @@ style={{ paddingTop: 'max(calc(env(safe-area-inset-top) + 12px), 52px)' }}
 {/* Header: logo left, language + theme right. Premium badge sits on its own line so nothing overlaps. */}
 <div className="flex items-center justify-between gap-3">
 <div className="flex items-center gap-3">
-<div
-className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-style={{ background: 'linear-gradient(145deg, rgb(var(--gold)), rgb(var(--bg)))' }}
->
-<span className="font-display text-xs font-bold" style={{ color: 'rgb(var(--bg))' }}>P</span>
+{/* eslint-disable-next-line @next/next/no-img-element */}
+<img src="/p-mark.png" alt="Potentia" className="h-9 w-auto flex-shrink-0 logo-float" />
+<span className="font-display text-lg tracking-[0.3em] text-[rgb(var(--gold))] uppercase">{t("Potentia")}</span>
 </div>
-<span className="font-display text-lg tracking-[0.1em] text-[rgb(var(--gold))] uppercase">{t("Potentia")}</span>
-</div>
-<div className="flex items-center gap-2 flex-shrink-0">
+<div className="flex items-center gap-2.5 flex-shrink-0">
 <LanguageToggle />
-<ThemeToggle />
+<button onClick={() => setShowSettings(true)} aria-label="Settings" className="rounded-full">
+<Avatar url={avatarUrl} name={username} size={38} />
+</button>
 </div>
 </div>
 <div className="flex items-center mt-3 mb-10 min-h-[28px]">
@@ -547,6 +548,43 @@ return <span className="opacity-70 normal-case tracking-normal">· {t('{n}d left
 </div>
 )}
 </div>
+
+{/* Your payment was rejected: why, and pay again */}
+{activeTab === 'dashboard' && rejected && (
+<div className="mb-6 rounded-2xl p-5 relative" style={{ background: 'rgb(var(--err) / 0.08)', border: '1px solid rgb(var(--err) / 0.35)' }}>
+<button
+onClick={() => {
+try {
+localStorage.setItem('ptn_rej_seen', rejected.id);
+} catch {
+/* ignore */
+}
+setRejected(null);
+}}
+className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-[rgb(var(--muted))]"
+aria-label="Close"
+>
+<X className="w-4 h-4" />
+</button>
+<div className="flex items-start gap-3 pr-8">
+<XCircle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: 'rgb(var(--err))' }} />
+<div>
+<p className="font-body text-sm font-semibold" style={{ color: 'rgb(var(--err))' }}>
+{lang === 'my' ? 'သင့် Premium ငွေပေးချေမှုကို လက်မခံနိုင်ပါ' : 'Your Premium payment was not accepted'}
+</p>
+{rejected.reason && <p className="font-body text-xs text-[rgb(var(--muted-hover))] mt-1">“{rejected.reason}”</p>}
+<p className="font-body text-xs text-[rgb(var(--muted))] mt-1 leading-relaxed">
+{lang === 'my'
+? 'ငွေရောက်ကြောင်း မတွေ့ရပါ။ မှန်ကန်တဲ့ ပမာဏနဲ့ ဘဏ်ကို ပြန်စစ်ပြီး ကိုယ်တိုင်လွှဲထားတဲ့ screenshot အစစ်ကို တင်ပါ။ ငွေလွှဲပြီးသားဆိုရင် ကျွန်ုပ်တို့ကို ဆက်သွယ်ပါ။'
+: 'We could not find your payment. Check the amount and bank, then send your own real payment screenshot. If you did pay, contact us.'}
+</p>
+<button onClick={goPremium} className="mt-3 font-body text-xs font-semibold rounded-xl px-4 py-2.5" style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}>
+{lang === 'my' ? 'ပြန်ပေးချေရန်' : 'Pay again'}
+</button>
+</div>
+</div>
+</div>
+)}
 
 {/* Welcome card: only on Home and Progress */}
 {(activeTab === 'dashboard' || activeTab === 'progress') && (
@@ -998,6 +1036,21 @@ level={level}
 streak={streak}
 xp={totalXP}
 onClose={() => setShowGlow(false)}
+/>
+)}
+
+{showSettings && userId && (
+<Settings
+userId={userId}
+email={email}
+username={username}
+avatarUrl={avatarUrl}
+onClose={() => setShowSettings(false)}
+onChanged={v => {
+if (v.username !== undefined) setUsername(v.username);
+if (v.avatarUrl !== undefined) setAvatarUrl(v.avatarUrl);
+}}
+onLogout={handleLogout}
 />
 )}
 

@@ -199,13 +199,20 @@ style={{ paddingTop: 'max(calc(env(safe-area-inset-top) + 16px), 56px)' }}
 
 {/* Logo */}
 <div className="flex flex-col items-center mb-8">
-<div
-className="w-16 h-16 rounded-2xl flex items-center justify-center float-seal mb-5"
-style={{ background: 'linear-gradient(145deg, rgb(var(--gold)), rgb(var(--bg)))', boxShadow: '0 0 30px rgb(var(--gold) / 0.35)' }}
->
-<span className="font-display text-2xl font-bold" style={{ color: 'rgb(var(--bg))' }}>P</span>
+<div className="relative flex items-center justify-center mb-5" style={{ width: 120, height: 120 }}>
+<span
+className="absolute inset-0 rounded-full"
+style={{ background: 'radial-gradient(circle, rgb(var(--gold) / 0.35) 0%, transparent 65%)', filter: 'blur(6px)' }}
+/>
+{/* eslint-disable-next-line @next/next/no-img-element */}
+<img
+src="/p-mark.png"
+alt="Potentia"
+className="relative float-seal"
+style={{ height: 96, width: 'auto', filter: 'drop-shadow(0 0 12px rgb(var(--gold) / 0.5))' }}
+/>
 </div>
-<span className="font-display text-sm tracking-[0.35em] text-[rgb(var(--gold))] uppercase mb-2">Potentia</span>
+<span className="font-display text-sm tracking-[0.45em] text-[rgb(var(--gold))] uppercase mb-2">Potentia</span>
 <h1 className="font-display text-3xl font-semibold text-[rgb(var(--gold))] text-center">{checkEmail ? L('Check your email', 'အီးမေးလ် စစ်ပါ') : title}</h1>
 <p className="font-body text-sm text-[rgb(var(--muted))] mt-2 text-center">{t('Your transformation, guided by AI')}</p>
 </div>

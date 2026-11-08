@@ -5,6 +5,8 @@ import { supabase } from './supabase';
 
 export type AlertEvent =
 | 'premium_request'
+| 'premium_approved'
+| 'premium_rejected'
 | 'order_placed'
 | 'order_paid'
 | 'order_confirmed'
@@ -28,4 +30,3 @@ body: JSON.stringify({ event, id }),
 /* not critical */
 }
 }
-

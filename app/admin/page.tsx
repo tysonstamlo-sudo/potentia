@@ -292,6 +292,7 @@ amount_paid: dueOf(req),
 .eq('id', req.id);
 if (e2) throw e2;
 
+notify('premium_approved', req.id);
 setMsg(`Approved ${req.profiles?.username ?? 'user'} until ${expiresAt.toLocaleDateString()}`);
 await loadAll();
 } catch (err) {
@@ -303,9 +304,34 @@ setBusyId(null);
 };
 
 const reject = async (req: PremiumRequest) => {
-if (!confirm(`Reject ${req.profiles?.username ?? 'this request'}? Only do this if the payment did not arrive.`)) return;
+const pick = prompt(
+`Reject ${req.profiles?.username ?? 'this request'}? Only do this if the money is NOT in your bank.\n\n` +
+'Type a number for the reason the user will see:\n' +
+'1 = Payment not found in our bank\n' +
+'2 = Wrong amount\n' +
+'3 = Wrong bank / currency\n' +
+'4 = Screenshot is not a real payment to Potentia\n' +
+'or type your own reason.',
+'1',
+);
+if (pick === null) return;
+const presets: Record<string, string> = {
+'1': 'Payment not found in our bank',
+'2': 'Wrong amount',
+'3': 'Wrong bank or currency',
+'4': 'Screenshot is not a real payment to Potentia',
+};
+const reason = (presets[pick.trim()] ?? pick.trim()).slice(0, 200) || presets['1'];
 setBusyId(req.id);
-await supabase.from('premium_requests').update({ status: 'rejected' }).eq('id', req.id);
+const { error } = await supabase
+.from('premium_requests')
+.update({ status: 'rejected', reject_reason: reason, rejected_at: new Date().toISOString() })
+.eq('id', req.id);
+if (error) setMsg('Could not reject. Did you run nov7.sql?');
+else {
+notify('premium_rejected', req.id);
+setMsg(`Rejected. ${req.profiles?.username ?? 'The user'} was told: "${reason}"`);
+}
 setBusyId(null);
 await loadAll();
 };

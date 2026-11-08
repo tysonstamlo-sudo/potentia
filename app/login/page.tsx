@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { ThemeStyles, ThemeToggle, MarbleBackground, MarbleImage } from '../../lib/theme';
 import { useLang, LanguageToggle, LanguageStyles } from '../../lib/i18n';
+import { LOGO_SRC } from '../../lib/logo';
 import { Mail, Lock, User, Loader2, ScanFace, Eye, EyeOff, ArrowLeft, MailCheck, Check } from 'lucide-react';
 
 const cardStyle: React.CSSProperties = {
@@ -206,7 +207,7 @@ style={{ background: 'radial-gradient(circle, rgb(var(--gold) / 0.35) 0%, transp
 />
 {/* eslint-disable-next-line @next/next/no-img-element */}
 <img
-src="/p-mark.png"
+src={LOGO_SRC}
 alt="Potentia"
 className="relative float-seal"
 style={{ height: 96, width: 'auto', filter: 'drop-shadow(0 0 12px rgb(var(--gold) / 0.5))' }}

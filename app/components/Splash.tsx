@@ -2,7 +2,9 @@
 
 // app/components/Splash.tsx — the opening screen: your P logo rises out of the dark,
 // a light sweep runs across the metal, rings turn around it, then POTENTIA spells out.
-// Needs public/p-mark.png (the logo with a transparent background).
+// The logo itself lives in lib/logo.ts (built into the code, always transparent).
+
+import { LOGO_SRC } from '../../lib/logo';
 
 export default function Splash({ tagline = 'Become your best version' }: { tagline?: string }) {
 return (
@@ -57,8 +59,8 @@ filter: drop-shadow(0 0 14px rgb(var(--gold) / 0.55)) drop-shadow(0 6px 18px rgb
 position: absolute; inset: 0;
 background: linear-gradient(115deg, transparent 30%, rgb(255 255 255 / 0.85) 48%, rgb(var(--gold) / 0.7) 52%, transparent 70%);
 background-size: 300% 100%;
--webkit-mask: url(/p-mark.png) center / contain no-repeat;
-mask: url(/p-mark.png) center / contain no-repeat;
+-webkit-mask: url(${LOGO_SRC}) center / contain no-repeat;
+mask: url(${LOGO_SRC}) center / contain no-repeat;
 mix-blend-mode: screen;
 animation: ptnShine 2.6s 0.9s ease-in-out infinite;
 }
@@ -101,7 +103,7 @@ animation: ptnFadeIn 0.9s 1.1s ease-out both;
 </svg>
 <div className="ptn-logo-wrap">
 {/* eslint-disable-next-line @next/next/no-img-element */}
-<img src="/p-mark.png" alt="Potentia" className="ptn-logo" />
+<img src={LOGO_SRC} alt="Potentia" className="ptn-logo" />
 <div className="ptn-shine" />
 </div>
 </div>

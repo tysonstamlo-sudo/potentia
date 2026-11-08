@@ -19,6 +19,7 @@ import { faceTier } from '../lib/faceAnalysis';
 import NotificationToggle from './components/NotificationToggle';
 import GlowCard from './components/GlowCard';
 import Splash from './components/Splash';
+import { LOGO_SRC } from '../lib/logo';
 import Settings, { Avatar } from './components/Settings';
 import { notify } from '../lib/notify';
 import { PAID_TIERS, trialOfferMmk, planMmk, fmtMMK, type Currency } from '../lib/payments';
@@ -523,7 +524,7 @@ style={{ paddingTop: 'max(calc(env(safe-area-inset-top) + 12px), 52px)' }}
 <div className="flex items-center justify-between gap-3">
 <div className="flex items-center gap-3">
 {/* eslint-disable-next-line @next/next/no-img-element */}
-<img src="/p-mark.png" alt="Potentia" className="h-9 w-auto flex-shrink-0 logo-float" />
+<img src={LOGO_SRC} alt="Potentia" className="h-9 w-auto flex-shrink-0 logo-float" />
 <span className="font-display text-lg tracking-[0.3em] text-[rgb(var(--gold))] uppercase">{t("Potentia")}</span>
 </div>
 <div className="flex items-center gap-2.5 flex-shrink-0">

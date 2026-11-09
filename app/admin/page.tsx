@@ -146,6 +146,19 @@ const [orders, setOrders] = useState<Order[]>([]);
 const [bills, setBills] = useState<Bill[]>([]);
 const [affs, setAffs] = useState<AffiliateNumbers[]>([]);
 const [affForm, setAffForm] = useState({ name: '', code: '', contact: '', email: '' });
+type AffApplication = {
+id: string;
+user_id: string;
+name: string;
+contact: string;
+platform: string;
+followers: string;
+plan: string;
+wanted_code: string;
+status: string;
+created_at: string;
+};
+const [affApps, setAffApps] = useState<AffApplication[]>([]);
 const [products, setProducts] = useState<AdminProduct[]>([]);
 const [proofUrls, setProofUrls] = useState<Record<string, string>>({});
 const [viewing, setViewing] = useState<string | null>(null);
@@ -193,6 +206,13 @@ if (bl.error) console.error('bills', bl.error);
 const { data: af, error: afErr } = await supabase.rpc('admin_affiliate_stats');
 if (afErr) console.error('affiliates', afErr);
 setAffs((af as AffiliateNumbers[] | null) ?? []);
+const { data: aa, error: aaErr } = await supabase
+.from('affiliate_applications')
+.select('id, user_id, name, contact, platform, followers, plan, wanted_code, status, created_at')
+.eq('status', 'pending')
+.order('created_at', { ascending: true });
+if (aaErr) console.error('affiliate applications', aaErr);
+setAffApps((aa as AffApplication[] | null) ?? []);
 const billsData = (bl.data as unknown as Bill[]) ?? [];
 setBills(billsData);
 if (o.error) console.error('orders', o.error);
@@ -438,6 +458,33 @@ setMsg(`Added ${name}. Their link: ${affiliateLink(code)}`);
 await loadAll();
 };
 
+const approveAffApp = async (a: AffApplication) => {
+const code = prompt(`Approve ${a.name} as an affiliate (20%)?\nTheir code (you can change it):`, a.wanted_code);
+if (code === null) return;
+setBusyId(a.id);
+const { data, error } = await supabase.rpc('approve_affiliate_application', { p_app: a.id, p_code: cleanCode(code) });
+setBusyId(null);
+if (error) return setMsg(error.message);
+notify('affiliate_approved', a.id);
+setMsg(`${a.name} is now an affiliate. Code: ${data === 'already' ? a.wanted_code : String(data)}`);
+await loadAll();
+};
+
+const rejectAffApp = async (a: AffApplication) => {
+const reason = prompt(`Reject ${a.name}? Reason they will see (optional):`, '');
+if (reason === null) return;
+setBusyId(a.id);
+const { error } = await supabase
+.from('affiliate_applications')
+.update({ status: 'rejected', reject_reason: reason.trim() || null, decided_at: new Date().toISOString() })
+.eq('id', a.id);
+setBusyId(null);
+if (error) return setMsg('Could not reject.');
+notify('affiliate_rejected', a.id);
+setMsg(`Rejected ${a.name}.`);
+await loadAll();
+};
+
 const payAffiliate = async (a: AffiliateNumbers) => {
 const owed = Math.round(Number(a.owed_mmk));
 if (owed <= 0) return;
@@ -613,7 +660,7 @@ return (
 const tabs = [
 { key: 'approvals' as const, label: 'Premium', icon: Crown, badge: pending.length },
 { key: 'orders' as const, label: 'Orders', icon: ShoppingBag, badge: pendingOrders.length },
-{ key: 'revenue' as const, label: 'Revenue', icon: Wallet, badge: 0 },
+{ key: 'revenue' as const, label: 'Revenue', icon: Wallet, badge: affApps.length },
 { key: 'sellers' as const, label: 'Sellers', icon: Store, badge: pendingSellers.length + pendingBills.length + disputes.length },
 { key: 'notify' as const, label: 'Notify', icon: Bell, badge: 0 },
 ];
@@ -650,7 +697,7 @@ return (
 <div className="rounded-2xl p-4" style={cardStyle}>
 <span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">Pending</span>
 <div className="font-display text-xl font-bold text-[rgb(var(--gold))] mt-1">
-{pending.length + pendingOrders.length + pendingBills.length + disputes.length} to check
+{pending.length + pendingOrders.length + pendingBills.length + disputes.length + affApps.length} to check
 </div>
 </div>
 </div>
@@ -791,8 +838,43 @@ Thai prices now: 1 Month {planPrice('1month', 'THB', Number(rate))} · 6 Months 
 Buyers who use an affiliate’s code or link belong to that affiliate for good. Every Premium payment you approve from them earns the affiliate their %.
 </p>
 
+{affApps.length > 0 && (
+<div className="space-y-3 mb-5">
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block">Applications ({affApps.length})</span>
+{affApps.map(a => (
+<div key={a.id} className="rounded-xl p-3" style={{ ...cardStyle, border: '1px solid rgb(var(--gold) / 0.4)' }}>
+<p className="text-sm text-[rgb(var(--gold))] font-semibold">
+{a.name} <span className="font-display tracking-[0.12em] text-[rgb(var(--muted-hover))]">· wants {a.wanted_code}</span>
+</p>
+<p className="text-[11px] text-[rgb(var(--muted))]">
+{[a.platform, a.followers && `${a.followers} followers`, a.contact].filter(Boolean).join(' · ')} · {timeAgo(a.created_at)}
+</p>
+{a.plan && <p className="text-xs text-[rgb(var(--muted-hover))] mt-1.5 leading-relaxed">“{a.plan}”</p>}
+<div className="grid grid-cols-3 gap-2 mt-3">
+<button
+onClick={() => rejectAffApp(a)}
+disabled={busyId === a.id}
+className="flex items-center justify-center gap-1.5 text-sm rounded-xl py-2.5 disabled:opacity-50"
+style={ghostBtn}
+>
+<X className="w-4 h-4" /> Reject
+</button>
+<button
+onClick={() => approveAffApp(a)}
+disabled={busyId === a.id}
+className="col-span-2 flex items-center justify-center gap-2 text-sm font-semibold rounded-xl py-2.5 disabled:opacity-50"
+style={primaryBtn}
+>
+{busyId === a.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Approve
+</button>
+</div>
+</div>
+))}
+</div>
+)}
+
 {affs.length === 0 ? (
-<p className="text-sm text-[rgb(var(--muted-hover))] mb-4">No affiliates yet. Add your first one below.</p>
+<p className="text-sm text-[rgb(var(--muted-hover))] mb-4">No affiliates yet. Approve an application or add one below.</p>
 ) : (
 <div className="space-y-3 mb-5">
 {affs.map(a => {

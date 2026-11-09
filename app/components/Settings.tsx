@@ -4,14 +4,15 @@
 // password, log out, legal pages and "Delete my account" (Google Play requires that one).
 
 import React, { useEffect, useRef, useState } from 'react';
-import { affiliateLink, type AffiliateNumbers } from '../../lib/affiliate';
+import { affiliateLink, cleanCode, type AffiliateNumbers } from '../../lib/affiliate';
+import { notify } from '../../lib/notify';
 import { fmtMMK } from '../../lib/payments';
 import { supabase } from '../../lib/supabase';
 import { useLang, LanguageToggle } from '../../lib/i18n';
 import { ThemeToggle } from '../../lib/theme';
 import NotificationToggle from './NotificationToggle';
 import { Sheet } from './shopShared';
-import { Camera, Loader2, Check, LogOut, KeyRound, Trash2, FileText, Shield, ChevronRight, Share2, Percent } from 'lucide-react';
+import { Camera, Loader2, Check, LogOut, KeyRound, Trash2, FileText, Shield, ChevronRight, Share2, Percent, Send } from 'lucide-react';
 
 const card: React.CSSProperties = {
 background: 'rgb(var(--surface) / 0.5)',
@@ -93,7 +94,7 @@ const L = (en: string, my: string) => (lang === 'my' ? my : en);
 const fileRef = useRef<HTMLInputElement | null>(null);
 const [name, setName] = useState(username);
 const [pic, setPic] = useState<string | null>(avatarUrl);
-const [busy, setBusy] = useState<'pic' | 'name' | 'pw' | 'delete' | null>(null);
+const [busy, setBusy] = useState<'pic' | 'name' | 'pw' | 'delete' | 'apply' | null>(null);
 const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
 const say = (ok: boolean, text: string) => setMsg({ ok, text });
@@ -103,15 +104,59 @@ const [aff, setAff] = useState<AffiliateNumbers | null>(null);
 type AffPay = { created_at: string; buyer: string; plan: string; amount_mmk: number | null; status: string; reason: string | null; commission_mmk: number };
 const [affPays, setAffPays] = useState<AffPay[]>([]);
 const [copied, setCopied] = useState(false);
+// not an affiliate yet: their latest application (if any)
+type AffApp = { id: string; status: 'pending' | 'approved' | 'rejected'; reject_reason: string | null; created_at: string };
+const [affApp, setAffApp] = useState<AffApp | null>(null);
+const [affLoaded, setAffLoaded] = useState(false);
+const [applyOpen, setApplyOpen] = useState(false);
+const [appForm, setAppForm] = useState({ name: username, contact: '', platform: '', followers: '', plan: '', code: cleanCode(username).slice(0, 10) });
 useEffect(() => {
-supabase.rpc('my_affiliate_stats').then(({ data }) => {
+supabase.rpc('my_affiliate_stats').then(async ({ data }) => {
 const row = (data as AffiliateNumbers[] | null)?.[0];
 if (row) {
 setAff(row);
 supabase.rpc('my_affiliate_payments').then(({ data: pays }) => setAffPays((pays as AffPay[] | null) ?? []));
+} else {
+const { data: apps } = await supabase
+.from('affiliate_applications')
+.select('id, status, reject_reason, created_at')
+.eq('user_id', userId)
+.order('created_at', { ascending: false })
+.limit(1);
+setAffApp(((apps as AffApp[] | null) ?? [])[0] ?? null);
 }
+setAffLoaded(true);
 });
-}, []);
+}, [userId]);
+
+const sendApplication = async () => {
+const f = appForm;
+const code = cleanCode(f.code);
+if (f.name.trim().length < 2) return say(false, L('Add your name.', 'နာမည် ထည့်ပါ။'));
+if (f.contact.trim().length < 4) return say(false, L('Add your phone or Telegram so we can pay you.', 'ငွေပေးချေနိုင်ဖို့ ဖုန်း (သို့) Telegram ထည့်ပါ။'));
+if (code.length < 3) return say(false, L('Pick a code with 3 to 16 letters or numbers.', 'စာလုံး/ဂဏန်း ၃ မှ ၁၆ လုံးပါ ကုဒ်တစ်ခု ရွေးပါ။'));
+setBusy('apply');
+const { data, error } = await supabase
+.from('affiliate_applications')
+.insert({
+user_id: userId,
+name: f.name.trim().slice(0, 80),
+contact: f.contact.trim().slice(0, 120),
+platform: f.platform.trim().slice(0, 80),
+followers: f.followers.trim().slice(0, 40),
+plan: f.plan.trim().slice(0, 1000),
+wanted_code: code,
+})
+.select('id, status, reject_reason, created_at')
+.single();
+setBusy(null);
+if (error) return say(false, L('Could not send. You may already have an application waiting.', 'ပို့လို့ မရပါ။ စစ်ဆေးဆဲ လျှောက်လွှာ ရှိနေနိုင်ပါတယ်။'));
+const app = data as AffApp;
+setAffApp(app);
+setApplyOpen(false);
+notify('affiliate_applied', app.id);
+say(true, L('Application sent. We’ll let you know.', 'လျှောက်လွှာ ပို့ပြီးပါပြီ။ အကြောင်းပြန်ပါမယ်။'));
+};
 const shareAff = async () => {
 if (!aff) return;
 const link = affiliateLink(aff.code);
@@ -284,6 +329,88 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 </div>
 <p className="text-[11px] text-[rgb(var(--muted))] mt-2">{L('Shown on rankings and to friends.', 'Ranking နဲ့ သူငယ်ချင်းတွေ မြင်ရပါမယ်။')}</p>
 </div>
+
+{affLoaded && !aff && (
+<div className="rounded-2xl p-5" style={{ ...card, border: '1px solid rgb(var(--gold) / 0.25)' }}>
+<div className="flex items-center gap-2 mb-2">
+<Percent className="w-4 h-4 text-[rgb(var(--gold))]" />
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--gold))] uppercase">{L('Become an affiliate', 'Affiliate လုပ်ရန်')}</span>
+</div>
+{affApp?.status === 'pending' ? (
+<p className="text-xs text-[rgb(var(--muted-hover))] leading-relaxed">
+{L('Your application is being reviewed. We’ll notify you when it’s decided.', 'သင့်လျှောက်လွှာကို စစ်ဆေးနေပါတယ်။ ဆုံးဖြတ်ပြီးရင် အသိပေးပါမယ်။')}
+</p>
+) : !applyOpen ? (
+<>
+{affApp?.status === 'rejected' && (
+<p className="text-xs mb-2" style={{ color: 'rgb(var(--err))' }}>
+{L('Your last application was not approved', 'ယခင်လျှောက်လွှာ မအောင်မြင်ပါ')}
+{affApp.reject_reason ? `: ${affApp.reject_reason}` : '.'}
+</p>
+)}
+<p className="text-xs text-[rgb(var(--muted-hover))] leading-relaxed mb-3">
+{L(
+'Earn 20% of every Premium payment from people who use your code, for as long as they stay.',
+'သင့်ကုဒ်ကို သုံးသူတွေရဲ့ Premium ငွေပေးမှုတိုင်းမှ 20% ရယူပါ။'
+)}
+</p>
+<button
+onClick={() => setApplyOpen(true)}
+className="w-full font-semibold py-3 rounded-xl text-sm"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
+>
+{affApp?.status === 'rejected' ? L('Apply again', 'ပြန်လျှောက်ရန်') : L('Apply now', 'ယခု လျှောက်ရန်')}
+</button>
+</>
+) : (
+<div className="space-y-3">
+{(
+[
+['name', L('Your name', 'နာမည်'), 'Htoo'],
+['contact', L('Phone / Telegram (to pay you)', 'ဖုန်း / Telegram (ငွေပေးရန်)'), '09… / @username'],
+['platform', L('Where you’ll promote', 'ဘယ်မှာ ကြော်ငြာမလဲ'), 'TikTok, Facebook…'],
+['followers', L('Followers (roughly)', 'Followers (ခန့်မှန်း)'), '5,000'],
+['code', L('Code you want', 'လိုချင်တဲ့ ကုဒ်'), 'HTOO'],
+] as [keyof typeof appForm, string, string][]
+).map(([k, label, ph]) => (
+<div key={k}>
+<label className="text-[11px] text-[rgb(var(--muted))] block mb-1">{label}</label>
+<input
+value={appForm[k]}
+onChange={e => setAppForm(f => ({ ...f, [k]: k === 'code' ? cleanCode(e.target.value) : e.target.value }))}
+placeholder={ph}
+className="w-full rounded-xl px-4 py-3 text-[rgb(var(--gold))] focus:outline-none"
+style={input}
+/>
+</div>
+))}
+<div>
+<label className="text-[11px] text-[rgb(var(--muted))] block mb-1">{L('How will you bring buyers?', 'ဝယ်သူတွေကို ဘယ်လို ရှာမလဲ')}</label>
+<textarea
+value={appForm.plan}
+onChange={e => setAppForm(f => ({ ...f, plan: e.target.value }))}
+rows={3}
+className="w-full rounded-xl px-4 py-3 text-[rgb(var(--gold))] focus:outline-none resize-none"
+style={input}
+/>
+</div>
+<div className="flex gap-2">
+<button onClick={() => setApplyOpen(false)} className="flex-1 rounded-xl py-3 text-sm" style={{ background: 'rgb(var(--muted) / 0.12)', color: 'rgb(var(--muted-hover))' }}>
+{L('Cancel', 'မလုပ်တော့ပါ')}
+</button>
+<button
+onClick={sendApplication}
+disabled={busy === 'apply'}
+className="flex-[2] flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold disabled:opacity-60"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
+>
+{busy === 'apply' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} {L('Send application', 'လျှောက်လွှာ ပို့ရန်')}
+</button>
+</div>
+</div>
+)}
+</div>
+)}
 
 {aff && (
 <div

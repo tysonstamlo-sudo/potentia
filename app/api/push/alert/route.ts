@@ -68,6 +68,66 @@ url: '/admin',
 return Response.json({ sent });
 }
 
+if (event === 'premium_approved' || event === 'premium_rejected') {
+if (me !== ADMIN_USER_ID) return new Response('Forbidden', { status: 403 });
+const { data: r } = await db.from('premium_requests').select('user_id, plan, status, reject_reason').eq('id', id).single();
+if (!r) return Response.json({ sent: 0 });
+if (event === 'premium_approved' && r.status === 'approved') {
+const sent = await pushUser(r.user_id, {
+title: 'Premium is on 👑',
+body: 'Your payment is confirmed. Everything is unlocked.\nငွေလက်ခံရရှိပါပြီ။ Premium ဖွင့်ပေးလိုက်ပါပြီ။',
+url: '/',
+});
+return Response.json({ sent });
+}
+if (event === 'premium_rejected' && r.status === 'rejected') {
+const reason = r.reject_reason || 'Payment not found';
+const sent = await pushUser(r.user_id, {
+title: 'Payment not accepted',
+body: `${reason}. Open the app to pay again with a real screenshot.\nငွေပေးချေမှုကို လက်မခံနိုင်ပါ။ App ထဲမှာ ပြန်ပေးချေပါ။`,
+url: '/',
+});
+return Response.json({ sent });
+}
+return Response.json({ sent: 0 });
+}
+
+if (event === 'affiliate_applied' || event === 'affiliate_approved' || event === 'affiliate_rejected') {
+const { data: ap } = await db
+.from('affiliate_applications')
+.select('user_id, name, platform, followers, status, wanted_code, reject_reason, created_at')
+.eq('id', id)
+.single();
+if (!ap) return Response.json({ sent: 0 });
+if (event === 'affiliate_applied') {
+if (ap.user_id !== me || ap.status !== 'pending' || !recent(ap.created_at)) return Response.json({ sent: 0 });
+const sent = await pushUser(ADMIN_USER_ID, {
+title: '🤝 New affiliate application',
+body: `${ap.name}${ap.platform ? ` · ${ap.platform}` : ''}${ap.followers ? ` · ${ap.followers} followers` : ''}. Review it in Admin → Revenue.`,
+url: '/admin',
+});
+return Response.json({ sent });
+}
+if (me !== ADMIN_USER_ID) return new Response('Forbidden', { status: 403 });
+if (event === 'affiliate_approved' && ap.status === 'approved') {
+const sent = await pushUser(ap.user_id, {
+title: "You're a Potentia affiliate 🎉",
+body: `Your code is ${ap.wanted_code}. Open Settings to share your link and see your earnings.\nAffiliate အဖြစ် လက်ခံပါပြီ။ Settings ထဲမှာ သင့်ကုဒ်နဲ့ ဝင်ငွေကို ကြည့်ပါ။`,
+url: '/',
+});
+return Response.json({ sent });
+}
+if (event === 'affiliate_rejected' && ap.status === 'rejected') {
+const sent = await pushUser(ap.user_id, {
+title: 'Affiliate application',
+body: `Not approved this time${ap.reject_reason ? `: ${ap.reject_reason}` : '.'} You can apply again later.\nဒီတစ်ကြိမ် လက်မခံနိုင်ပါ။ နောက်မှ ပြန်လျှောက်နိုင်ပါတယ်။`,
+url: '/',
+});
+return Response.json({ sent });
+}
+return Response.json({ sent: 0 });
+}
+
 if (event === 'seller_approved') {
 if (me !== ADMIN_USER_ID) return new Response('Forbidden', { status: 403 });
 const { data: a } = await db.from('seller_applications').select('user_id, status').eq('id', id).single();

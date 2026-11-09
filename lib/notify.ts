@@ -13,7 +13,10 @@ export type AlertEvent =
 | 'order_rejected'
 | 'order_shipped'
 | 'seller_approved'
-| 'bill_paid';
+| 'bill_paid'
+| 'affiliate_applied'
+| 'affiliate_approved'
+| 'affiliate_rejected';
 
 export async function notify(event: AlertEvent, id: string) {
 try {
@@ -30,3 +33,4 @@ body: JSON.stringify({ event, id }),
 /* not critical */
 }
 }
+

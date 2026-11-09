@@ -20,6 +20,7 @@ import NotificationToggle from './components/NotificationToggle';
 import GlowCard from './components/GlowCard';
 import Splash from './components/Splash';
 import { LOGO_SRC } from '../lib/logo';
+import { rememberAffiliate, applySavedAffiliate } from '../lib/affiliate';
 import Settings, { Avatar } from './components/Settings';
 import { notify } from '../lib/notify';
 import { PAID_TIERS, trialOfferMmk, planMmk, fmtMMK, type Currency } from '../lib/payments';
@@ -117,6 +118,7 @@ const [saving, setSaving] = useState(false);
 useEffect(() => {
 try {
 rememberReferral(); // keep ?ref=CODE from an invite link until after sign-up
+rememberAffiliate(); // keep ?aff=CODE from an affiliate's link until after sign-up
 const want = new URLSearchParams(window.location.search).get('tab');
 const ok: TabKey[] = ['dashboard', 'scan', 'progress', 'rankings', 'friends', 'marketplace'];
 if (want && (ok as string[]).includes(want)) setActiveTab(want as TabKey);
@@ -139,6 +141,7 @@ return;
 setUserId(session.user.id);
 setEmail(session.user.email ?? '');
 applyReferral(); // links this account to the friend who invited them (only works for new accounts)
+applySavedAffiliate(); // links this account to the affiliate whose link they opened
 
 const { data: profile, error: profileError } = await supabase
 .from('profiles')

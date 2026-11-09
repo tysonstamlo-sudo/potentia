@@ -11,6 +11,7 @@ import { PLANS, COMMISSION, fmt, fmtMMK, toMMK, planPrice, type Currency } from 
 import { getThbRate, resetThbRate } from '../../lib/fx';
 import { SURVEY_REASONS } from '../components/TrialSurvey';
 import { notify } from '../../lib/notify';
+import { affiliateLink, cleanCode, type AffiliateNumbers } from '../../lib/affiliate';
 
 const ADMIN_USER_ID = '0ae23fa9-66ba-446d-8f3d-a06d49ee8760';
 
@@ -143,6 +144,8 @@ const [isAdmin, setIsAdmin] = useState(false);
 const [tab, setTab] = useState<'approvals' | 'orders' | 'revenue' | 'sellers' | 'notify'>('approvals');
 const [orders, setOrders] = useState<Order[]>([]);
 const [bills, setBills] = useState<Bill[]>([]);
+const [affs, setAffs] = useState<AffiliateNumbers[]>([]);
+const [affForm, setAffForm] = useState({ name: '', code: '', contact: '', email: '' });
 const [products, setProducts] = useState<AdminProduct[]>([]);
 const [proofUrls, setProofUrls] = useState<Record<string, string>>({});
 const [viewing, setViewing] = useState<string | null>(null);
@@ -187,6 +190,9 @@ supabase
 supabase.from('seller_bills').select('*').order('month', { ascending: false }).limit(300),
 ]);
 if (bl.error) console.error('bills', bl.error);
+const { data: af, error: afErr } = await supabase.rpc('admin_affiliate_stats');
+if (afErr) console.error('affiliates', afErr);
+setAffs((af as AffiliateNumbers[] | null) ?? []);
 const billsData = (bl.data as unknown as Bill[]) ?? [];
 setBills(billsData);
 if (o.error) console.error('orders', o.error);
@@ -404,6 +410,48 @@ await loadAll();
 const clearDispute = async (o: Order) => {
 setBusyId(o.id);
 await supabase.from('orders').update({ disputed: false }).eq('id', o.id);
+setBusyId(null);
+await loadAll();
+};
+
+const createAffiliate = async () => {
+const name = affForm.name.trim();
+const code = cleanCode(affForm.code);
+if (name.length < 2) return setMsg('Add the affiliate’s name.');
+if (code.length < 3) return setMsg('The code needs 3 to 16 letters or numbers, e.g. HTOO.');
+setBusyId('aff-new');
+let user_id: string | null = null;
+const email = affForm.email.trim().toLowerCase();
+if (email) {
+const { data: prof } = await supabase.from('profiles').select('id').ilike('email', email).maybeSingle();
+if (!prof) {
+setBusyId(null);
+return setMsg(`No Potentia account with ${email}. Leave the email empty, or ask them to sign up first.`);
+}
+user_id = (prof as { id: string }).id;
+}
+const { error } = await supabase.from('affiliates').insert({ name, code, contact: affForm.contact.trim() || null, user_id });
+setBusyId(null);
+if (error) return setMsg(/duplicate|unique/i.test(error.message) ? `The code ${code} is already used.` : `Could not add: ${error.message}`);
+setAffForm({ name: '', code: '', contact: '', email: '' });
+setMsg(`Added ${name}. Their link: ${affiliateLink(code)}`);
+await loadAll();
+};
+
+const payAffiliate = async (a: AffiliateNumbers) => {
+const owed = Math.round(Number(a.owed_mmk));
+if (owed <= 0) return;
+if (!confirm(`Mark ${mmk(owed)} as paid to ${a.name}? Do this after you have sent them the money.`)) return;
+setBusyId(a.id);
+const { error } = await supabase.from('affiliate_payouts').insert({ affiliate_id: a.id, amount_mmk: owed });
+setBusyId(null);
+setMsg(error ? 'Could not save the payout.' : `Marked ${mmk(owed)} paid to ${a.name}.`);
+await loadAll();
+};
+
+const toggleAffiliate = async (a: AffiliateNumbers) => {
+setBusyId(a.id);
+await supabase.from('affiliates').update({ active: !a.active }).eq('id', a.id);
 setBusyId(null);
 await loadAll();
 };
@@ -734,6 +782,93 @@ Thai prices now: 1 Month {planPrice('1month', 'THB', Number(rate))} · 6 Months 
 </div>
 </div>
 <p className="text-[10px] text-[rgb(var(--muted))] mt-3">Thai baht payments are counted at 1 THB = 138.7 MMK.</p>
+</div>
+
+{/* ---------- affiliates ---------- */}
+<div className="rounded-2xl p-5" style={accentStyle}>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--gold))] uppercase block mb-1">Affiliates</span>
+<p className="text-[11px] text-[rgb(var(--muted))] mb-4">
+Buyers who use an affiliate’s code or link belong to that affiliate for good. Every Premium payment you approve from them earns the affiliate their %.
+</p>
+
+{affs.length === 0 ? (
+<p className="text-sm text-[rgb(var(--muted-hover))] mb-4">No affiliates yet. Add your first one below.</p>
+) : (
+<div className="space-y-3 mb-5">
+{affs.map(a => {
+const owed = Math.max(0, Math.round(Number(a.owed_mmk)));
+return (
+<div key={a.id} className="rounded-xl p-3" style={{ ...cardStyle, opacity: a.active ? 1 : 0.55 }}>
+<div className="flex items-start justify-between gap-3">
+<div className="min-w-0">
+<p className="text-sm text-[rgb(var(--gold))] font-semibold truncate">
+{a.name} <span className="font-display tracking-[0.12em] text-[rgb(var(--muted-hover))]">· {a.code}</span>
+</p>
+<p className="text-[11px] text-[rgb(var(--muted))]">
+{a.buyers} buyers · {a.sales} payments · sales {mmk(Number(a.sales_mmk))} · {Math.round(Number(a.rate) * 100)}%
+</p>
+<p className="text-[11px] text-[rgb(var(--muted))]">
+earned {mmk(Number(a.earned_mmk))} · paid {mmk(Number(a.paid_mmk))}
+{a.contact ? ` · ${a.contact}` : ''}
+{a.user_id ? '' : ' · no app account linked'}
+</p>
+</div>
+<button
+onClick={() => toggleAffiliate(a)}
+disabled={busyId === a.id}
+className="text-[10px] rounded-lg px-2 py-1.5 flex-shrink-0"
+style={ghostBtn}
+>
+{a.active ? 'Pause' : 'Turn on'}
+</button>
+</div>
+{owed > 0 && (
+<button
+onClick={() => payAffiliate(a)}
+disabled={busyId === a.id}
+className="w-full mt-2.5 text-xs font-semibold rounded-xl py-2.5 disabled:opacity-50"
+style={primaryBtn}
+>
+Paid {mmk(owed)}
+</button>
+)}
+</div>
+);
+})}
+</div>
+)}
+
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase block mb-2">Add an affiliate</span>
+<div className="grid grid-cols-2 gap-2 mb-2">
+{(
+[
+['name', 'Name (e.g. Htoo)'],
+['code', 'Code (e.g. HTOO)'],
+['contact', 'Phone / Telegram'],
+['email', 'Their Potentia email (optional)'],
+] as [keyof typeof affForm, string][]
+).map(([k, ph]) => (
+<input
+key={k}
+value={affForm[k]}
+onChange={e => setAffForm(f => ({ ...f, [k]: k === 'code' ? cleanCode(e.target.value) : e.target.value }))}
+placeholder={ph}
+className="rounded-xl px-3 py-2.5 bg-transparent text-[rgb(var(--gold))] focus:outline-none min-w-0"
+style={{ border: '1px solid rgb(var(--muted) / 0.25)', fontSize: 16 }}
+/>
+))}
+</div>
+<p className="text-[10px] text-[rgb(var(--muted))] mb-3">
+Add their Potentia email so they can see their own sales and earnings in Settings.
+</p>
+<button
+onClick={createAffiliate}
+disabled={busyId === 'aff-new'}
+className="w-full text-sm font-semibold rounded-xl py-3 disabled:opacity-50"
+style={primaryBtn}
+>
+{busyId === 'aff-new' ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Add affiliate (20%)'}
+</button>
 </div>
 
 <div className="rounded-2xl p-5" style={cardStyle}>

@@ -3,13 +3,15 @@
 // app/components/Settings.tsx — profile picture, username, language, theme, notifications,
 // password, log out, legal pages and "Delete my account" (Google Play requires that one).
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { affiliateLink, type AffiliateNumbers } from '../../lib/affiliate';
+import { fmtMMK } from '../../lib/payments';
 import { supabase } from '../../lib/supabase';
 import { useLang, LanguageToggle } from '../../lib/i18n';
 import { ThemeToggle } from '../../lib/theme';
 import NotificationToggle from './NotificationToggle';
 import { Sheet } from './shopShared';
-import { Camera, Loader2, Check, LogOut, KeyRound, Trash2, FileText, Shield, ChevronRight } from 'lucide-react';
+import { Camera, Loader2, Check, LogOut, KeyRound, Trash2, FileText, Shield, ChevronRight, Share2, Percent } from 'lucide-react';
 
 const card: React.CSSProperties = {
 background: 'rgb(var(--surface) / 0.5)',
@@ -95,6 +97,41 @@ const [busy, setBusy] = useState<'pic' | 'name' | 'pw' | 'delete' | null>(null);
 const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
 const say = (ok: boolean, text: string) => setMsg({ ok, text });
+
+// affiliates see their own numbers here
+const [aff, setAff] = useState<AffiliateNumbers | null>(null);
+type AffPay = { created_at: string; buyer: string; plan: string; amount_mmk: number | null; status: string; reason: string | null; commission_mmk: number };
+const [affPays, setAffPays] = useState<AffPay[]>([]);
+const [copied, setCopied] = useState(false);
+useEffect(() => {
+supabase.rpc('my_affiliate_stats').then(({ data }) => {
+const row = (data as AffiliateNumbers[] | null)?.[0];
+if (row) {
+setAff(row);
+supabase.rpc('my_affiliate_payments').then(({ data: pays }) => setAffPays((pays as AffPay[] | null) ?? []));
+}
+});
+}, []);
+const shareAff = async () => {
+if (!aff) return;
+const link = affiliateLink(aff.code);
+const text = L(
+`Scan your face and find your tier on Potentia. Use my code ${aff.code}:`,
+`Potentia မှာ မျက်နှာ scan လုပ်ပြီး သင့်အဆင့်ကို သိလိုက်ပါ။ ကျွန်တော့်ကုဒ် ${aff.code} ကို သုံးပါ:`
+);
+try {
+if (navigator.share) return await navigator.share({ title: 'Potentia', text, url: link });
+} catch {
+return;
+}
+try {
+await navigator.clipboard.writeText(`${text} ${link}`);
+setCopied(true);
+setTimeout(() => setCopied(false), 1600);
+} catch {
+/* ignore */
+}
+};
 
 const pickPhoto = async (file: File | undefined) => {
 if (!file) return;
@@ -247,6 +284,97 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 </div>
 <p className="text-[11px] text-[rgb(var(--muted))] mt-2">{L('Shown on rankings and to friends.', 'Ranking နဲ့ သူငယ်ချင်းတွေ မြင်ရပါမယ်။')}</p>
 </div>
+
+{aff && (
+<div
+className="rounded-2xl p-5"
+style={{ background: 'linear-gradient(160deg, rgb(var(--gold) / 0.12), rgb(var(--surface) / 0.4))', border: '1px solid rgb(var(--gold) / 0.3)' }}
+>
+<div className="flex items-center gap-2 mb-3">
+<Percent className="w-4 h-4 text-[rgb(var(--gold))]" />
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--gold))] uppercase">{L('Affiliate dashboard', 'Affiliate ဒက်ရှ်ဘုတ်')}</span>
+{!aff.active && <span className="text-[10px] ml-auto" style={{ color: 'rgb(var(--err))' }}>{L('Paused', 'ရပ်ထား')}</span>}
+</div>
+<div className="flex items-center justify-between gap-3 mb-4">
+<div>
+<p className="text-[11px] text-[rgb(var(--muted))]">{L('Your code', 'သင့်ကုဒ်')}</p>
+<p className="font-display text-2xl font-bold tracking-[0.15em] text-[rgb(var(--gold))]">{aff.code}</p>
+</div>
+<button
+onClick={shareAff}
+className="flex items-center gap-1.5 text-xs font-semibold rounded-xl px-3.5 py-2.5"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
+>
+{copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+{copied ? L('Copied', 'ကူးပြီး') : L('Share link', 'လင့်ခ် မျှဝေ')}
+</button>
+</div>
+<div className="grid grid-cols-3 gap-2 mb-3">
+{[
+[L('Buyers', 'ဝယ်သူ'), String(aff.buyers)],
+[L('Payments', 'ငွေပေးမှု'), String(aff.sales)],
+[L('This month', 'ဒီလ'), fmtMMK(Number(aff.month_sales_mmk) * Number(aff.rate))],
+].map(([k, v]) => (
+<div key={k} className="rounded-xl p-2.5 text-center" style={{ background: 'rgb(var(--bg) / 0.4)' }}>
+<p className="font-display text-sm font-bold text-[rgb(var(--gold))] truncate">{v}</p>
+<p className="text-[10px] text-[rgb(var(--muted))]">{k}</p>
+</div>
+))}
+</div>
+<div className="space-y-1.5 text-xs">
+<div className="flex justify-between text-[rgb(var(--muted-hover))]">
+<span>{L(`You earned (${Math.round(Number(aff.rate) * 100)}%)`, `ရရှိငွေ (${Math.round(Number(aff.rate) * 100)}%)`)}</span>
+<span className="font-semibold">{fmtMMK(Number(aff.earned_mmk))}</span>
+</div>
+<div className="flex justify-between text-[rgb(var(--muted-hover))]">
+<span>{L('Already paid to you', 'ပေးပြီး')}</span>
+<span>{fmtMMK(Number(aff.paid_mmk))}</span>
+</div>
+<div className="flex justify-between text-[rgb(var(--gold))] font-semibold pt-1.5" style={{ borderTop: '1px solid rgb(var(--gold) / 0.2)' }}>
+<span>{L('Potentia owes you', 'Potentia က ပေးရန်')}</span>
+<span>{fmtMMK(Math.max(0, Number(aff.owed_mmk)))}</span>
+</div>
+</div>
+{affPays.length > 0 && (
+<div className="mt-4">
+<p className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase mb-2">{L('Your buyers’ payments', 'သင့်ဝယ်သူများ၏ ငွေပေးမှု')}</p>
+<div className="space-y-2">
+{affPays.slice(0, 15).map((x, i) => {
+const st =
+x.status === 'approved'
+? { t: L(`+${fmtMMK(x.commission_mmk)}`, `+${fmtMMK(x.commission_mmk)}`), c: 'rgb(var(--gold))' }
+: x.status === 'rejected'
+? { t: L('Rejected', 'ပယ်ချ'), c: 'rgb(var(--err))' }
+: { t: L('Waiting', 'စစ်ဆေးဆဲ'), c: 'rgb(var(--muted-hover))' };
+return (
+<div key={i} className="rounded-xl px-3 py-2" style={{ background: 'rgb(var(--bg) / 0.4)' }}>
+<div className="flex items-center justify-between gap-2">
+<span className="text-xs text-[rgb(var(--muted-hover))] truncate">
+{x.buyer} · {x.plan === '1month' ? '1M' : x.plan === '6months' ? '6M' : x.plan === '1year' ? '1Y' : x.plan}
+{x.amount_mmk ? ` · ${fmtMMK(x.amount_mmk)}` : ''}
+</span>
+<span className="text-xs font-semibold flex-shrink-0" style={{ color: st.c }}>
+{st.t}
+</span>
+</div>
+<div className="flex justify-between gap-2 text-[10px] text-[rgb(var(--muted))]">
+<span>{new Date(x.created_at).toLocaleDateString()}</span>
+{x.status === 'rejected' && x.reason && <span className="truncate" style={{ color: 'rgb(var(--err))' }}>{x.reason}</span>}
+</div>
+</div>
+);
+})}
+</div>
+</div>
+)}
+<p className="text-[10px] text-[rgb(var(--muted))] mt-3 leading-relaxed">
+{L(
+'Anyone who uses your code or link is yours for good: you earn on every Premium payment they make.',
+'သင့်ကုဒ် (သို့) လင့်ခ်ကို သုံးသူတိုင်း သင့်ဝယ်သူ ဖြစ်သွားပါတယ်။ သူတို့ Premium ပေးတိုင်း သင် ရပါတယ်။'
+)}
+</p>
+</div>
+)}
 
 {msg && (
 <p

@@ -2,7 +2,7 @@
 
 // app/components/PremiumModal.tsx — pick a plan, pick a bank (Myanmar or Thai), scan the QR, tell us you paid.
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Crown, Loader2, Check, Gift } from 'lucide-react';
 import ProofUpload from './ProofUpload';
 import { useLang } from '../../lib/i18n';
@@ -24,6 +24,7 @@ PROMO_ENDS,
 type Currency,
 } from '../../lib/payments';
 import { useThbRate } from '../../lib/fx';
+import { applyAffiliateCode, checkAffiliateCode, cleanCode, savedAffiliate } from '../../lib/affiliate';
 
 type PremiumModalProps = {
 onClose: () => void;
@@ -83,8 +84,35 @@ fontWeight: active ? 600 : 400,
 
 export default function PremiumModal({ onClose, onConfirm, submitting, onStartTrial, startingTrial, offer = false }: PremiumModalProps) {
 const rate = useThbRate();
-const { t } = useLang();
+const { t, lang } = useLang();
+const L = (en: string, my: string) => (lang === 'my' ? my : en);
 const [selectedPlan, setSelectedPlan] = useState('1month');
+// affiliate code (optional). Pre-filled if they opened an affiliate's link.
+const [affCode, setAffCode] = useState(savedAffiliate());
+const [affName, setAffName] = useState<string | null>(null);
+const [affError, setAffError] = useState('');
+const [sending, setSending] = useState(false);
+useEffect(() => {
+const c = cleanCode(affCode);
+setAffError('');
+if (c.length < 3) return setAffName(null);
+const id = setTimeout(async () => setAffName(await checkAffiliateCode(c)), 400);
+return () => clearTimeout(id);
+}, [affCode]);
+
+const sendPayment = async () => {
+if (!proofPath || sending) return;
+const c = cleanCode(affCode);
+if (c) {
+setSending(true);
+const res = await applyAffiliateCode(c);
+setSending(false);
+if (res === 'invalid') return setAffError(L('That code does not exist. Check it or leave it empty.', 'ဒီကုဒ် မရှိပါ။ ပြန်စစ်ပါ (သို့) အလွတ်ထားပါ။'));
+if (res === 'own') return setAffError(L('You cannot use your own code.', 'ကိုယ့်ကုဒ်ကို ကိုယ်တိုင် သုံးလို့ မရပါ။'));
+// 'already' = they are linked to someone else already: keep going, nothing changes
+}
+onConfirm(selectedPlan, currency, proofPath, useOffer ? 'trial_offer' : undefined);
+};
 const [currency, setCurrency] = useState<Currency>('MMK');
 const [step, setStep] = useState<'select' | 'pay'>('select');
 const [proofPath, setProofPath] = useState<string | null>(null);
@@ -244,13 +272,33 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 <ProofUpload onChange={setProofPath} />
 </div>
 
+<div className="mb-5">
+<label className="text-[11px] text-[rgb(var(--muted))] block mb-1.5">{L('Affiliate code (optional)', 'Affiliate ကုဒ် (မထည့်လည်းရ)')}</label>
+<input
+value={affCode}
+onChange={e => setAffCode(cleanCode(e.target.value))}
+placeholder="HTOO"
+autoCapitalize="characters"
+autoCorrect="off"
+spellCheck={false}
+className="w-full rounded-xl px-4 py-3 bg-transparent text-[rgb(var(--gold))] tracking-[0.15em] focus:outline-none"
+style={{ border: '1px solid rgb(var(--muted) / 0.25)', fontSize: 16 }}
+/>
+{affName && !affError && (
+<p className="text-[11px] text-[rgb(var(--gold))] mt-1.5 flex items-center gap-1">
+<Check className="w-3.5 h-3.5" /> {L(`Code from ${affName}`, `${affName} ၏ ကုဒ်`)}
+</p>
+)}
+{affError && <p className="text-[11px] mt-1.5" style={{ color: 'rgb(var(--err))' }}>{affError}</p>}
+</div>
+
 <button
-onClick={() => proofPath && onConfirm(selectedPlan, currency, proofPath, useOffer ? 'trial_offer' : undefined)}
-disabled={submitting || !proofPath}
+onClick={sendPayment}
+disabled={submitting || sending || !proofPath}
 className="w-full flex items-center justify-center gap-2 disabled:opacity-50 font-medium py-3.5 rounded-xl text-[13px] tracking-wide"
 style={primaryBtn}
 >
-{submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t("I've Sent Payment")}
+{submitting || sending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("I've Sent Payment")}
 </button>
 <p className="text-center text-[11px] text-[rgb(var(--muted))] mt-3">
 {t('By paying you agree to our')}{' '}

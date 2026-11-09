@@ -495,7 +495,7 @@ return (
 }
 
 return (
-<div className="min-h-screen bg-[rgb(var(--bg))] text-[rgb(var(--gold))] overflow-x-hidden relative transition-colors app-enter">
+<div className="min-h-screen bg-[rgb(var(--bg))] text-[rgb(var(--gold))] overflow-x-hidden relative transition-colors">
 <ThemeStyles />
 <MarbleBackground />
 <MarbleImage />
@@ -510,14 +510,15 @@ from { opacity: 0; transform: translateY(0.4em); filter: blur(4px); }
 to { opacity: 1; transform: translateY(0); filter: blur(0); }
 }
 .word-reveal { display: inline-block; opacity: 0; animation: wordReveal 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
-@keyframes appEnter { from { opacity: 0; transform: scale(0.985); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
-.app-enter { animation: appEnter 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+/* fade only (no transform/filter): those break full-screen popups like the sign-up questions on iPhone */
+@keyframes appEnter { from { opacity: 0; } to { opacity: 1; } }
+.app-enter { animation: appEnter 0.5s ease-out both; }
 @keyframes logoFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 .logo-float { animation: logoFloat 3.2s ease-in-out infinite; filter: drop-shadow(0 0 8px rgb(var(--gold) / 0.5)); }
 `}</style>
 
 <LanguageStyles />
-<div className="relative z-10">
+<div className="relative z-10 app-enter">
 <div
 className="max-w-6xl mx-auto px-4 sm:px-6 pb-28 md:pb-16 w-full"
 style={{ paddingTop: 'max(calc(env(safe-area-inset-top) + 12px), 52px)' }}

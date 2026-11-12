@@ -2,6 +2,7 @@
 
 // app/components/ProofUpload.tsx — "Upload your payment screenshot" box.
 // Saves to the private payment-proofs bucket in the user's own folder. Only they and the admin can see it.
+// The file is named after a fingerprint of the original screenshot, so the same slip can't be used twice.
 
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
@@ -58,12 +59,21 @@ const {
 data: { session },
 } = await supabase.auth.getSession();
 if (!session) throw new Error('Not signed in');
+// fingerprint of the ORIGINAL screenshot (before shrinking), so re-sending it is caught
+let name = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+try {
+const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+name = `sha-${Array.from(new Uint8Array(digest).slice(0, 16), b => b.toString(16).padStart(2, '0')).join('')}`;
+} catch {
+/* very old phone without crypto: keep a random name */
+}
 const blob = await compressImage(file);
-const path = `${session.user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+const path = `${session.user.id}/${name}.jpg`;
 const { error: upErr } = await supabase.storage
 .from('payment-proofs')
 .upload(path, blob, { contentType: 'image/jpeg', upsert: false });
-if (upErr) throw upErr;
+// "already exists" = they picked the same file again: that's fine, the file is there
+if (upErr && !/exist|duplicate/i.test(upErr.message)) throw upErr;
 setPreview(old => {
 if (old) URL.revokeObjectURL(old);
 return URL.createObjectURL(blob);

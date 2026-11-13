@@ -12,7 +12,8 @@ import { useLang, LanguageToggle } from '../../lib/i18n';
 import { ThemeToggle } from '../../lib/theme';
 import NotificationToggle from './NotificationToggle';
 import { Sheet } from './shopShared';
-import { Camera, Loader2, Check, LogOut, KeyRound, Trash2, FileText, Shield, ChevronRight, Share2, Percent, Send } from 'lucide-react';
+import Help from './Help';
+import { Camera, Loader2, Check, LogOut, KeyRound, Trash2, FileText, Shield, ChevronRight, Share2, Percent, Send, HelpCircle } from 'lucide-react';
 
 const card: React.CSSProperties = {
 background: 'rgb(var(--surface) / 0.5)',
@@ -96,6 +97,7 @@ const [name, setName] = useState(username);
 const [pic, setPic] = useState<string | null>(avatarUrl);
 const [busy, setBusy] = useState<'pic' | 'name' | 'pw' | 'delete' | 'apply' | null>(null);
 const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+const [showHelp, setShowHelp] = useState(false);
 
 const say = (ok: boolean, text: string) => setMsg({ ok, text });
 
@@ -534,6 +536,7 @@ icon={busy === 'pw' ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound c
 label={L('Change password', 'စကားဝှက် ပြောင်းရန်')}
 onClick={resetPassword}
 />
+<Row icon={<HelpCircle className="w-4 h-4" />} label={L('Help & FAQ', 'အကူအညီ နှင့် မေးလေ့ရှိသောမေးခွန်းများ')} onClick={() => setShowHelp(true)} />
 <Row icon={<FileText className="w-4 h-4" />} label={L('Terms of Use', 'အသုံးပြုမှု စည်းမျဉ်း')} onClick={() => (window.location.href = '/terms')} />
 <Row icon={<Shield className="w-4 h-4" />} label={L('Privacy Policy', 'ကိုယ်ရေးအချက်အလက် မူဝါဒ')} onClick={() => (window.location.href = '/privacy')} />
 <Row icon={<LogOut className="w-4 h-4" />} label={L('Log out', 'ထွက်ရန်')} onClick={onLogout} right={<span />} />
@@ -550,6 +553,7 @@ right={<span />}
 </div>
 <p className="text-center text-[10px] text-[rgb(var(--muted))] tracking-[0.3em] uppercase pb-2">Potentia</p>
 </div>
+{showHelp && <Help onClose={() => setShowHelp(false)} />}
 </Sheet>
 );
 }

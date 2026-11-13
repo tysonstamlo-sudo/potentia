@@ -19,7 +19,7 @@ return req.headers.get('x-real-ip') ?? '';
 
 export type AiKind = 'morph' | 'profile' | 'food' | 'rate';
 
-export const PAID_TIERS = ['1month', '6months', '1year'];
+export const PAID_TIERS = ['1week', '1month', '6months', '1year'];
 
 type Prof = { is_premium: boolean | null; subscription_tier: string | null; subscription_expires_at: string | null };
 

@@ -25,6 +25,7 @@ type Currency,
 } from '../../lib/payments';
 import { useThbRate } from '../../lib/fx';
 import { applyAffiliateCode, checkAffiliateCode, cleanCode, savedAffiliate } from '../../lib/affiliate';
+import { PAYMENT_HOURS, PAYMENT_SPEED } from '../../lib/brand';
 
 type PremiumModalProps = {
 onClose: () => void;
@@ -216,7 +217,12 @@ boxShadow: active ? '0 0 16px rgb(var(--gold) / 0.15)' : 'none',
 >
 <div>
 <div className="flex items-center gap-2 mb-0.5">
-<span className="text-sm text-[rgb(var(--gold))] font-medium">{t(p.label)}</span>
+<span className="text-sm text-[rgb(var(--gold))] font-medium">{id === '1week' ? L('1 Week', '၁ ပတ်') : t(p.label)}</span>
+{id === '1week' && (
+<span className="text-[9px] font-semibold rounded-full px-2 py-0.5" style={{ background: 'rgb(var(--gold) / 0.15)', color: 'rgb(var(--gold))' }}>
+{L('Try it', 'စမ်းကြည့်ရန်')}
+</span>
+)}
 {off > 0 && (
 <span
 className="text-[9px] font-bold rounded-full px-2 py-0.5"
@@ -300,7 +306,13 @@ style={primaryBtn}
 >
 {submitting || sending ? <Loader2 className="w-4 h-4 animate-spin" /> : t("I've Sent Payment")}
 </button>
-<p className="text-center text-[11px] text-[rgb(var(--muted))] mt-3">
+<p className="text-center text-[11px] text-[rgb(var(--gold))] mt-3">
+⚡ {L(
+`Usually confirmed ${PAYMENT_SPEED.en} (${PAYMENT_HOURS.en}).`,
+`ပုံမှန်အားဖြင့် ${PAYMENT_SPEED.my} အတည်ပြုပေးပါတယ် (${PAYMENT_HOURS.my})။`
+)}
+</p>
+<p className="text-center text-[11px] text-[rgb(var(--muted))] mt-2">
 {t('By paying you agree to our')}{' '}
 <a href="/terms" target="_blank" className="underline underline-offset-2">
 {t('Terms of Use')}

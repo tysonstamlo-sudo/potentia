@@ -8,18 +8,19 @@ export const COMMISSION = 0.2; // Potentia keeps 20% of every shop sale
 
 export type Currency = 'MMK' | 'THB';
 
-export const PLANS: Record<string, { label: string; months: number; mmk: number }> = {
+export const PLANS: Record<string, { label: string; months: number; days?: number; mmk: number }> = {
+'1week': { label: '1 Week', months: 0, days: 7, mmk: 9900 },
 '1month': { label: '1 Month', months: 1, mmk: 60000 },
 '6months': { label: '6 Months', months: 6, mmk: 299000 },
 '1year': { label: '1 Year', months: 12, mmk: 499000 },
 };
-export const PLAN_IDS = ['1month', '6months', '1year'];
+export const PLAN_IDS = ['1week', '1month', '6months', '1year'];
 export const PAID_TIERS = PLAN_IDS;
 
 /* ---------- launch promo ---------- */
 export const PROMO_ENDS = new Date('2027-02-01T00:00:00+06:30'); // 1 Feb 2027, Myanmar time
 export const PROMO_LABEL = 'Launch promo';
-const PROMO_MMK: Record<string, number> = { '1month': 39000, '6months': 179000, '1year': 299000 };
+const PROMO_MMK: Record<string, number> = { '1week': 9900, '1month': 39000, '6months': 179000, '1year': 299000 };
 
 /** First-month deal for 48 hours after the free trial ends. Must stay below the 1 Month price. */
 const OFFER_NORMAL = 39000;

@@ -299,7 +299,8 @@ const { data: prof } = await supabase
 const current = prof?.subscription_expires_at ? new Date(prof.subscription_expires_at) : null;
 const base = current && current.getTime() > Date.now() ? current : new Date();
 const expiresAt = new Date(base);
-expiresAt.setMonth(expiresAt.getMonth() + plan.months);
+if (plan.days) expiresAt.setDate(expiresAt.getDate() + plan.days);
+else expiresAt.setMonth(expiresAt.getMonth() + plan.months);
 
 const { error: e1 } = await supabase
 .from('profiles')

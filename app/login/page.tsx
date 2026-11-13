@@ -88,6 +88,19 @@ setNotice(null);
 setCheckEmail(false);
 };
 
+// People who come from the survey ("Scan my face") land on the scan tab after they sign up or log in.
+const nextUrl = (clear: boolean) => {
+try {
+if (localStorage.getItem('potentia_next_tab') === 'scan') {
+if (clear) localStorage.removeItem('potentia_next_tab');
+return '/?tab=scan';
+}
+} catch {
+/* ignore */
+}
+return '/';
+};
+
 // Save the phone number privately, and remember it so Shop checkout is already filled in.
 const savePhone = async (p: string) => {
 try {
@@ -139,7 +152,7 @@ email: cleanEmail,
 password,
 options: {
 data: { username: name.slice(0, 30), gender, adult: true, phone: cleanPhone },
-emailRedirectTo: `${origin}/`,
+emailRedirectTo: `${origin}${nextUrl(false)}`,
 },
 });
 if (error) {
@@ -165,7 +178,7 @@ await supabase
 .upsert({ id: data.user.id, email: data.user.email, username: name.slice(0, 30), gender }, { onConflict: 'id', ignoreDuplicates: true });
 }
 await savePhone(cleanPhone);
-router.push('/');
+router.push(nextUrl(true));
 router.refresh();
 return;
 }
@@ -180,7 +193,7 @@ return setNotice({ kind: 'error', text: friendly(error.message) });
 // first login after confirming the email: store the phone number given at sign-up
 const metaPhone = signed.user?.user_metadata?.phone;
 if (typeof metaPhone === 'string' && metaPhone) await savePhone(metaPhone);
-router.push('/');
+router.push(nextUrl(true));
 router.refresh();
 };
 

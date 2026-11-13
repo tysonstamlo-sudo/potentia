@@ -8,7 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { ThemeStyles, MarbleBackground } from '../../lib/theme';
 import { useLang, LanguageToggle, LanguageStyles } from '../../lib/i18n';
 import { LOGO_SRC } from '../../lib/logo';
-import { Check, Loader2 } from 'lucide-react';
+import { Check, Loader2, ScanFace } from 'lucide-react';
 
 type Opt = { v: string; en: string; my: string };
 type Q = {
@@ -230,6 +230,16 @@ setDone(true);
 window.scrollTo({ top: 0 });
 };
 
+// After the survey: straight to the face scan (sign-up first if they have no account).
+const goScan = () => {
+try {
+localStorage.setItem('potentia_next_tab', 'scan');
+} catch {
+/* ignore */
+}
+window.location.href = '/?tab=scan';
+};
+
 const card: React.CSSProperties = { background: 'rgb(var(--surface) / 0.6)', border: '1px solid rgb(var(--muted) / 0.16)' };
 const chip = (active: boolean): React.CSSProperties => ({
 background: active ? 'rgb(var(--gold))' : 'rgb(var(--muted) / 0.1)',
@@ -268,9 +278,28 @@ return (
 </span>
 <h2 className="font-display text-xl font-semibold text-[rgb(var(--gold))] mb-2">{L('Thank you!', 'ကျေးဇူးတင်ပါတယ်!')}</h2>
 <p className="text-sm text-[rgb(var(--muted-hover))] leading-relaxed mb-6">{L('Your answers were saved.', 'သင့်အဖြေတွေကို သိမ်းပြီးပါပြီ။')}</p>
-<a href="/" className="inline-block font-medium py-3 px-6 rounded-xl text-[13px]" style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}>
-{L('Want to try the app?', 'App ကို စမ်းကြည့်မလား?')} →
-</a>
+
+<div className="rounded-2xl p-5 text-left" style={{ background: 'rgb(var(--gold) / 0.08)', border: '1px solid rgb(var(--gold) / 0.35)' }}>
+<div className="flex items-center gap-2 mb-2">
+<ScanFace className="w-5 h-5 text-[rgb(var(--gold))]" />
+<span className="font-display text-base font-semibold text-[rgb(var(--gold))]">{L('Now try it: scan your face', 'အခု စမ်းကြည့်ပါ: မျက်နှာ scan ဖတ်ပါ')}</span>
+</div>
+<p className="text-[13px] text-[rgb(var(--muted-hover))] leading-relaxed mb-4">
+{L(
+'Get your face score and your #1 weak point in about a minute. The first scan is free.',
+'တစ်မိနစ်လောက်နဲ့ သင့်မျက်နှာ အမှတ်နဲ့ အဓိက အားနည်းချက်ကို သိနိုင်ပါတယ်။ ပထမ scan က အခမဲ့ပါ။'
+)}
+</p>
+<button onClick={goScan} className="w-full flex items-center justify-center gap-2 font-medium py-3.5 rounded-xl text-sm" style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}>
+<ScanFace className="w-4 h-4" /> {L('Scan my face free', 'အခမဲ့ scan ဖတ်မယ်')} →
+</button>
+<p className="text-[10px] text-[rgb(var(--muted))] mt-3 leading-relaxed">
+{L(
+'Optional. Scanning needs a free account (18+). Your survey answers stay anonymous and are not linked to it.',
+'မလုပ်လည်းရပါတယ်။ Scan ဖတ်ဖို့ အခမဲ့ အကောင့် လိုပါတယ် (၁၈ နှစ်အထက်)။ စစ်တမ်းအဖြေတွေက အမည်မဖော်ဘဲ အကောင့်နဲ့ မချိတ်ပါ။'
+)}
+</p>
+</div>
 </div>
 ) : (
 <div className="space-y-5">

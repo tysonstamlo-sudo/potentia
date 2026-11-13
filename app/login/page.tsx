@@ -9,7 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { ThemeStyles, ThemeToggle, MarbleBackground, MarbleImage } from '../../lib/theme';
 import { useLang, LanguageToggle, LanguageStyles } from '../../lib/i18n';
 import { LOGO_SRC } from '../../lib/logo';
-import { Mail, Lock, User, Loader2, ScanFace, Eye, EyeOff, ArrowLeft, MailCheck, Check } from 'lucide-react';
+import { Mail, Lock, User, Phone, Loader2, ScanFace, Eye, EyeOff, ArrowLeft, MailCheck, Check } from 'lucide-react';
 
 const cardStyle: React.CSSProperties = {
 background: 'rgb(var(--surface) / 0.55)',
@@ -51,6 +51,7 @@ const [email, setEmail] = useState('');
 const [password, setPassword] = useState('');
 const [showPw, setShowPw] = useState(false);
 const [username, setUsername] = useState('');
+const [phone, setPhone] = useState('');
 const [gender, setGender] = useState<'male' | 'female' | ''>('');
 const [adult, setAdult] = useState(false);
 const [loading, setLoading] = useState(false);
@@ -87,6 +88,21 @@ setNotice(null);
 setCheckEmail(false);
 };
 
+// Save the phone number privately, and remember it so Shop checkout is already filled in.
+const savePhone = async (p: string) => {
+try {
+const saved = JSON.parse(localStorage.getItem('potentia_buyer') || '{}');
+if (!saved.phone) localStorage.setItem('potentia_buyer', JSON.stringify({ ...saved, phone: p }));
+} catch {
+/* ignore */
+}
+try {
+await supabase.rpc('set_my_phone', { p });
+} catch {
+/* never blocks sign-in */
+}
+};
+
 const handleSubmit = async (e: React.FormEvent) => {
 e.preventDefault();
 setNotice(null);
@@ -110,6 +126,9 @@ return;
 if (mode === 'signup') {
 const name = username.trim().replace(/\s+/g, ' ');
 if (name.length < 2) return setNotice({ kind: 'error', text: L('Username must be at least 2 characters.', 'အသုံးပြုသူအမည် အနည်းဆုံး စာလုံး ၂ လုံး ရှိရပါမယ်။') });
+const cleanPhone = phone.replace(/[^0-9+]/g, '');
+if (!/^\+?[0-9]{7,15}$/.test(cleanPhone))
+return setNotice({ kind: 'error', text: L('Enter your phone number, for example 09xxxxxxxxx.', 'ဖုန်းနံပါတ် ထည့်ပါ။ ဥပမာ 09xxxxxxxxx') });
 if (!gender) return setNotice({ kind: 'error', text: t('Please select your gender to continue.') });
 if (password.length < 6) return setNotice({ kind: 'error', text: friendly('password at least') });
 if (!adult) return setNotice({ kind: 'error', text: L('Potentia is for people 18 and over.', 'Potentia ကို အသက် ၁၈ နှစ်နှင့်အထက်သာ သုံးနိုင်ပါတယ်။') });
@@ -119,7 +138,7 @@ const { data, error } = await supabase.auth.signUp({
 email: cleanEmail,
 password,
 options: {
-data: { username: name.slice(0, 30), gender, adult: true },
+data: { username: name.slice(0, 30), gender, adult: true, phone: cleanPhone },
 emailRedirectTo: `${origin}/`,
 },
 });
@@ -145,6 +164,7 @@ await supabase
 .from('profiles')
 .upsert({ id: data.user.id, email: data.user.email, username: name.slice(0, 30), gender }, { onConflict: 'id', ignoreDuplicates: true });
 }
+await savePhone(cleanPhone);
 router.push('/');
 router.refresh();
 return;
@@ -152,11 +172,14 @@ return;
 
 // login
 setLoading(true);
-const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+const { data: signed, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
 if (error) {
 setLoading(false);
 return setNotice({ kind: 'error', text: friendly(error.message) });
 }
+// first login after confirming the email: store the phone number given at sign-up
+const metaPhone = signed.user?.user_metadata?.phone;
+if (typeof metaPhone === 'string' && metaPhone) await savePhone(metaPhone);
 router.push('/');
 router.refresh();
 };
@@ -298,6 +321,22 @@ onChange={e => setUsername(e.target.value)}
 maxLength={30}
 autoComplete="nickname"
 placeholder="Marcus"
+className={inputClass}
+style={{ fontSize: 16 }}
+/>
+</Field>
+)}
+
+{mode === 'signup' && (
+<Field icon={<Phone className="w-4 h-4" />} label={L('Phone number', 'ဖုန်းနံပါတ်')}>
+<input
+type="tel"
+inputMode="tel"
+value={phone}
+onChange={e => setPhone(e.target.value)}
+maxLength={20}
+autoComplete="tel"
+placeholder="09xxxxxxxxx"
 className={inputClass}
 style={{ fontSize: 16 }}
 />

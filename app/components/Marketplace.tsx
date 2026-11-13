@@ -14,6 +14,7 @@ import { QrBox } from './PremiumModal';
 import SellerModal from './SellerModal';
 import SellerShop from './SellerShop';
 import ProofUpload from './ProofUpload';
+import ScanPicks from './ScanPicks';
 import {
 Sheet,
 ProductImage,
@@ -59,7 +60,7 @@ localStorage.setItem(LS_KEY, JSON.stringify(v));
 }
 
 /* ---------------- product detail + checkout ---------------- */
-function ProductSheet({ product, isMine, onClose, onOrdered }: { product: Product; isMine: boolean; onClose: () => void; onOrdered: () => void }) {
+export function ProductSheet({ product, isMine, onClose, onOrdered }: { product: Product; isMine: boolean; onClose: () => void; onOrdered: () => void }) {
 const { t, lang } = useLang();
 const L = (en: string, my: string) => (lang === 'my' ? my : en);
 const rate = useThbRate();
@@ -483,7 +484,7 @@ setUserId(uid);
 const [p, o, s] = await Promise.all([
 supabase
 .from('products')
-.select('id, seller_id, shop_name, name, description, category, price_mmk, image_url, active, created_at')
+.select('*')
 .eq('active', true)
 .eq('hidden_by_admin', false)
 .order('created_at', { ascending: false })
@@ -588,7 +589,11 @@ fontWeight: active ? 600 : 400,
 {t('The first sellers are setting up. Have something good to sell? Apply below.')}
 </p>
 </div>
-) : shown.length === 0 ? (
+) : null}
+
+{!loading && category === 'All' && !query.trim() && <ScanPicks products={products} onOpen={setOpen} />}
+
+{loading || products.length === 0 ? null : shown.length === 0 ? (
 <p className="text-center text-sm text-[rgb(var(--muted))] py-8">{t('Nothing matches your search.')}</p>
 ) : (
 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">

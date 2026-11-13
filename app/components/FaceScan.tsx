@@ -27,6 +27,10 @@ import { callAi, toAiImage } from '../../lib/aiClient';
 import type { AiRating } from '../api/ai/rate/route';
 import MorphCard from './MorphCard';
 import SideProfileScan from './SideProfileScan';
+import ProgressGallery from './ProgressGallery';
+import ScanPicks from './ScanPicks';
+import { fmtMMK, planMmk } from '../../lib/payments';
+import { addPhoto, lastPhoto } from '../../lib/gallery';
 import {
 Camera,
 Upload,
@@ -43,6 +47,7 @@ AlertTriangle,
 Ruler,
 Target,
 ScanFace,
+Images,
 } from 'lucide-react';
 
 type FaceScanProps = {
@@ -154,10 +159,18 @@ const [aiRating, setAiRating] = useState<AiRating | null>(null);
 const [geoOverall, setGeoOverall] = useState<number | null>(null);
 const [aiNote, setAiNote] = useState('');
 const [uid, setUid] = useState<string | null>(null);
+const [showGallery, setShowGallery] = useState(false);
+const [ghost, setGhost] = useState<string | null>(null); // last photo, shown faintly over the camera
+const [ghostOn, setGhostOn] = useState(true);
 
 const fileInputRef = useRef<HTMLInputElement>(null);
 const videoRef = useRef<HTMLVideoElement>(null);
 const streamRef = useRef<MediaStream | null>(null);
+
+// Ghost overlay: load the last progress photo so you can line up the same way every time
+useEffect(() => {
+if (status === 'idle' || status === 'capture') lastPhoto().then(p => setGhost(p?.frame ?? null));
+}, [status]);
 
 useEffect(() => {
 preloadFaceModel();
@@ -385,6 +398,7 @@ const wait = Math.max(0, 1600 - (Date.now() - started));
 await new Promise(r => setTimeout(r, wait));
 // Compare with earlier scans before saving this one
 let fb: ScanFeedback | null = null;
+let shownScore = analysis.overall;
 try {
 const { data: { session } } = await supabase.auth.getSession();
 if (session) {
@@ -413,7 +427,8 @@ const recent = camera
 setScanCount(1 + recent.length);
 if (recent.length) {
 const all = [analysis.overall, ...recent];
-setStableOverall(Math.round((all.reduce((a, b) => a + b, 0) / all.length) * 10) / 10);
+shownScore = Math.round((all.reduce((a, b) => a + b, 0) / all.length) * 10) / 10;
+setStableOverall(shownScore);
 } else {
 setStableOverall(null);
 }
@@ -446,6 +461,10 @@ score: Math.round(m.score * 10) / 10,
 }
 } catch {
 /* history save failed — ignore */
+}
+// Progress gallery: camera scans only, saved on this phone (never uploaded)
+if (frontBurst.length > 1 && sh.front) {
+addPhoto({ face: analysis.croppedImage || sh.front, frame: sh.front, score: shownScore });
 }
 if (!isPremium) setLastScanAt(Date.now());
 } catch (e) {
@@ -581,6 +600,13 @@ style={{ background: 'rgb(var(--gold) / 0.1)', color: 'rgb(var(--gold))', border
 >
 {!isPremium && <Crown className="w-3.5 h-3.5" />} {t('Side profile scan')} →
 </button>
+<button
+onClick={() => setShowGallery(true)}
+className="mt-3 flex items-center gap-2 text-[12px] font-medium rounded-full px-4 py-2"
+style={{ background: 'rgb(var(--gold) / 0.1)', color: 'rgb(var(--gold))', border: '1px solid rgb(var(--gold) / 0.3)' }}
+>
+<Images className="w-3.5 h-3.5" /> {L('My progress photos', 'ကျွန်ုပ်ရဲ့ တိုးတက်မှု ဓာတ်ပုံများ')}
+</button>
 </div>
 )}
 
@@ -614,6 +640,10 @@ style={{ background: 'rgb(var(--bg))', border: '2px solid rgb(var(--gold) / 0.4)
 >
 {cameraActive && !imagePreview && (
 <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
+)}
+{cameraActive && !imagePreview && step === 'front' && ghost && ghostOn && (
+// eslint-disable-next-line @next/next/no-img-element
+<img src={ghost} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" style={{ opacity: 0.28 }} />
 )}
 {imagePreview && (
 // eslint-disable-next-line @next/next/no-img-element
@@ -659,6 +689,18 @@ className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 backdrop-blur
 <X className="w-4 h-4" />
 </button>
 </div>
+
+{cameraActive && !imagePreview && step === 'front' && ghost && (
+<button
+onClick={() => setGhostOn(v => !v)}
+className="-mt-3 mb-4 text-[11px] font-medium rounded-full px-3 py-1.5"
+style={{ background: 'rgb(var(--gold) / 0.1)', color: 'rgb(var(--gold))', border: '1px solid rgb(var(--gold) / 0.3)' }}
+>
+{ghostOn
+? L('Line up with your last photo · hide', 'အရင်ပုံနဲ့ တန်းညှိပါ · ဖျောက်ရန်')
+: L('Show last photo', 'အရင်ပုံ ပြရန်')}
+</button>
+)}
 
 {cameraActive && !imagePreview && (
 <button
@@ -1056,8 +1098,42 @@ style={{ borderTop: '1px solid rgb(var(--muted) / 0.15)' }}
 <Lock className="w-3 h-3" /> {text}
 </div>
 );
+const lockedSkin = skin ? Math.max(0, skin.items.length - 1) : 0;
+const lockedTotal = moreWeak + lockedSkin + result.measurements.length;
+const dayPass = () => {
+try {
+sessionStorage.setItem('potentia_plan', '1day');
+} catch {
+/* ignore */
+}
+onGoPremium();
+};
 return (
 <>
+{/* What is locked, counted */}
+<button onClick={dayPass} className="w-full text-left rounded-2xl p-5" style={accentCardStyle}>
+<div className="flex items-center gap-2 mb-1.5">
+<Lock className="w-4 h-4 text-[rgb(var(--gold))]" />
+<span className="font-display text-base font-semibold text-[rgb(var(--gold))]">
+{L(`${lockedTotal} results about your face are locked`, `သင့်မျက်နှာအကြောင်း ရလဒ် ${lockedTotal} ခု ပိတ်ထားပါတယ်`)}
+</span>
+</div>
+<p className="text-xs text-[rgb(var(--muted-hover))] leading-relaxed">
+{[
+moreWeak > 0 ? L(`${moreWeak} weak points`, `အားနည်းချက် ${moreWeak} ခု`) : '',
+lockedSkin > 0 ? L(`${lockedSkin} skin results`, `အသားအရေ ရလဒ် ${lockedSkin} ခု`) : '',
+L(`${result.measurements.length} measurements`, `တိုင်းတာချက် ${result.measurements.length} ခု`),
+L('your potential score', 'သင့် potential အမှတ်'),
+L('your full plan', 'သင့်အတွက် plan အပြည့်အစုံ'),
+]
+.filter(Boolean)
+.join(' · ')}
+</p>
+<p className="text-[12px] font-semibold text-[rgb(var(--gold))] mt-3">
+{L(`Unlock everything for 24 hours · ${fmtMMK(planMmk('1day'))}`, `၂၄ နာရီ အားလုံးဖွင့်ရန် · ${fmtMMK(planMmk('1day'))}`)} →
+</p>
+</button>
+
 {/* Potential: hidden */}
 <button onClick={onGoPremium} className="w-full text-left rounded-2xl p-5" style={accentCardStyle}>
 <div className="flex items-center justify-between">
@@ -1176,11 +1252,14 @@ background: open ? scoreColor(result.groups[k]) : 'rgb(var(--muted) / 0.4)',
 )}
 
 <button
-onClick={onGoPremium}
+onClick={dayPass}
 className="w-full flex items-center justify-center gap-2 font-medium py-3.5 rounded-xl text-[13px]"
 style={primaryBtn}
 >
-<Crown className="w-4 h-4" /> {t("Unlock my full report")}
+<Crown className="w-4 h-4" /> {L(`Unlock for 24 hours · ${fmtMMK(planMmk('1day'))}`, `၂၄ နာရီ ဖွင့်ရန် · ${fmtMMK(planMmk('1day'))}`)}
+</button>
+<button onClick={onGoPremium} className="w-full text-center text-[12px] font-medium text-[rgb(var(--gold))] py-1">
+{L('See all plans', 'Plan အားလုံး ကြည့်ရန်')} →
 </button>
 </>
 );
@@ -1206,6 +1285,9 @@ style={primaryBtn}
 ))}
 </div>
 </div>
+
+{/* Shop products matched to this scan (everyone sees this) */}
+<ScanPicks scan={{ skin, ai: aiRating }} />
 
 {/* Skin reading (Premium) */}
 {skin && (
@@ -1375,9 +1457,13 @@ style={{ borderTop: '1px solid rgb(var(--muted) / 0.15)', opacity: 0.8 }}
 <button onClick={shareResult} className="flex items-center gap-2 text-[rgb(var(--muted))] text-xs font-medium">
 <Share2 className="w-3 h-3" /> {t("Share")}
 </button>
+<button onClick={() => setShowGallery(true)} className="flex items-center gap-2 text-[rgb(var(--gold))] text-xs font-medium">
+<Images className="w-3 h-3" /> {L('Progress photos', 'တိုးတက်မှု ဓာတ်ပုံ')}
+</button>
 </div>
 </div>
 )}
+{showGallery && <ProgressGallery onClose={() => setShowGallery(false)} />}
 {showSide && <SideProfileScan isPremium={isPremium} onGoPremium={onGoPremium} onClose={() => setShowSide(false)} />}
 </div>
 );

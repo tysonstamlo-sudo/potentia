@@ -6,6 +6,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useLang } from '../../lib/i18n';
+import { CONCERNS } from '../../lib/recommend';
 import { notify } from '../../lib/notify';
 import { BANKS, COMMISSION, fmt, fmtMMK, mmkToThb, type Currency } from '../../lib/payments';
 import { useThbRate } from '../../lib/fx';
@@ -102,6 +103,7 @@ const { t, L } = useL();
 const [name, setName] = useState(product?.name ?? '');
 const [description, setDescription] = useState(product?.description ?? '');
 const [category, setCategory] = useState(product?.category ?? 'Skincare');
+const [concerns, setConcerns] = useState<string[]>(product?.concerns ?? []);
 const [price, setPrice] = useState(product ? String(product.price_mmk) : '');
 const [imageUrl, setImageUrl] = useState<string | null>(product?.image_url ?? null);
 const [uploading, setUploading] = useState(false);
@@ -135,6 +137,7 @@ const row = {
 name: name.trim().slice(0, 80),
 description: description.trim().slice(0, 1500),
 category,
+concerns,
 price_mmk: priceNum,
 image_url: imageUrl,
 };
@@ -218,6 +221,36 @@ fontWeight: active ? 600 : 400,
 }}
 >
 {t(c)}
+</button>
+);
+})}
+</div>
+</div>
+
+<div>
+<label className="text-[11px] text-[rgb(var(--muted))] block mb-0.5">{L('Helps with (optional)', 'ဘာအတွက် ကောင်းလဲ (မထည့်လည်းရ)')}</label>
+<p className="text-[10px] text-[rgb(var(--muted))] mb-2 leading-relaxed">
+{L(
+'Pick what this product really helps. We show it to people whose face scan found that problem.',
+'ဒီပစ္စည်းက တကယ် အကူအညီပေးတာကို ရွေးပါ။ Face scan မှာ အဲဒီပြဿနာ တွေ့တဲ့သူတွေကို ပြပေးပါမယ်။'
+)}
+</p>
+<div className="flex flex-wrap gap-2">
+{CONCERNS.map(c => {
+const active = concerns.includes(c.key);
+return (
+<button
+key={c.key}
+type="button"
+onClick={() => setConcerns(cur => (active ? cur.filter(x => x !== c.key) : [...cur, c.key].slice(0, 4)))}
+className="text-[11px] rounded-full px-3.5 py-2"
+style={{
+background: active ? 'rgb(var(--gold))' : 'rgb(var(--muted) / 0.1)',
+color: active ? 'rgb(var(--bg))' : 'rgb(var(--muted-hover))',
+fontWeight: active ? 600 : 400,
+}}
+>
+{L(c.en, c.my)}
 </button>
 );
 })}

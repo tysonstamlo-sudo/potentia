@@ -87,7 +87,17 @@ export default function PremiumModal({ onClose, onConfirm, submitting, onStartTr
 const rate = useThbRate();
 const { t, lang } = useLang();
 const L = (en: string, my: string) => (lang === 'my' ? my : en);
-const [selectedPlan, setSelectedPlan] = useState('1month');
+// The scan result's "Unlock for 24 hours" button asks for the 24-Hour Pass to be picked already.
+const [selectedPlan, setSelectedPlan] = useState(() => {
+try {
+const want = sessionStorage.getItem('potentia_plan');
+sessionStorage.removeItem('potentia_plan');
+if (want && PLANS[want]) return want;
+} catch {
+/* ignore */
+}
+return '1month';
+});
 // affiliate code (optional). Pre-filled if they opened an affiliate's link.
 const [affCode, setAffCode] = useState(savedAffiliate());
 const [affName, setAffName] = useState<string | null>(null);
@@ -217,7 +227,12 @@ boxShadow: active ? '0 0 16px rgb(var(--gold) / 0.15)' : 'none',
 >
 <div>
 <div className="flex items-center gap-2 mb-0.5">
-<span className="text-sm text-[rgb(var(--gold))] font-medium">{id === '1week' ? L('1 Week', '၁ ပတ်') : t(p.label)}</span>
+<span className="text-sm text-[rgb(var(--gold))] font-medium">{id === '1day' ? L('24-Hour Pass', '၂၄ နာရီ Pass') : id === '1week' ? L('1 Week', '၁ ပတ်') : t(p.label)}</span>
+{id === '1day' && (
+<span className="text-[9px] font-semibold rounded-full px-2 py-0.5" style={{ background: 'rgb(var(--gold) / 0.15)', color: 'rgb(var(--gold))' }}>
+{L('Cheapest', 'ဈေးအသက်သာဆုံး')}
+</span>
+)}
 {id === '1week' && (
 <span className="text-[9px] font-semibold rounded-full px-2 py-0.5" style={{ background: 'rgb(var(--gold) / 0.15)', color: 'rgb(var(--gold))' }}>
 {L('Try it', 'စမ်းကြည့်ရန်')}
@@ -242,6 +257,11 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 ) : (
 <span className="text-xs text-[rgb(var(--muted))]">
 {fmtMMK(now)} · {fmtTHB(planThb(now, rate))}
+</span>
+)}
+{id === '1day' && (
+<span className="block text-[10px] text-[rgb(var(--muted))] mt-0.5">
+{L('Full results and unlimited scans for 24 hours. AI morph not included.', '၂၄ နာရီအတွင်း ရလဒ်အပြည့်အစုံနဲ့ scan အကန့်အသတ်မရှိ။ AI morph မပါပါ။')}
 </span>
 )}
 </div>

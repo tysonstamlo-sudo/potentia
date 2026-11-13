@@ -19,6 +19,8 @@ price_mmk: number;
 image_url: string | null;
 active: boolean;
 hidden_by_admin?: boolean;
+/** what it helps with (see lib/recommend.ts), used to match products to face scans */
+concerns?: string[];
 created_at: string;
 };
 

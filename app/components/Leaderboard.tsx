@@ -9,7 +9,10 @@ import { useLang } from '../../lib/i18n';
 import { faceTier, type Gender } from '../../lib/faceAnalysis';
 
 type LevelRow = { username: string; total_xp: number; level: number; current_streak: number };
-type LooksRow = { rank: number; username: string; score: number; level: number; is_me: boolean; scans?: number };
+type LooksRow = { rank: number; username: string; score: number; level: number; is_me: boolean; scans?: number; days_left?: number };
+
+/** Scan at least this often to stay on the looks ranking (keep in sync with rank_days() in rank-expiry.sql). */
+const RANK_DAYS = 14;
 
 const cardStyle: React.CSSProperties = {
 background: 'rgb(var(--surface) / 0.5)',
@@ -54,7 +57,8 @@ color: top ? 'rgb(var(--gold))' : 'rgb(var(--muted))',
 }
 
 export default function Leaderboard() {
-const { t } = useLang();
+const { t, lang } = useLang();
+const L = (en: string, my: string) => (lang === 'my' ? my : en);
 const [board, setBoard] = useState<'looks' | 'level'>('looks');
 const [gender, setGender] = useState<Gender>('male');
 const [userId, setUserId] = useState<string | null>(null);
@@ -124,7 +128,10 @@ return (
 <h2 className="font-display text-xl text-[rgb(var(--gold))] font-semibold">{t('Rankings')}</h2>
 <p className="text-xs text-[rgb(var(--muted))] mt-2">
 {board === 'looks'
-? t('Ranked by face score. Only camera scans count, uploaded photos do not.')
+? L(
+`Ranked by face score. Only camera scans count. Scan at least every ${RANK_DAYS} days to keep your place.`,
+`မျက်နှာအမှတ်အလိုက် အဆင့်သတ်မှတ်ပါတယ်။ Camera scan ပဲ ထည့်တွက်ပါတယ်။ နေရာမပျောက်အောင် အနည်းဆုံး ${RANK_DAYS} ရက်တစ်ခါ scan လုပ်ပါ။`
+)
 : t('Ranked by level and consistency.')}
 </p>
 </div>
@@ -173,13 +180,23 @@ fontWeight: board === b ? 600 : 400,
 <p className="text-[11px] text-[rgb(var(--muted))]">
 {faceTier(Number(me.score), gender, Number(me.scans ?? 3)).label} · {Number(me.score).toFixed(1)}
 </p>
+{me.days_left != null && me.days_left <= 5 && (
+<p className="text-[11px] mt-1" style={{ color: 'rgb(var(--err))' }}>
+{me.days_left <= 1
+? L('Your place expires today. Scan now to keep it.', 'သင့်နေရာ ဒီနေ့ ကုန်ပါမယ်။ ဆက်ထိန်းဖို့ အခု scan လုပ်ပါ။')
+: L(`Your place expires in ${me.days_left} days. Scan to keep it.`, `သင့်နေရာ ${me.days_left} ရက်အတွင်း ကုန်ပါမယ်။ ဆက်ထိန်းဖို့ scan လုပ်ပါ။`)}
+</p>
+)}
 </div>
 </div>
 )}
 {board === 'looks' && !me && !loading && visible && (
 <div className="rounded-2xl p-4 flex items-center gap-3 text-xs text-[rgb(var(--muted-hover))]" style={cardStyle}>
 <Camera className="w-4 h-4 text-[rgb(var(--gold))] flex-shrink-0" />
-{t('Do a camera scan to get on the ranking.')}
+{L(
+`Do a camera scan to get on the ranking. Places expire after ${RANK_DAYS} days without a scan.`,
+`Ranking ထဲဝင်ဖို့ camera scan လုပ်ပါ။ ${RANK_DAYS} ရက် scan မလုပ်ရင် နေရာ ပျောက်ပါမယ်။`
+)}
 </div>
 )}
 

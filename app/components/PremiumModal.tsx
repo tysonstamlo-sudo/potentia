@@ -9,6 +9,7 @@ import { useLang } from '../../lib/i18n';
 import {
 PLANS,
 PLAN_IDS,
+LITE_TIERS,
 BANKS,
 fmt,
 fmtMMK,
@@ -259,11 +260,17 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 {fmtMMK(now)} · {fmtTHB(planThb(now, rate))}
 </span>
 )}
-{id === '1day' && (
-<span className="block text-[10px] text-[rgb(var(--muted))] mt-0.5">
-{L('Full results and unlimited scans for 24 hours. AI morph not included.', '၂၄ နာရီအတွင်း ရလဒ်အပြည့်အစုံနဲ့ scan အကန့်အသတ်မရှိ။ AI morph မပါပါ။')}
-</span>
+<span className="block text-[10px] text-[rgb(var(--muted))] mt-0.5 leading-relaxed">
+{LITE_TIERS.includes(id)
+? L(
+'A taste: unlimited scans, all weak points, skin results, potential score. No plan, no AI morph.',
+'အစမ်း: scan အကန့်အသတ်မရှိ၊ အားနည်းချက်အားလုံး၊ အသားအရေ ရလဒ်၊ potential အမှတ်။ Plan နဲ့ AI morph မပါပါ။'
+)
+: L(
+'Everything: your full plan, what to do for your skin, all measurements, AI morph.',
+'အားလုံးပါ: သင့်အတွက် plan အပြည့်အစုံ၊ အသားအရေအတွက် လုပ်ရမယ့်အရာ၊ တိုင်းတာချက်အားလုံး၊ AI morph။'
 )}
+</span>
 </div>
 {active && <Check className="w-4 h-4 text-[rgb(var(--gold))] flex-shrink-0" />}
 </button>

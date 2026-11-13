@@ -16,8 +16,10 @@ export const PLANS: Record<string, { label: string; months: number; days?: numbe
 '1year': { label: '1 Year', months: 12, mmk: 499000 },
 };
 export const PLAN_IDS = ['1day', '1week', '1month', '6months', '1year'];
-/** Plans that include the AI morph. The 24-Hour Pass does not (it costs us too much per picture). */
-export const PAID_TIERS = PLAN_IDS.filter(id => id !== '1day');
+/** Taster plans: scores, weak points and skin results only. No plan, no measurement table, no AI morph. */
+export const LITE_TIERS = ['1day', '1week'];
+/** Full plans: everything, including the AI morph. */
+export const PAID_TIERS = PLAN_IDS.filter(id => !LITE_TIERS.includes(id));
 
 /* ---------- launch promo ---------- */
 export const PROMO_ENDS = new Date('2027-02-01T00:00:00+06:30'); // 1 Feb 2027, Myanmar time

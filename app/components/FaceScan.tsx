@@ -29,7 +29,7 @@ import MorphCard from './MorphCard';
 import SideProfileScan from './SideProfileScan';
 import ProgressGallery from './ProgressGallery';
 import ScanPicks from './ScanPicks';
-import { fmtMMK, planMmk } from '../../lib/payments';
+import { fmtMMK, planMmk, LITE_TIERS } from '../../lib/payments';
 import { addPhoto, lastPhoto } from '../../lib/gallery';
 import {
 Camera,
@@ -160,6 +160,7 @@ const [geoOverall, setGeoOverall] = useState<number | null>(null);
 const [aiNote, setAiNote] = useState('');
 const [uid, setUid] = useState<string | null>(null);
 const [showGallery, setShowGallery] = useState(false);
+const [tier, setTier] = useState<string | null>(null); // which plan they are on
 const [ghost, setGhost] = useState<string | null>(null); // last photo, shown faintly over the camera
 const [ghostOn, setGhostOn] = useState(true);
 
@@ -191,10 +192,11 @@ if (last && last[0]) setLastScanAt(new Date(last[0].created_at).getTime());
 setLimitLoaded(true);
 const { data: profile } = await supabase
 .from('profiles')
-.select('gender')
+.select('gender, subscription_tier')
 .eq('id', session.user.id)
 .single();
 if (profile?.gender === 'male' || profile?.gender === 'female') setGender(profile.gender);
+setTier(profile?.subscription_tier ?? null);
 };
 fetchGender();
 return () => {
@@ -204,6 +206,18 @@ streamRef.current?.getTracks().forEach(t => t.stop());
 
 // Full breakdown is open on your local dev server so you can test without paying.
 const showFull = isPremium || process.env.NODE_ENV === 'development';
+// Taster plans (24-Hour Pass, 1 Week): scores, weak points, skin results. The plan, the skin "what to do",
+// the measurement table and the morph are for 1 Month and up.
+const lite = isPremium && LITE_TIERS.includes(tier ?? '');
+const fullPlan = showFull && !lite;
+const goFull = () => {
+try {
+sessionStorage.setItem('potentia_plan', '1month');
+} catch {
+/* ignore */
+}
+onGoPremium();
+};
 // The score we show: averaged with recent scans when there are any (steadier than one photo)
 const shownOverall = stableOverall ?? result?.overall ?? 0;
 
@@ -1130,7 +1144,14 @@ L('your full plan', 'သင့်အတွက် plan အပြည့်အစ�
 .join(' · ')}
 </p>
 <p className="text-[12px] font-semibold text-[rgb(var(--gold))] mt-3">
-{L(`Unlock everything for 24 hours · ${fmtMMK(planMmk('1day'))}`, `၂၄ နာရီ အားလုံးဖွင့်ရန် · ${fmtMMK(planMmk('1day'))}`)} →
+{L(
+`See your weak points, skin results and potential for 24 hours · ${fmtMMK(planMmk('1day'))}`,
+`အားနည်းချက်၊ အသားအရေ ရလဒ်နဲ့ potential ကို ၂၄ နာရီ ကြည့်ရန် · ${fmtMMK(planMmk('1day'))}`
+)}{' '}
+→
+</p>
+<p className="text-[10px] text-[rgb(var(--muted))] mt-1">
+{L('Full plan, measurements and AI morph: 1 Month and up.', 'Plan အပြည့်အစုံ၊ တိုင်းတာချက်များနဲ့ AI morph: ၁ လနှင့်အထက်။')}
 </p>
 </button>
 
@@ -1256,7 +1277,7 @@ onClick={dayPass}
 className="w-full flex items-center justify-center gap-2 font-medium py-3.5 rounded-xl text-[13px]"
 style={primaryBtn}
 >
-<Crown className="w-4 h-4" /> {L(`Unlock for 24 hours · ${fmtMMK(planMmk('1day'))}`, `၂၄ နာရီ ဖွင့်ရန် · ${fmtMMK(planMmk('1day'))}`)}
+<Crown className="w-4 h-4" /> {L(`Try it for 24 hours · ${fmtMMK(planMmk('1day'))}`, `၂၄ နာရီ စမ်းကြည့်ရန် · ${fmtMMK(planMmk('1day'))}`)}
 </button>
 <button onClick={onGoPremium} className="w-full text-center text-[12px] font-medium text-[rgb(var(--gold))] py-1">
 {L('See all plans', 'Plan အားလုံး ကြည့်ရန်')} →
@@ -1267,6 +1288,26 @@ style={primaryBtn}
 
 {showFull && (
 <>
+
+{lite && (
+<button onClick={goFull} className="w-full text-left rounded-2xl p-5" style={accentCardStyle}>
+<div className="flex items-center gap-2 mb-1.5">
+<Crown className="w-4 h-4 text-[rgb(var(--gold))]" />
+<span className="font-display text-base font-semibold text-[rgb(var(--gold))]">
+{L('You are seeing a taste', 'အခု မြင်နေရတာက အစမ်းပါ')}
+</span>
+</div>
+<p className="text-xs text-[rgb(var(--muted-hover))] leading-relaxed">
+{L(
+'You know what is wrong. 1 Month and up shows how to fix it: your step-by-step plan, what to do for each skin result, all measurements against the ideal, and your AI morph.',
+'ဘာတွေ လိုအပ်နေလဲ သိပြီ။ ၁ လနှင့်အထက် plan မှာ ဘယ်လို ပြင်ရမလဲ ပြပေးပါတယ်: တစ်ဆင့်ချင်း plan၊ အသားအရေ ရလဒ်တစ်ခုချင်းအတွက် လုပ်ရမယ့်အရာ၊ တိုင်းတာချက်အားလုံး နဲ့ AI morph။'
+)}
+</p>
+<p className="text-[12px] font-semibold text-[rgb(var(--gold))] mt-3">
+{L(`Get the full version · ${fmtMMK(planMmk('1month'))}`, `အပြည့်အစုံ ရယူရန် · ${fmtMMK(planMmk('1month'))}`)} →
+</p>
+</button>
+)}
 
 {/* Groups */}
 <div className="p-6 rounded-2xl" style={cardStyle}>
@@ -1344,9 +1385,14 @@ return (
 <div className="h-full rounded-full score-bar-fill" style={{ width: `${it.score * 10}%`, background: scoreColor(it.score) }} />
 </div>
 <p className="text-[11px] text-[rgb(var(--muted-hover))] leading-relaxed">{t(it.verdict)}</p>
-{it.score < 7.5 && (
+{it.score < 7.5 &&
+(fullPlan ? (
 <p className="text-[11px] text-[rgb(var(--muted))] leading-relaxed mt-1">→ {t(it.tip)}</p>
-)}
+) : (
+<button onClick={goFull} className="flex items-center gap-1.5 text-[11px] text-[rgb(var(--gold))] mt-1">
+<Lock className="w-3 h-3" /> {L('What to do about it: 1 Month and up', 'ဘာလုပ်ရမလဲ: ၁ လနှင့်အထက်')}
+</button>
+))}
 </div>
 ))}
 </div>
@@ -1387,7 +1433,7 @@ style={{ borderTop: '1px solid rgb(var(--muted) / 0.15)', opacity: 0.8 }}
 <Target className="w-3.5 h-3.5 text-[rgb(var(--gold))]" />
 <span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">{t("Your improvement plan")}</span>
 </div>
-{showFull ? (
+{fullPlan ? (
 <PlanView measurements={result.measurements} />
 ) : (
 <div className="rounded-2xl p-6 text-center" style={accentCardStyle}>
@@ -1398,8 +1444,8 @@ style={{ borderTop: '1px solid rgb(var(--muted) / 0.15)', opacity: 0.8 }}
 <p className="text-xs text-[rgb(var(--muted))] mb-4">
 {t("Weak jaw? You get jaw, posture and leanness work. Weak symmetry? You get habits and styling for it.")}
 </p>
-<button onClick={onGoPremium} className="inline-flex items-center gap-2 font-medium py-2.5 px-5 rounded-xl text-xs" style={primaryBtn}>
-<Crown className="w-3.5 h-3.5" /> {t("Unlock my plan")}
+<button onClick={goFull} className="inline-flex items-center gap-2 font-medium py-2.5 px-5 rounded-xl text-xs" style={primaryBtn}>
+<Crown className="w-3.5 h-3.5" /> {lite ? L('Unlock my plan · 1 Month and up', 'ကျွန်ုပ်ရဲ့ plan ဖွင့်ရန် · ၁ လနှင့်အထက်') : t("Unlock my plan")}
 </button>
 </div>
 )}
@@ -1411,7 +1457,7 @@ style={{ borderTop: '1px solid rgb(var(--muted) / 0.15)', opacity: 0.8 }}
 <Ruler className="w-3.5 h-3.5 text-[rgb(var(--gold))]" />
 <span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">{t("Raw measurements")}</span>
 </div>
-{showFull ? (
+{fullPlan ? (
 <div className="space-y-3">
 {result.measurements.map(m => (
 <div key={m.key}>
@@ -1434,8 +1480,8 @@ style={{ borderTop: '1px solid rgb(var(--muted) / 0.15)', opacity: 0.8 }}
 <p className="text-xs text-[rgb(var(--muted))] mb-4">
 {t('See all {n} measurements against their ideal values.', { n: result.measurements.length })}
 </p>
-<button onClick={onGoPremium} className="font-medium py-2 px-5 rounded-xl text-xs" style={primaryBtn}>
-{t("Unlock full table")}
+<button onClick={goFull} className="font-medium py-2 px-5 rounded-xl text-xs" style={primaryBtn}>
+{lite ? L('Unlock full table · 1 Month and up', 'ဇယားအပြည့် ဖွင့်ရန် · ၁ လနှင့်အထက်') : t("Unlock full table")}
 </button>
 </div>
 )}

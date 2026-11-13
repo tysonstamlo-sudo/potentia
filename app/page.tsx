@@ -23,7 +23,7 @@ import { LOGO_SRC } from '../lib/logo';
 import { rememberAffiliate, applySavedAffiliate } from '../lib/affiliate';
 import Settings, { Avatar } from './components/Settings';
 import { notify } from '../lib/notify';
-import { PAID_TIERS, trialOfferMmk, planMmk, fmtMMK, type Currency } from '../lib/payments';
+import { PAID_TIERS, LITE_TIERS, trialOfferMmk, planMmk, fmtMMK, type Currency } from '../lib/payments';
 import { getDeviceId, getFingerprint } from '../lib/device';
 import NutritionTracker, { NutritionCard } from './components/NutritionTracker';
 import InviteCard, { rememberReferral, applyReferral } from './components/InviteCard';
@@ -968,7 +968,7 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 
 {showPlan && (
 <FullPlanModal
-isPremium={isPremium}
+isPremium={isPremium && !LITE_TIERS.includes(subTier ?? '')}
 onClose={() => setShowPlan(false)}
 onGoPremium={goPremium}
 onGoScan={() => setActiveTab('scan')}

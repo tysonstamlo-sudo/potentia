@@ -10,11 +10,28 @@ export type Currency = 'MMK' | 'THB';
 
 export const PLANS: Record<string, { label: string; months: number; days?: number; mmk: number }> = {
 '1day': { label: '24-Hour Pass', months: 0, days: 1, mmk: 3000 },
-'1week': { label: '1 Week', months: 0, days: 7, mmk: 9900 },
-'1month': { label: '1 Month', months: 1, mmk: 60000 },
-'6months': { label: '6 Months', months: 6, mmk: 299000 },
-'1year': { label: '1 Year', months: 12, mmk: 499000 },
+'1week': { label: 'Standard (1 Week)', months: 0, days: 7, mmk: 9900 },
+'1month': { label: 'Silver (1 Month)', months: 1, mmk: 60000 },
+'6months': { label: 'Gold (6 Months)', months: 6, mmk: 299000 },
+'1year': { label: 'Platinum (1 Year)', months: 12, mmk: 499000 },
 };
+/** The plan names people see when they choose what to pay for. */
+export const PLAN_NAME: Record<string, string> = {
+'1day': '24-Hour Pass',
+'1week': 'Standard',
+'1month': 'Silver',
+'6months': 'Gold',
+'1year': 'Platinum',
+};
+/** How long each plan lasts: [English, Burmese]. */
+export const PLAN_LENGTH: Record<string, [string, string]> = {
+'1day': ['24 hours', '၂၄ နာရီ'],
+'1week': ['1 week', '၁ ပတ်'],
+'1month': ['1 month', '၁ လ'],
+'6months': ['6 months', '၆ လ'],
+'1year': ['1 year', '၁ နှစ်'],
+};
+export const planName = (planId: string) => PLAN_NAME[planId] ?? planId;
 export const PLAN_IDS = ['1day', '1week', '1month', '6months', '1year'];
 /** Taster plans: scores, weak points and skin results only. No plan, no measurement table, no AI morph. */
 export const LITE_TIERS = ['1day', '1week'];

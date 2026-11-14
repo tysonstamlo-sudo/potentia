@@ -206,8 +206,8 @@ streamRef.current?.getTracks().forEach(t => t.stop());
 
 // Full breakdown is open on your local dev server so you can test without paying.
 const showFull = isPremium || process.env.NODE_ENV === 'development';
-// Taster plans (24-Hour Pass, 1 Week): scores, weak points, skin results. The plan, the skin "what to do",
-// the measurement table and the morph are for 1 Month and up.
+// Taster plans (24-Hour Pass, Standard): scores, weak points, skin results. The plan, the skin "what to do",
+// the measurement table and the morph are for Silver and up.
 const lite = isPremium && LITE_TIERS.includes(tier ?? '');
 const fullPlan = showFull && !lite;
 const goFull = () => {
@@ -619,7 +619,7 @@ onClick={() => setShowGallery(true)}
 className="mt-3 flex items-center gap-2 text-[12px] font-medium rounded-full px-4 py-2"
 style={{ background: 'rgb(var(--gold) / 0.1)', color: 'rgb(var(--gold))', border: '1px solid rgb(var(--gold) / 0.3)' }}
 >
-<Images className="w-3.5 h-3.5" /> {L('My progress photos', 'ကျွန်ုပ်ရဲ့ တိုးတက်မှု ဓာတ်ပုံများ')}
+{fullPlan ? <Images className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />} {L('My progress photos', 'ကျွန်ုပ်ရဲ့ တိုးတက်မှု ဓာတ်ပုံများ')}
 </button>
 </div>
 )}
@@ -655,7 +655,7 @@ style={{ background: 'rgb(var(--bg))', border: '2px solid rgb(var(--gold) / 0.4)
 {cameraActive && !imagePreview && (
 <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
 )}
-{cameraActive && !imagePreview && step === 'front' && ghost && ghostOn && (
+{fullPlan && cameraActive && !imagePreview && step === 'front' && ghost && ghostOn && (
 // eslint-disable-next-line @next/next/no-img-element
 <img src={ghost} alt="" className="absolute inset-0 w-full h-full object-cover pointer-events-none" style={{ opacity: 0.28 }} />
 )}
@@ -704,7 +704,7 @@ className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 backdrop-blur
 </button>
 </div>
 
-{cameraActive && !imagePreview && step === 'front' && ghost && (
+{fullPlan && cameraActive && !imagePreview && step === 'front' && ghost && (
 <button
 onClick={() => setGhostOn(v => !v)}
 className="-mt-3 mb-4 text-[11px] font-medium rounded-full px-3 py-1.5"
@@ -1151,7 +1151,7 @@ L('your full plan', 'သင့်အတွက် plan အပြည့်အစ�
 →
 </p>
 <p className="text-[10px] text-[rgb(var(--muted))] mt-1">
-{L('Full plan, measurements and AI morph: 1 Month and up.', 'Plan အပြည့်အစုံ၊ တိုင်းတာချက်များနဲ့ AI morph: ၁ လနှင့်အထက်။')}
+{L('Full plan, measurements and AI morph: Silver and up.', 'Plan အပြည့်အစုံ၊ တိုင်းတာချက်များနဲ့ AI morph: Silver နှင့်အထက်။')}
 </p>
 </button>
 
@@ -1299,8 +1299,8 @@ style={primaryBtn}
 </div>
 <p className="text-xs text-[rgb(var(--muted-hover))] leading-relaxed">
 {L(
-'You know what is wrong. 1 Month and up shows how to fix it: your step-by-step plan, what to do for each skin result, all measurements against the ideal, and your AI morph.',
-'ဘာတွေ လိုအပ်နေလဲ သိပြီ။ ၁ လနှင့်အထက် plan မှာ ဘယ်လို ပြင်ရမလဲ ပြပေးပါတယ်: တစ်ဆင့်ချင်း plan၊ အသားအရေ ရလဒ်တစ်ခုချင်းအတွက် လုပ်ရမယ့်အရာ၊ တိုင်းတာချက်အားလုံး နဲ့ AI morph။'
+'You know what is wrong. Silver and up shows how to fix it: your step-by-step plan, what to do for each skin result, all measurements against the ideal, your progress photos, and your AI morph.',
+'ဘာတွေ လိုအပ်နေလဲ သိပြီ။ Silver နှင့်အထက် plan မှာ ဘယ်လို ပြင်ရမလဲ ပြပေးပါတယ်: တစ်ဆင့်ချင်း plan၊ အသားအရေ ရလဒ်တစ်ခုချင်းအတွက် လုပ်ရမယ့်အရာ၊ တိုင်းတာချက်အားလုံး၊ တိုးတက်မှု ဓာတ်ပုံများ နဲ့ AI morph။'
 )}
 </p>
 <p className="text-[12px] font-semibold text-[rgb(var(--gold))] mt-3">
@@ -1390,7 +1390,7 @@ return (
 <p className="text-[11px] text-[rgb(var(--muted))] leading-relaxed mt-1">→ {t(it.tip)}</p>
 ) : (
 <button onClick={goFull} className="flex items-center gap-1.5 text-[11px] text-[rgb(var(--gold))] mt-1">
-<Lock className="w-3 h-3" /> {L('What to do about it: 1 Month and up', 'ဘာလုပ်ရမလဲ: ၁ လနှင့်အထက်')}
+<Lock className="w-3 h-3" /> {L('What to do about it: Silver and up', 'ဘာလုပ်ရမလဲ: Silver နှင့်အထက်')}
 </button>
 ))}
 </div>
@@ -1445,7 +1445,7 @@ style={{ borderTop: '1px solid rgb(var(--muted) / 0.15)', opacity: 0.8 }}
 {t("Weak jaw? You get jaw, posture and leanness work. Weak symmetry? You get habits and styling for it.")}
 </p>
 <button onClick={goFull} className="inline-flex items-center gap-2 font-medium py-2.5 px-5 rounded-xl text-xs" style={primaryBtn}>
-<Crown className="w-3.5 h-3.5" /> {lite ? L('Unlock my plan · 1 Month and up', 'ကျွန်ုပ်ရဲ့ plan ဖွင့်ရန် · ၁ လနှင့်အထက်') : t("Unlock my plan")}
+<Crown className="w-3.5 h-3.5" /> {lite ? L('Unlock my plan · Silver and up', 'ကျွန်ုပ်ရဲ့ plan ဖွင့်ရန် · Silver နှင့်အထက်') : t("Unlock my plan")}
 </button>
 </div>
 )}
@@ -1481,7 +1481,7 @@ style={{ borderTop: '1px solid rgb(var(--muted) / 0.15)', opacity: 0.8 }}
 {t('See all {n} measurements against their ideal values.', { n: result.measurements.length })}
 </p>
 <button onClick={goFull} className="font-medium py-2 px-5 rounded-xl text-xs" style={primaryBtn}>
-{lite ? L('Unlock full table · 1 Month and up', 'ဇယားအပြည့် ဖွင့်ရန် · ၁ လနှင့်အထက်') : t("Unlock full table")}
+{lite ? L('Unlock full table · Silver and up', 'ဇယားအပြည့် ဖွင့်ရန် · Silver နှင့်အထက်') : t("Unlock full table")}
 </button>
 </div>
 )}
@@ -1504,12 +1504,21 @@ style={{ borderTop: '1px solid rgb(var(--muted) / 0.15)', opacity: 0.8 }}
 <Share2 className="w-3 h-3" /> {t("Share")}
 </button>
 <button onClick={() => setShowGallery(true)} className="flex items-center gap-2 text-[rgb(var(--gold))] text-xs font-medium">
-<Images className="w-3 h-3" /> {L('Progress photos', 'တိုးတက်မှု ဓာတ်ပုံ')}
+{fullPlan ? <Images className="w-3 h-3" /> : <Lock className="w-3 h-3" />} {L('Progress photos', 'တိုးတက်မှု ဓာတ်ပုံ')}
 </button>
 </div>
 </div>
 )}
-{showGallery && <ProgressGallery onClose={() => setShowGallery(false)} />}
+{showGallery && (
+<ProgressGallery
+locked={!fullPlan}
+onUpgrade={() => {
+setShowGallery(false);
+goFull();
+}}
+onClose={() => setShowGallery(false)}
+/>
+)}
 {showSide && <SideProfileScan isPremium={isPremium} onGoPremium={onGoPremium} onClose={() => setShowSide(false)} />}
 </div>
 );

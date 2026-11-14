@@ -2,12 +2,15 @@
 
 // app/components/ProgressGallery.tsx — your scan photos over time + before/after compare.
 // Photos live only on this phone.
+// `locked` = the person's plan does not include the gallery (free, 24-Hour Pass, 1 Week): they see what is inside
+// and an upgrade button, but not the photos.
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useLang } from '../../lib/i18n';
 import { Sheet } from './shopShared';
 import { listPhotos, deletePhoto, type GalleryPhoto } from '../../lib/gallery';
-import { Trash2, ImageIcon, ArrowLeftRight } from 'lucide-react';
+import { fmtMMK, planMmk } from '../../lib/payments';
+import { Trash2, ImageIcon, ArrowLeftRight, Lock, Crown, Check } from 'lucide-react';
 
 const fmtDate = (ms: number) => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -57,7 +60,7 @@ onPointerMove={e => e.buttons && move(e.clientX)}
 );
 }
 
-export default function ProgressGallery({ onClose }: { onClose: () => void }) {
+export default function ProgressGallery({ onClose, locked = false, onUpgrade }: { onClose: () => void; locked?: boolean; onUpgrade?: () => void }) {
 const { lang } = useLang();
 const L = (en: string, my: string) => (lang === 'my' ? my : en);
 const [photos, setPhotos] = useState<GalleryPhoto[] | null>(null);
@@ -85,7 +88,53 @@ const chosen = (photos ?? []).filter(p => pick.includes(p.id)).sort((a, b) => a.
 return (
 <Sheet onClose={onClose} title={L('Progress photos', 'တိုးတက်မှု ဓာတ်ပုံများ')}>
 <div className="space-y-5 font-body">
-{photos === null ? null : photos.length === 0 ? (
+{locked ? (
+<div className="rounded-2xl p-6 text-center" style={{ background: 'linear-gradient(160deg, rgb(var(--gold) / 0.12), rgb(var(--surface) / 0.4))', border: '1px solid rgb(var(--gold) / 0.35)' }}>
+<span className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ background: 'rgb(var(--gold) / 0.15)' }}>
+<Lock className="w-5 h-5 text-[rgb(var(--gold))]" />
+</span>
+<h3 className="font-display text-lg font-semibold text-[rgb(var(--gold))] mb-1">
+{L('Progress photos are in Silver and up', 'တိုးတက်မှု ဓာတ်ပုံတွေက Silver နှင့်အထက် plan မှာ ပါပါတယ်')}
+</h3>
+{photos && photos.length > 0 && (
+<>
+<p className="text-xs text-[rgb(var(--muted-hover))] mb-3">
+{L(
+`You already have ${photos.length} photo(s) saved on this phone. Upgrade to see them.`,
+`ဒီဖုန်းထဲမှာ ဓာတ်ပုံ ${photos.length} ပုံ သိမ်းထားပြီးသားပါ။ ကြည့်ဖို့ upgrade လုပ်ပါ။`
+)}
+</p>
+<div className="flex justify-center gap-2 mb-4" aria-hidden>
+{photos.slice(0, 3).map(p => (
+<div key={p.id} className="w-20 h-20 rounded-xl overflow-hidden" style={{ border: '1px solid rgb(var(--gold) / 0.3)' }}>
+{/* eslint-disable-next-line @next/next/no-img-element */}
+<img src={p.face} alt="" className="w-full h-full object-cover" style={{ filter: 'blur(9px)', transform: 'scale(1.2)' }} />
+</div>
+))}
+</div>
+</>
+)}
+<ul className="text-left space-y-2 mb-5 mt-4">
+{[
+L('A photo saved from every camera scan, with the date and score', 'Camera scan တိုင်းက ဓာတ်ပုံကို ရက်စွဲ၊ အမှတ်နဲ့ သိမ်းပေးခြင်း'),
+L('Before / after slider to compare any two photos', 'ဓာတ်ပုံ ၂ ပုံကို before / after ဆွဲကြည့်နိုင်ခြင်း'),
+L('See exactly how much your score moved', 'အမှတ် ဘယ်လောက် ပြောင်းလဲ ကြည့်နိုင်ခြင်း'),
+L('Your last photo shown faintly over the camera, so every photo lines up', 'နောက်ဆုံးပုံကို ကင်မရာပေါ် မှိန်မှိန်ပြပေးလို့ ပုံတိုင်း တန်းညှိနိုင်ခြင်း'),
+].map(line => (
+<li key={line} className="flex items-start gap-2 text-[13px] text-[rgb(var(--muted-hover))] leading-snug">
+<Check className="w-4 h-4 mt-0.5 flex-shrink-0 text-[rgb(var(--gold))]" /> {line}
+</li>
+))}
+</ul>
+<button
+onClick={onUpgrade}
+className="w-full flex items-center justify-center gap-2 font-medium py-3.5 rounded-xl text-[13px]"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
+>
+<Crown className="w-4 h-4" /> {L(`Upgrade to Silver · ${fmtMMK(planMmk('1month'))}`, `Silver plan သို့ upgrade · ${fmtMMK(planMmk('1month'))}`)}
+</button>
+</div>
+) : photos === null ? null : photos.length === 0 ? (
 <div className="rounded-2xl p-8 text-center" style={{ background: 'rgb(var(--surface) / 0.5)', border: '1px solid rgb(var(--muted) / 0.14)' }}>
 <ImageIcon className="w-8 h-8 mx-auto mb-3 text-[rgb(var(--gold))]" />
 <p className="text-sm text-[rgb(var(--muted-hover))] leading-relaxed">

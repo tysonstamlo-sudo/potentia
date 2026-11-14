@@ -10,6 +10,8 @@ import {
 PLANS,
 PLAN_IDS,
 LITE_TIERS,
+PLAN_LENGTH,
+planName,
 BANKS,
 fmt,
 fmtMMK,
@@ -228,7 +230,10 @@ boxShadow: active ? '0 0 16px rgb(var(--gold) / 0.15)' : 'none',
 >
 <div>
 <div className="flex items-center gap-2 mb-0.5">
-<span className="text-sm text-[rgb(var(--gold))] font-medium">{id === '1day' ? L('24-Hour Pass', '၂၄ နာရီ Pass') : id === '1week' ? L('1 Week', '၁ ပတ်') : t(p.label)}</span>
+<span className="text-sm text-[rgb(var(--gold))] font-medium">{planName(id)}</span>
+{id !== '1day' && (
+<span className="text-[10px] text-[rgb(var(--muted))]">· {L(PLAN_LENGTH[id][0], PLAN_LENGTH[id][1])}</span>
+)}
 {id === '1day' && (
 <span className="text-[9px] font-semibold rounded-full px-2 py-0.5" style={{ background: 'rgb(var(--gold) / 0.15)', color: 'rgb(var(--gold))' }}>
 {L('Cheapest', 'ဈေးအသက်သာဆုံး')}
@@ -263,12 +268,12 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 <span className="block text-[10px] text-[rgb(var(--muted))] mt-0.5 leading-relaxed">
 {LITE_TIERS.includes(id)
 ? L(
-'A taste: unlimited scans, all weak points, skin results, potential score. No plan, no AI morph.',
-'အစမ်း: scan အကန့်အသတ်မရှိ၊ အားနည်းချက်အားလုံး၊ အသားအရေ ရလဒ်၊ potential အမှတ်။ Plan နဲ့ AI morph မပါပါ။'
+'A taste: unlimited scans, all weak points, skin results, potential score. No plan, no progress photos, no AI morph.',
+'အစမ်း: scan အကန့်အသတ်မရှိ၊ အားနည်းချက်အားလုံး၊ အသားအရေ ရလဒ်၊ potential အမှတ်။ Plan၊ တိုးတက်မှု ဓာတ်ပုံနဲ့ AI morph မပါပါ။'
 )
 : L(
-'Everything: your full plan, what to do for your skin, all measurements, AI morph.',
-'အားလုံးပါ: သင့်အတွက် plan အပြည့်အစုံ၊ အသားအရေအတွက် လုပ်ရမယ့်အရာ၊ တိုင်းတာချက်အားလုံး၊ AI morph။'
+'Everything: your full plan, what to do for your skin, all measurements, progress photos, AI morph.',
+'အားလုံးပါ: သင့်အတွက် plan အပြည့်အစုံ၊ အသားအရေအတွက် လုပ်ရမယ့်အရာ၊ တိုင်းတာချက်အားလုံး၊ တိုးတက်မှု ဓာတ်ပုံများ၊ AI morph။'
 )}
 </span>
 </div>
@@ -289,7 +294,7 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 </div>
 
 <p className="text-sm text-[rgb(var(--muted-hover))] mb-4 leading-relaxed">
-{t('Scan with your banking app to pay for the {plan} plan. Once done, tap "I\'ve Sent Payment" below.', { plan: t(plan.label) })}
+{t('Scan with your banking app to pay for the {plan} plan. Once done, tap "I\'ve Sent Payment" below.', { plan: planName(selectedPlan) })}
 </p>
 
 <div className="mb-4">

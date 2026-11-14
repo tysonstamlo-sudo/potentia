@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { ThemeStyles, ThemeToggle, MarbleBackground, MarbleImage } from '../../lib/theme';
 import { useLang, LanguageToggle, LanguageStyles } from '../../lib/i18n';
 import { LOGO_SRC } from '../../lib/logo';
+import { checkEmail as checkEmailAddress } from '../../lib/emailCheck';
 import { Mail, Lock, User, Phone, Loader2, ScanFace, Eye, EyeOff, ArrowLeft, MailCheck, Check } from 'lucide-react';
 
 const cardStyle: React.CSSProperties = {
@@ -52,6 +53,7 @@ const [password, setPassword] = useState('');
 const [showPw, setShowPw] = useState(false);
 const [username, setUsername] = useState('');
 const [phone, setPhone] = useState('');
+const [emailFix, setEmailFix] = useState<string | null>(null); // "did you mean…" for a mistyped email
 const [gender, setGender] = useState<'male' | 'female' | ''>('');
 const [adult, setAdult] = useState(false);
 const [loading, setLoading] = useState(false);
@@ -120,6 +122,26 @@ const handleSubmit = async (e: React.FormEvent) => {
 e.preventDefault();
 setNotice(null);
 const cleanEmail = email.trim().toLowerCase();
+
+// Stop bad addresses before any email is sent: mistyped (gmial.com), fake or throwaway ones.
+// Emails sent to addresses that don't exist "bounce", and too many bounces gets our email blocked.
+setEmailFix(null);
+if (mode !== 'login') {
+const chk = checkEmailAddress(cleanEmail);
+if (!chk.ok) {
+if (chk.reason === 'typo') {
+setEmailFix(chk.suggestion);
+return setNotice({ kind: 'error', text: L('Check your email address. It looks mistyped.', 'အီးမေးလ်လိပ်စာ စာလုံးပေါင်း မှားနေပုံရပါတယ်။ ပြန်စစ်ပါ။') });
+}
+return setNotice({
+kind: 'error',
+text:
+chk.reason === 'blocked'
+? L('Please use your real email (Gmail, Yahoo, Outlook…). Temporary emails are not accepted.', 'သင့်အီးမေးလ်အစစ် (Gmail, Yahoo, Outlook…) ကို သုံးပါ။ ယာယီအီးမေးလ်တွေ လက်မခံပါ။')
+: L('That email address doesn’t look right.', 'အီးမေးလ်လိပ်စာ မှန်မမှန် ပြန်စစ်ပါ။'),
+});
+}
+}
 
 if (mode === 'forgot') {
 setLoading(true);
@@ -361,7 +383,10 @@ style={{ fontSize: 16 }}
 type="email"
 inputMode="email"
 value={email}
-onChange={e => setEmail(e.target.value)}
+onChange={e => {
+setEmail(e.target.value);
+if (emailFix) setEmailFix(null);
+}}
 required
 autoComplete="email"
 autoCapitalize="none"
@@ -372,6 +397,20 @@ className={inputClass}
 style={{ fontSize: 16 }}
 />
 </Field>
+{emailFix && (
+<button
+type="button"
+onClick={() => {
+setEmail(emailFix);
+setEmailFix(null);
+setNotice(null);
+}}
+className="mt-2 text-left text-[12px] font-medium rounded-xl px-3 py-2 w-full"
+style={{ background: 'rgb(var(--gold) / 0.12)', color: 'rgb(var(--gold))', border: '1px solid rgb(var(--gold) / 0.35)' }}
+>
+{L('Did you mean', 'ဒီလိပ်စာလား')} <b>{emailFix}</b>? {L('Tap to fix.', 'နှိပ်ပြီး ပြင်ပါ။')}
+</button>
+)}
 
 {mode !== 'forgot' && (
 <div>

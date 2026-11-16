@@ -1,5 +1,5 @@
-// app/api/ai/morph/route.ts — "Your best version": a strong "max potential" glow-up of the same person.
-// Paid Premium only (not the free trial). 5 per day. The photo is sent to Google's AI and not stored by Potentia.
+// app/api/ai/morph/route.ts — "Your best version": the same person at their realistic peak.
+// Silver, Gold and Platinum only. 5 per day. The photo is sent to Google's AI and not stored by Potentia.
 
 import { getUser, hasPaidPremium, takeAiCredit, refundAiCredit, parseDataUrl } from '../../../../lib/serverAuth';
 import { aiReady, editImage } from '../../../../lib/gemini';
@@ -12,32 +12,49 @@ const PER_DAY = 5;
 function prompt(gender: 'male' | 'female') {
 const male = gender === 'male';
 return [
-'Edit this photo into the "max potential" version of the SAME person: how they would look fully looksmaxxed,',
-'like a professional model photo of them at their absolute peak. Make the transformation strong and obvious,',
-'the kind of glow-up that makes people say "wow". This is NOT a subtle edit.',
+`Edit this photo to show the same ${male ? 'man' : 'woman'} at their realistic facial potential:`,
+'how they would look after months of getting lean, a good skincare routine, sleep and grooming.',
+'The change must be clearly noticeable at first glance, but believable. Not a different person, not a filter.',
 '',
-'KEEP: who they are (instantly recognisable as the same person), skin tone and ethnicity, eye colour, age,',
-'head pose, camera angle, framing, background, clothing and any marks or scars.',
+'IDENTITY (most important, never change these):',
+'- They must be instantly recognisable as the same person to anyone who knows them.',
+'- Keep their ethnicity, skin tone, age, gender, eye shape and eye colour, nose shape, lip shape and overall bone structure.',
+'- Never turn them into a model, a celebrity or a "generic handsome/pretty" face.',
 '',
-'TRANSFORM:',
-male
-? '- very lean face (about 10% body fat): sharp, clearly visible jawline and jaw angles, defined chin, hollow cheeks under high cheekbones, no softness under the chin'
-: '- lean, sculpted face: high defined cheekbones, snatched jawline, defined chin, no puffiness',
-male
-? '- stronger, more masculine structure within what looks natural for them: slightly wider and more angular jaw, a bit more chin projection, a fuller brow ridge'
-: '- balanced feminine structure: slightly fuller lips, lifted cheekbones, refined jaw and chin',
-male
-? '- intense "hunter eyes": eyebrows lower, straighter and thicker, less upper-eyelid showing, relaxed confident gaze, no dark circles'
-: '- bright, lifted, almond eyes with a slight positive tilt, groomed full brows, no dark circles',
-'- flawless but REAL skin: even tone, no acne or redness, healthy glow, natural pores still visible (no plastic or airbrushed look)',
-male
-? '- thick, healthy, professionally styled hair in a modern cut that suits the face (textured, volume on top)'
-: '- glossy, healthy, professionally styled hair that suits the face',
-'- confident, composed expression with a closed mouth; strong neck and upright posture',
-'- soft, flattering photo lighting like a modelling shoot, sharp focus, true-to-life colours',
+'KEEP EXACTLY THE SAME:',
+'- camera angle, framing, head position and facial expression',
+'- hairstyle, hair length and hair colour',
+'- lighting direction, background and clothing',
+'- any moles, scars or marks',
 '',
-'It must look like a real photograph of a real person, not a drawing, not a filter, not a different person.',
-'Do not add text, logos, watermarks, tattoos, piercings, jewellery or glasses. Return only the edited image.',
+'IMPROVE:',
+...(male
+? [
+'- Leaner face: remove puffiness and water retention, less fat under the chin and on the cheeks.',
+'- Clearer jawline and jaw angles, slightly more defined chin, visible cheekbones (from leanness, not new bones).',
+'- Eye area: no dark circles or bags, more rested and confident look, slightly lower and fuller brows.',
+'- Skin: clearer and more even, no acne or redness, healthy tone, real texture and pores kept.',
+'- Slightly better symmetry, keeping their natural small asymmetries.',
+'- Overall: a sharper, more masculine and healthier version of their own face.',
+]
+: [
+'- Leaner, more sculpted face: less puffiness, natural cheekbone definition.',
+'- Refined jawline and balanced chin, keeping soft feminine proportions.',
+'- Eye area: no dark circles or bags, brighter and more rested look, groomed natural brows.',
+'- Skin: clearer and more even, no acne or redness, healthy glow, real texture and pores kept.',
+'- Lips and nose in better harmony with the face, without changing their shape.',
+'- Slightly better symmetry, keeping their natural small asymmetries.',
+'- Overall: a fresher, more feminine and healthier version of their own face.',
+]),
+'',
+'REALISM:',
+'- It must look like an unedited real photograph taken with the same camera.',
+'- Natural skin with visible pores. No smoothing, no plastic or airbrushed skin, no beauty-filter glow.',
+'- No exaggerated jaw, no enlarged eyes, no new nose, no changed proportions.',
+`- Do not give a ${male ? 'man feminine' : 'woman masculine'} features.`,
+'- No makeup that was not there, no text, logos, watermarks, jewellery, glasses or tattoos.',
+'',
+'Return only the one edited photo.',
 ].join('\n');
 }
 

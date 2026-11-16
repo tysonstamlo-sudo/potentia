@@ -71,8 +71,11 @@ export const fmtMMK = (n: number) => `${Math.round(n).toLocaleString('en-US')} M
 export const fmtTHB = (n: number) => `${Math.round(n).toLocaleString('en-US')} THB`;
 export const fmt = (n: number, c: Currency) => (c === 'THB' ? fmtTHB(n) : fmtMMK(n));
 
-/** Premium price in THB: MMK / rate, rounded to the nearest 10 baht (same formula as the database). */
-export const planThb = (mmk: number, rate: number) => Math.round(mmk / rate / 10) * 10;
+/** Small prices (under this many MMK) round to the nearest 1 baht, so they follow the rate. Bigger ones round to 10 baht. */
+export const THB_ROUND_10_FROM_MMK = 20000;
+/** Premium price in THB (same formula as mmk_to_thb_rounded() in the database). */
+export const planThb = (mmk: number, rate: number) =>
+mmk < THB_ROUND_10_FROM_MMK ? Math.round(mmk / rate) : Math.round(mmk / rate / 10) * 10;
 /** Shop price in THB: whole baht, rounded up (same as the database). */
 export const mmkToThb = (mmk: number, rate: number = THB_TO_MMK) => Math.ceil(mmk / rate);
 /** What a payment is worth in MMK. */

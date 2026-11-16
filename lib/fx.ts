@@ -1,6 +1,7 @@
 'use client';
 
-// lib/fx.ts — the live THB rate you set in the admin page. Loaded once and shared.
+// lib/fx.ts — the live THB rate you set in the admin page.
+// Loaded fresh every time a screen that shows baht prices opens, so a changed rate shows at once.
 
 import { useEffect, useState } from 'react';
 import { supabase } from './supabase';
@@ -9,8 +10,8 @@ import { THB_TO_MMK } from './payments';
 let cached: number | null = null;
 let loading: Promise<number> | null = null;
 
-export async function getThbRate(): Promise<number> {
-if (cached) return cached;
+export async function getThbRate(fresh = false): Promise<number> {
+if (cached && !fresh) return cached;
 if (!loading) {
 loading = (async () => {
 try {
@@ -32,12 +33,12 @@ export function resetThbRate(r?: number) {
 cached = r ?? null;
 }
 
-/** React hook: the current THB rate (starts with the last known value, updates when loaded). */
+/** React hook: the current THB rate. Shows the last known value at once, then the newest one from the database. */
 export function useThbRate() {
 const [rate, setRate] = useState<number>(cached ?? THB_TO_MMK);
 useEffect(() => {
 let alive = true;
-getThbRate().then(r => alive && setRate(r));
+getThbRate(true).then(r => alive && setRate(r));
 return () => {
 alive = false;
 };

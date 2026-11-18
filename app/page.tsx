@@ -23,6 +23,7 @@ import { LOGO_SRC } from '../lib/logo';
 import { rememberAffiliate, applySavedAffiliate } from '../lib/affiliate';
 import Settings, { Avatar } from './components/Settings';
 import { notify } from '../lib/notify';
+import { trackOnce } from '../lib/track';
 import { PAID_TIERS, LITE_TIERS, trialOfferMmk, planMmk, fmtMMK, type Currency } from '../lib/payments';
 import { getDeviceId, getFingerprint } from '../lib/device';
 import NutritionTracker, { NutritionCard } from './components/NutritionTracker';
@@ -116,6 +117,7 @@ const [saving, setSaving] = useState(false);
 
 // Notifications can open a tab directly, e.g. /?tab=marketplace
 useEffect(() => {
+trackOnce('app_open');
 try {
 rememberReferral(); // keep ?ref=CODE from an invite link until after sign-up
 rememberAffiliate(); // keep ?aff=CODE from an affiliate's link until after sign-up

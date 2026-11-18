@@ -2,7 +2,8 @@
 
 // app/components/PremiumModal.tsx — pick a plan, pick a bank (Myanmar or Thai), scan the QR, tell us you paid.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { track } from '../../lib/track';
 import { X, Crown, Loader2, Check, Gift } from 'lucide-react';
 import ProofUpload from './ProofUpload';
 import { useLang } from '../../lib/i18n';
@@ -130,6 +131,14 @@ onConfirm(selectedPlan, currency, proofPath, useOffer ? 'trial_offer' : undefine
 const [currency, setCurrency] = useState<Currency>('MMK');
 const [step, setStep] = useState<'select' | 'pay'>('select');
 const [proofPath, setProofPath] = useState<string | null>(null);
+// Count who opens payment, and which plan was showing (Admin -> Stats)
+const opened = useRef(false);
+useEffect(() => {
+if (opened.current) return;
+opened.current = true;
+track('pay_open', { plan: selectedPlan, offer: !!offer });
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
 const plan = PLANS[selectedPlan];
 const useOffer = offer && selectedPlan === '1month';
@@ -220,7 +229,10 @@ const off = percentOff(now, was);
 return (
 <button
 key={id}
-onClick={() => setSelectedPlan(id)}
+onClick={() => {
+setSelectedPlan(id);
+track('plan_pick', { plan: id });
+}}
 className="w-full flex items-center justify-between p-4 rounded-2xl transition-all text-left"
 style={{
 background: active ? 'rgb(var(--gold) / 0.1)' : 'rgb(var(--surface) / 0.5)',
@@ -282,7 +294,12 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 );
 })}
 </div>
-<button onClick={() => setStep('pay')} className="w-full font-medium py-3.5 rounded-xl text-[13px] tracking-wide" style={primaryBtn}>
+<button
+onClick={() => {
+track('pay_step', { plan: selectedPlan, currency });
+setStep('pay');
+}}
+className="w-full font-medium py-3.5 rounded-xl text-[13px] tracking-wide" style={primaryBtn}>
 {t('Continue')}
 </button>
 </>
@@ -307,7 +324,12 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 </p>
 
 <div className="mb-5">
-<ProofUpload onChange={setProofPath} />
+<ProofUpload
+onChange={p => {
+setProofPath(p);
+if (p) track('proof_uploaded', { plan: selectedPlan, currency });
+}}
+/>
 </div>
 
 <div className="mb-5">

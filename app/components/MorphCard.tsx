@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useLang } from '../../lib/i18n';
+import { track } from '../../lib/track';
 import { toAiImage, callAi, aiErrorText } from '../../lib/aiClient';
 import { Sparkles, Lock, Loader2, Download, Share2, RefreshCw, Crown } from 'lucide-react';
 
@@ -127,6 +128,7 @@ setError('');
 try {
 const img = await toAiImage(photo, 1024, 0.9);
 setBefore(img);
+track('morph_try');
 const r = await callAi<{ image: string; left: number }>('/api/ai/morph', { image: img, gender });
 if (!r.ok) {
 setError(r.code === 'limit' ? t("You've used today's {n} morphs. Try again tomorrow.", { n: r.perDay ?? 5 }) : t(aiErrorText(r.code)));

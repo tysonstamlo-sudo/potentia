@@ -30,6 +30,7 @@ import SideProfileScan from './SideProfileScan';
 import ProgressGallery from './ProgressGallery';
 import ScanPicks from './ScanPicks';
 import { fmtMMK, planMmk, LITE_TIERS } from '../../lib/payments';
+import { track } from '../../lib/track';
 import { addPhoto, lastPhoto } from '../../lib/gallery';
 import {
 Camera,
@@ -211,6 +212,7 @@ const showFull = isPremium || process.env.NODE_ENV === 'development';
 const lite = isPremium && LITE_TIERS.includes(tier ?? '');
 const fullPlan = showFull && !lite;
 const goFull = () => {
+track('unlock_tap', { plan: '1month' });
 try {
 sessionStorage.setItem('potentia_plan', '1month');
 } catch {
@@ -218,6 +220,13 @@ sessionStorage.setItem('potentia_plan', '1month');
 }
 onGoPremium();
 };
+
+// Count who sees locked results (free) and the taster banner (24-Hour Pass, Standard). Admin -> Stats.
+useEffect(() => {
+if (status !== 'result' || !result) return;
+if (!showFull) track('locked_seen');
+else if (lite) track('taster_seen');
+}, [status, result, showFull, lite]);
 // The score we show: averaged with recent scans when there are any (steadier than one photo)
 const shownOverall = stableOverall ?? result?.overall ?? 0;
 
@@ -233,6 +242,7 @@ setStep('front');
 setShots({});
 }
 setSource('upload');
+if (status === 'idle') track('scan_start', { source: 'upload' });
 fileInputRef.current?.click();
 };
 
@@ -250,6 +260,7 @@ e.target.value = '';
 
 const startCamera = async () => {
 if (!canScan) return;
+if (status === 'idle') track('scan_start', { source: 'camera' });
 if (status === 'idle') {
 setStep('front');
 setShots({});
@@ -384,6 +395,7 @@ L(
 'Potentia ကို အသက် ၁၈ နှစ်နှင့်အထက်သာ သုံးနိုင်ပါတယ်။ ဒါကြောင့် ဒီမျက်နှာကို အဆင့်မသတ်မှတ်ပေးနိုင်ပါ။ ၁၈ နှစ်ပြည့်ပြီးဆိုရင် အလင်းကောင်းကောင်းနဲ့ ပြန်ကြိုးစားပါ (သို့) ကျွန်ုပ်တို့ကို ဆက်သွယ်ပါ။'
 )
 );
+track('scan_fail', { code: 'under_18' });
 setStatus('error');
 return;
 }
@@ -484,6 +496,7 @@ if (!isPremium) setLastScanAt(Date.now());
 } catch (e) {
 const code = e instanceof FaceAnalysisError ? e.code : 'IMAGE_FAILED';
 setErrorMsg(ERROR_COPY[code] || 'Something went wrong. Try again.');
+track('scan_fail', { code: String(code) });
 setStatus('error');
 }
 };
@@ -1115,6 +1128,7 @@ style={{ borderTop: '1px solid rgb(var(--muted) / 0.15)' }}
 const lockedSkin = skin ? Math.max(0, skin.items.length - 1) : 0;
 const lockedTotal = moreWeak + lockedSkin + result.measurements.length;
 const dayPass = () => {
+track('unlock_tap', { plan: '1day' });
 try {
 sessionStorage.setItem('potentia_plan', '1day');
 } catch {

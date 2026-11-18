@@ -10,6 +10,7 @@ import { fmtMMK } from '../../lib/payments';
 import { concernsFromScan, picksFor, concernLabel } from '../../lib/recommend';
 import { ProductImage, cardStyle, type Product } from './shopShared';
 import { Sparkles } from 'lucide-react';
+import { track } from '../../lib/track';
 
 // loaded only when someone taps a product
 const ProductSheet = lazy(() => import('./Marketplace').then(m => ({ default: m.ProductSheet })));
@@ -78,6 +79,13 @@ const concerns = concernsFromScan(src.skin as Parameters<typeof concernsFromScan
 return picksFor(products.filter(p => p.seller_id !== uid), concerns);
 }, [src, products, uid]);
 
+// Count who sees product picks (once per screen)
+const where = scan ? 'scan' : 'shop';
+useEffect(() => {
+if (picks.length) track('picks_seen', { where, n: picks.reduce((a, g) => a + g.products.length, 0) });
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [picks.length > 0]);
+
 if (!picks.length) return null;
 
 return (
@@ -100,7 +108,11 @@ return (
 {g.products.map(p => (
 <button
 key={p.id}
-onClick={() => (onOpen ? onOpen(p) : setOpen(p))}
+onClick={() => {
+track('pick_open', { where, concern: g.concern });
+if (onOpen) onOpen(p);
+else setOpen(p);
+}}
 className="w-full flex items-center gap-3 rounded-xl p-2 text-left"
 style={{ background: 'rgb(var(--muted) / 0.08)' }}
 >

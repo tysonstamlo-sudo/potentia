@@ -1,8 +1,9 @@
 // app/api/push/cron/route.ts — runs once a day at 6pm Myanmar time (set in vercel.json).
 // Order of importance for each person:
 // 1. free trial ending soon / just ended (with the first-month offer)
-// 2. Sunday weekly scan
-// 3. streak reminder if today's tasks aren't done
+// 2. looks ranking place about to expire (no camera scan for almost 14 days)
+// 3. Sunday weekly scan
+// 4. streak reminder if today's tasks aren't done
 // Plus the shop's monthly bills (Myanmar dates):
 // 1st: make last month's bills (20% of each seller's confirmed sales) and tell each seller
 // 5th and 7th: remind sellers who haven't paid
@@ -14,6 +15,8 @@ import { trialOfferMmk, planMmk } from '../../../../lib/payments';
 export const dynamic = 'force-dynamic';
 
 const H = 3600 * 1000;
+/** Scan at least this often to stay on the looks ranking (keep in sync with rank_days() in rank-expiry.sql). */
+const RANK_DAYS = 14;
 const toMyDigits = (s: string) => s.replace(/[0-9]/g, d => '၀၁၂၃၄၅၆၇၈၉'[Number(d)]);
 
 export async function GET(req: Request) {
@@ -33,6 +36,13 @@ console.error('shop bills failed', e);
 billing = { error: (e as Error).message };
 }
 
+// keep analytics small: delete steps older than 180 days
+try {
+await db.rpc('prune_app_events');
+} catch (e) {
+console.error('prune analytics failed', e);
+}
+
 const { data: subs, error } = await db.from('push_subscriptions').select('id, user_id, endpoint, p256dh, auth');
 if (error) return Response.json({ error: error.message }, { status: 500 });
 if (!subs || subs.length === 0) return Response.json({ sent: 0, billing });
@@ -41,7 +51,7 @@ const userIds = Array.from(new Set((subs as Sub[]).map(s => s.user_id)));
 const [{ data: profiles }, { data: requests }] = await Promise.all([
 db
 .from('profiles')
-.select('id, username, last_active_date, current_streak, subscription_tier, subscription_expires_at')
+.select('id, username, last_active_date, current_streak, subscription_tier, subscription_expires_at, show_on_looks_board, looks_banned')
 .in('id', userIds),
 db.from('premium_requests').select('user_id, status').in('user_id', userIds).in('status', ['pending', 'approved']),
 ]);
@@ -52,11 +62,34 @@ last_active_date: string | null;
 current_streak: number | null;
 subscription_tier: string | null;
 subscription_expires_at: string | null;
+show_on_looks_board: boolean | null;
+looks_banned: boolean | null;
 };
 const byId = new Map<string, Prof>(((profiles ?? []) as Prof[]).map(p => [p.id, p]));
 const paying = new Set(((requests ?? []) as { user_id: string }[]).map(r => r.user_id));
 
 const now = Date.now();
+
+// each person's latest camera scan (only recent ones matter for the ranking warning)
+const lastScan = new Map<string, number>();
+try {
+const since = new Date(now - (RANK_DAYS + 1) * 24 * H).toISOString();
+const { data: scans } = await db
+.from('scans')
+.select('user_id, created_at')
+.in('user_id', userIds)
+.or('source.is.null,source.neq.upload')
+.not('overall', 'is', null)
+.gt('created_at', since)
+.order('created_at', { ascending: false })
+.limit(20000);
+for (const s of (scans ?? []) as { user_id: string; created_at: string }[]) {
+if (!lastScan.has(s.user_id)) lastScan.set(s.user_id, new Date(s.created_at).getTime());
+}
+} catch (e) {
+console.error('rank expiry lookup failed', e);
+}
+
 const today = new Date().toISOString().slice(0, 10); // the app uses UTC dates
 const isSunday = new Date(now + 6.5 * H).getUTCDay() === 0; // Sunday in Myanmar
 
@@ -100,7 +133,32 @@ url: '/',
 }
 }
 
-// 2. weekly scan 3. streak
+// 2. looks ranking: place about to expire, or just expired
+const scannedAt = lastScan.get(p.id);
+if (!msg && scannedAt && p.show_on_looks_board !== false && !p.looks_banned) {
+const left = scannedAt + RANK_DAYS * 24 * H - now; // time until the place expires
+if (left > 2 * 24 * H && left <= 3 * 24 * H) {
+msg = {
+title: 'Your ranking place expires in 3 days ⏳',
+body: 'Do a camera scan to keep your place.\nသင့် ranking နေရာ ၃ ရက်အတွင်း ကုန်ပါမယ်။ ဆက်ထိန်းဖို့ camera scan လုပ်ပါ။',
+url: '/?tab=scan',
+};
+} else if (left > 0 && left <= 24 * H) {
+msg = {
+title: 'Last day to keep your ranking place',
+body: 'Scan today or you drop off the ranking.\nဒီနေ့ scan မလုပ်ရင် ranking ကနေ ပျောက်သွားပါမယ်။',
+url: '/?tab=scan',
+};
+} else if (left <= 0 && left > -24 * H) {
+msg = {
+title: 'You dropped off the ranking',
+body: 'One camera scan puts you back.\nCamera scan တစ်ခါ လုပ်ရင် ranking ထဲ ပြန်ဝင်ပါမယ်။',
+url: '/?tab=scan',
+};
+}
+}
+
+// 3. weekly scan 4. streak
 if (!msg && isSunday) {
 msg = {
 title: 'Weekly scan day 📸',

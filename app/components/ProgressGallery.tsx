@@ -10,6 +10,7 @@ import { useLang } from '../../lib/i18n';
 import { Sheet } from './shopShared';
 import { listPhotos, deletePhoto, type GalleryPhoto } from '../../lib/gallery';
 import { fmtMMK, planMmk } from '../../lib/payments';
+import { track } from '../../lib/track';
 import { Trash2, ImageIcon, ArrowLeftRight, Lock, Crown, Check } from 'lucide-react';
 
 const fmtDate = (ms: number) => new Date(ms).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -65,6 +66,11 @@ const { lang } = useLang();
 const L = (en: string, my: string) => (lang === 'my' ? my : en);
 const [photos, setPhotos] = useState<GalleryPhoto[] | null>(null);
 const [pick, setPick] = useState<string[]>([]); // up to 2 ids to compare
+
+useEffect(() => {
+if (locked) track('gallery_locked');
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
 useEffect(() => {
 listPhotos().then(p => {

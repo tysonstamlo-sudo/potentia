@@ -3,13 +3,14 @@
 // app/login/page.tsx — log in, sign up, forgot password.
 // The profile is created by Supabase itself (signup-fix.sql), so sign-up can't half-fail any more.
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { ThemeStyles, ThemeToggle, MarbleBackground, MarbleImage } from '../../lib/theme';
 import { useLang, LanguageToggle, LanguageStyles } from '../../lib/i18n';
 import { LOGO_SRC } from '../../lib/logo';
 import { checkEmail as checkEmailAddress } from '../../lib/emailCheck';
+import { track, trackOnce } from '../../lib/track';
 import { Mail, Lock, User, Phone, Loader2, ScanFace, Eye, EyeOff, ArrowLeft, MailCheck, Check } from 'lucide-react';
 
 const cardStyle: React.CSSProperties = {
@@ -46,6 +47,8 @@ export default function AuthPage() {
 const router = useRouter();
 const { t, lang } = useLang();
 const L = (en: string, my: string) => (lang === 'my' ? my : en);
+
+useEffect(() => trackOnce('auth_view'), []);
 
 const [mode, setMode] = useState<Mode>('login');
 const [email, setEmail] = useState('');
@@ -118,6 +121,12 @@ await supabase.rpc('set_my_phone', { p });
 }
 };
 
+// Sign-up stopped by a check: show the message, and count why (Admin -> Stats).
+const failSignup = (reason: string, n: Notice) => {
+track('signup_error', { reason });
+setNotice(n);
+};
+
 const handleSubmit = async (e: React.FormEvent) => {
 e.preventDefault();
 setNotice(null);
@@ -131,8 +140,10 @@ const chk = checkEmailAddress(cleanEmail);
 if (!chk.ok) {
 if (chk.reason === 'typo') {
 setEmailFix(chk.suggestion);
+if (mode === 'signup') track('signup_error', { reason: 'email_typo' });
 return setNotice({ kind: 'error', text: L('Check your email address. It looks mistyped.', 'အီးမေးလ်လိပ်စာ စာလုံးပေါင်း မှားနေပုံရပါတယ်။ ပြန်စစ်ပါ။') });
 }
+if (mode === 'signup') track('signup_error', { reason: chk.reason === 'blocked' ? 'email_blocked' : 'email_format' });
 return setNotice({
 kind: 'error',
 text:
@@ -160,13 +171,13 @@ return;
 
 if (mode === 'signup') {
 const name = username.trim().replace(/\s+/g, ' ');
-if (name.length < 2) return setNotice({ kind: 'error', text: L('Username must be at least 2 characters.', 'အသုံးပြုသူအမည် အနည်းဆုံး စာလုံး ၂ လုံး ရှိရပါမယ်။') });
+if (name.length < 2) return failSignup('username', { kind: 'error', text: L('Username must be at least 2 characters.', 'အသုံးပြုသူအမည် အနည်းဆုံး စာလုံး ၂ လုံး ရှိရပါမယ်။') });
 const cleanPhone = phone.replace(/[^0-9+]/g, '');
 if (!/^\+?[0-9]{7,15}$/.test(cleanPhone))
-return setNotice({ kind: 'error', text: L('Enter your phone number, for example 09xxxxxxxxx.', 'ဖုန်းနံပါတ် ထည့်ပါ။ ဥပမာ 09xxxxxxxxx') });
-if (!gender) return setNotice({ kind: 'error', text: t('Please select your gender to continue.') });
-if (password.length < 6) return setNotice({ kind: 'error', text: friendly('password at least') });
-if (!adult) return setNotice({ kind: 'error', text: L('Potentia is for people 18 and over.', 'Potentia ကို အသက် ၁၈ နှစ်နှင့်အထက်သာ သုံးနိုင်ပါတယ်။') });
+return failSignup('phone', { kind: 'error', text: L('Enter your phone number, for example 09xxxxxxxxx.', 'ဖုန်းနံပါတ် ထည့်ပါ။ ဥပမာ 09xxxxxxxxx') });
+if (!gender) return failSignup('gender', { kind: 'error', text: t('Please select your gender to continue.') });
+if (password.length < 6) return failSignup('password', { kind: 'error', text: friendly('password at least') });
+if (!adult) return failSignup('not_18', { kind: 'error', text: L('Potentia is for people 18 and over.', 'Potentia ကို အသက် ၁၈ နှစ်နှင့်အထက်သာ သုံးနိုင်ပါတယ်။') });
 
 setLoading(true);
 const { data, error } = await supabase.auth.signUp({
@@ -179,13 +190,17 @@ emailRedirectTo: `${origin}${nextUrl(false)}`,
 });
 if (error) {
 setLoading(false);
-return setNotice({ kind: 'error', text: friendly(error.message) });
+const m = error.message.toLowerCase();
+return failSignup(
+m.includes('already') ? 'already_registered' : m.includes('rate') || m.includes('too many') ? 'rate_limit' : m.includes('email') ? 'email_rejected' : 'server_error',
+{ kind: 'error', text: friendly(error.message) }
+);
 }
 // Supabase hides "already registered" when email confirmation is on: the user comes back with no identities.
 if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
 setLoading(false);
 setMode('login');
-return setNotice({ kind: 'error', text: friendly('already registered') });
+return failSignup('already_registered', { kind: 'error', text: friendly('already registered') });
 }
 if (!data.session) {
 // Email confirmation is on: the account + profile exist, they just need to tap the link.

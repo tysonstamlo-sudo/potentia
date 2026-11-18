@@ -6,7 +6,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { ThemeStyles, ThemeToggle, MarbleBackground } from '../../lib/theme';
-import { Check, X, Crown, ShieldAlert, Wallet, Store, RefreshCw, Loader2, Users, Bell, Send, ShoppingBag, Phone, MapPin, Eye, EyeOff, ReceiptText, Flag } from 'lucide-react';
+import { Check, X, Crown, ShieldAlert, Wallet, Store, RefreshCw, Loader2, Users, Bell, Send, ShoppingBag, Phone, MapPin, Eye, EyeOff, ReceiptText, Flag, BarChart3 } from 'lucide-react';
+import AdminStats from '../components/AdminStats';
 import { PLANS, COMMISSION, fmt, fmtMMK, toMMK, planPrice, type Currency } from '../../lib/payments';
 import { getThbRate, resetThbRate } from '../../lib/fx';
 import { SURVEY_REASONS } from '../components/TrialSurvey';
@@ -141,7 +142,7 @@ export default function AdminPage() {
 const router = useRouter();
 const [checking, setChecking] = useState(true);
 const [isAdmin, setIsAdmin] = useState(false);
-const [tab, setTab] = useState<'approvals' | 'orders' | 'revenue' | 'sellers' | 'notify'>('approvals');
+const [tab, setTab] = useState<'approvals' | 'orders' | 'revenue' | 'sellers' | 'stats' | 'notify'>('approvals');
 const [orders, setOrders] = useState<Order[]>([]);
 const [bills, setBills] = useState<Bill[]>([]);
 const [affs, setAffs] = useState<AffiliateNumbers[]>([]);
@@ -663,6 +664,7 @@ const tabs = [
 { key: 'orders' as const, label: 'Orders', icon: ShoppingBag, badge: pendingOrders.length },
 { key: 'revenue' as const, label: 'Revenue', icon: Wallet, badge: affApps.length },
 { key: 'sellers' as const, label: 'Sellers', icon: Store, badge: pendingSellers.length + pendingBills.length + disputes.length },
+{ key: 'stats' as const, label: 'Stats', icon: BarChart3, badge: 0 },
 { key: 'notify' as const, label: 'Notify', icon: Bell, badge: 0 },
 ];
 
@@ -1237,6 +1239,9 @@ style={p.hidden_by_admin ? primaryBtn : ghostBtn}
 </div>
 )}
 
+{/* ---------- stats ---------- */}
+{tab === 'stats' && <AdminStats />}
+
 {/* ---------- notify ---------- */}
 {tab === 'notify' && (
 <div className="rounded-2xl p-5 space-y-4" style={cardStyle}>
@@ -1482,7 +1487,7 @@ borderTop: '1px solid rgb(var(--gold) / 0.12)',
 paddingBottom: 'env(safe-area-inset-bottom)',
 }}
 >
-<div className="max-w-xl mx-auto grid grid-cols-5">
+<div className="max-w-xl mx-auto grid grid-cols-6">
 {tabs.map(({ key, label, icon: Icon, badge }) => {
 const active = tab === key;
 return (

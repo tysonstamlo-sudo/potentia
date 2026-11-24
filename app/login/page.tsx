@@ -236,29 +236,46 @@ router.refresh();
 
 // Guest mode: try the app without an account (Supabase anonymous sign-in). They can save the account later.
 const [guestBusy, setGuestBusy] = useState(false);
+const [guestError, setGuestError] = useState('');
 const startGuest = async (g: 'male' | 'female') => {
 if (guestBusy) return;
 setGuestBusy(true);
+setGuestError('');
 setNotice(null);
-const { error } = await supabase.auth.signInAnonymously({
+try {
+const auth = supabase.auth as typeof supabase.auth & {
+signInAnonymously?: (o: { options: { data: Record<string, string> } }) => Promise<{ error: { message: string } | null }>;
+};
+if (typeof auth.signInAnonymously !== 'function') {
+setGuestError(L('Guest mode needs an app update (supabase-js). Please sign up for now.', 'Guest mode အတွက် app ကို update လုပ်ဖို့ လိုပါတယ်။ လောလောဆယ် အကောင့် ဖွင့်ပါ။'));
+return;
+}
+const { error } = await auth.signInAnonymously({
 options: { data: { username: `guest_${Math.random().toString(36).slice(2, 6)}`, gender: g } },
 });
-setGuestBusy(false);
 if (error) {
-return setNotice({
-kind: 'error',
-text: /anonymous/i.test(error.message)
+console.error('guest sign-in failed', error);
+setGuestError(
+/anonymous/i.test(error.message)
 ? L('Guest mode is not switched on yet. Please sign up.', 'Guest mode မဖွင့်ရသေးပါ။ အကောင့် ဖွင့်ပါ။')
-: friendly(error.message),
-});
+: /captcha/i.test(error.message)
+? L('Guest mode is blocked by the captcha setting. Please sign up.', 'Captcha setting ကြောင့် guest mode မရပါ။ အကောင့် ဖွင့်ပါ။')
+: friendly(error.message)
+);
+return;
 }
 try {
 localStorage.removeItem('potentia_next_tab');
 } catch {
 /* ignore */
 }
-router.push('/?tab=scan');
-router.refresh();
+window.location.href = '/?tab=scan';
+} catch (e) {
+console.error('guest sign-in crashed', e);
+setGuestError(friendly((e as Error).message || 'Something went wrong'));
+} finally {
+setGuestBusy(false);
+}
 };
 
 const resendConfirm = async () => {
@@ -339,6 +356,11 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 </button>
 ))}
 </div>
+{guestError && (
+<p className="text-[12px] mt-2" style={{ color: 'rgb(var(--err))' }}>
+{guestError}
+</p>
+)}
 <p className="text-[10px] text-[rgb(var(--muted))] mt-2">{L('18+ only. Paying and adding friends need a saved account.', '၁၈ နှစ်အထက်သာ။ ငွေပေးချေရန်နဲ့ သူငယ်ချင်းထည့်ရန် အကောင့် သိမ်းထားရပါမယ်။')}</p>
 </div>
 )}

@@ -7,10 +7,10 @@
 export type MapKey = 'spots' | 'redness' | 'oil' | 'texture';
 export const MAP_KEYS: MapKey[] = ['spots', 'redness', 'oil', 'texture'];
 export const MAP_COLORS: Record<MapKey, [number, number, number]> = {
-spots: [150, 82, 30], // brown
+spots: [175, 95, 255], // violet (brown vanished on brown skin)
 redness: [235, 45, 70], // red
 oil: [255, 205, 40], // yellow
-texture: [70, 225, 140], // green
+texture: [60, 215, 255], // cyan
 };
 
 export type FaceBox = { x: number; y: number; w: number; h: number }; // 0-1 of the photo
@@ -43,6 +43,31 @@ return lo.slice(0, -1).concat(up.slice(0, -1));
 function grow(poly: Pt[], k: number): Pt[] {
 const c = poly.reduce((a, q) => ({ x: a.x + q.x / poly.length, y: a.y + q.y / poly.length }), { x: 0, y: 0 });
 return poly.map(q => ({ x: c.x + (q.x - c.x) * k, y: c.y + (q.y - c.y) * k }));
+}
+
+
+/** Box blur (separable, edge-clamped) on a W x H float map. */
+function blur(src: Float32Array, W: number, H: number, r: number): Float32Array {
+const tmp = new Float32Array(src.length), out = new Float32Array(src.length);
+const n = 2 * r + 1;
+for (let y = 0; y < H; y++) {
+let acc = 0;
+const row = y * W;
+for (let k = -r; k <= r; k++) acc += src[row + Math.min(W - 1, Math.max(0, k))];
+for (let x = 0; x < W; x++) {
+tmp[row + x] = acc / n;
+acc += src[row + Math.min(W - 1, x + r + 1)] - src[row + Math.max(0, x - r)];
+}
+}
+for (let x = 0; x < W; x++) {
+let acc = 0;
+for (let k = -r; k <= r; k++) acc += tmp[Math.min(H - 1, Math.max(0, k)) * W + x];
+for (let y = 0; y < H; y++) {
+out[y * W + x] = acc / n;
+acc += tmp[Math.min(H - 1, y + r + 1) * W + x] - tmp[Math.max(0, y - r) * W + x];
+}
+}
+return out;
 }
 
 export type SkinMaps = {
@@ -81,7 +106,7 @@ z = g3(z);
 return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
 }
 
-export async function makeSkinMaps(photo: string, opts: { landmarks?: Pt[]; faceBox?: FaceBox } = {}, maxSide = 480): Promise<SkinMaps> {
+export async function makeSkinMaps(photo: string, opts: { landmarks?: Pt[]; faceBox?: FaceBox } = {}, maxSide = 640): Promise<SkinMaps> {
 const faceBox = opts.faceBox;
 const img = await load(photo);
 const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
@@ -110,6 +135,7 @@ const featureRects: [number, number, number, number][] = [
 // With face landmarks: an exact face outline, and exact eyes, brows, lips and nostrils to leave out
 const lm = opts.landmarks && opts.landmarks.length >= 468 ? opts.landmarks : null;
 let ovalMask: Uint8ClampedArray | null = null;
+let fullOval: Uint8ClampedArray | null = null;
 let featMask: Uint8ClampedArray | null = null;
 if (lm) {
 const m = document.createElement('canvas');
@@ -123,7 +149,11 @@ mc.closePath();
 mc.fill();
 };
 mc.fillStyle = '#fff';
-poly(FACE_OVAL.map(i => lm[i]));
+const oval = FACE_OVAL.map(i => lm[i]);
+poly(oval);
+fullOval = mc.getImageData(0, 0, W, H).data;
+mc.clearRect(0, 0, W, H);
+poly(grow(oval, 0.93)); // stay off the shadowed edge of the face
 ovalMask = mc.getImageData(0, 0, W, H).data;
 mc.clearRect(0, 0, W, H);
 for (const [ids, k] of [
@@ -247,20 +277,36 @@ hits.texture++;
 const coverage = {} as Record<MapKey, number>;
 for (const k of MAP_KEYS) coverage[k] = skinCount ? Math.round((hits[k] / skinCount) * 1000) / 10 : 0;
 
-// draw the overlays
+// soft versions of each map, so marks read as smooth patches instead of pixel noise
+const soft = {} as Record<MapKey, Float32Array>;
+for (const k of MAP_KEYS) soft[k] = blur(blur(strength[k], W, H, 1), W, H, 1);
+
+// soft spotlight on the face: background gently darker, face and its features untouched
+const face = new Float32Array(N);
+for (let y = 0; y < H; y++)
+for (let x = 0; x < W; x++) {
+const i = y * W + x;
+if (fullOval) face[i] = fullOval[i * 4 + 3] > 0 ? 1 : 0;
+else {
+const ex = (x - cx) / (bw / 2), ey = (y - cy) / (bh / 2);
+face[i] = ex * ex + ey * ey <= 1.1 ? 1 : 0;
+}
+}
+const feather = Math.max(6, Math.round(Math.min(W, H) * 0.035));
+const glow = blur(blur(face, W, H, feather), W, H, feather);
+
 const draw = (keys: MapKey[]) => {
 const out = ctx.createImageData(W, H);
 const o = out.data;
 for (let i = 0; i < N; i++) {
 const p = i * 4;
-// dim everything that is not face skin a little, so the map stands out
-const dim = skin[i] ? 1 : 0.55;
+const dim = 0.62 + 0.38 * glow[i];
 let r = px[p] * dim, g = px[p + 1] * dim, b = px[p + 2] * dim;
 for (const k of keys) {
-const s = strength[k][i];
-if (s > 0) {
+const s = soft[k][i];
+if (s > 0.04) {
 const [cr, cg, cb] = MAP_COLORS[k];
-const a = 0.35 + 0.5 * s;
+const a = Math.min(0.75, (s - 0.04) * 2.5) * glow[i];
 r = r * (1 - a) + cr * a;
 g = g * (1 - a) + cg * a;
 b = b * (1 - a) + cb * a;
@@ -272,12 +318,12 @@ o[p + 2] = b;
 o[p + 3] = 255;
 }
 ctx.putImageData(out, 0, 0);
-return c.toDataURL('image/jpeg', 0.88);
+return c.toDataURL('image/jpeg', 0.9);
 };
 
 const base = (() => {
 ctx.putImageData(src, 0, 0);
-return c.toDataURL('image/jpeg', 0.88);
+return c.toDataURL('image/jpeg', 0.9);
 })();
 const overlays = {
 spots: draw(['spots']),

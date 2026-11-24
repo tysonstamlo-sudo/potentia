@@ -68,8 +68,29 @@ acne: 'pores',
 wrinkles: 'eye_texture',
 };
 
-function readPhoto(file: File): Promise<string> {
-return toAiImage(file, 1400, 0.92);
+async function readPhoto(file: File, mirror: boolean): Promise<string> {
+const url = await toAiImage(file, 1400, 0.92);
+return mirror ? flipX(url) : url;
+}
+
+/** The phone camera saves selfies un-mirrored, so they look flipped next to the preview you saw.
+* Mirror them back so the result matches what you saw on screen. */
+function flipX(src: string): Promise<string> {
+return new Promise(res => {
+const i = new Image();
+i.onload = () => {
+const c = document.createElement('canvas');
+c.width = i.width;
+c.height = i.height;
+const x = c.getContext('2d')!;
+x.translate(i.width, 0);
+x.scale(-1, 1);
+x.drawImage(i, 0, 0);
+res(c.toDataURL('image/jpeg', 0.92));
+};
+i.onerror = () => res(src);
+i.src = src;
+});
 }
 
 export default function SkinStudio({ isGuest, onGoSkin }: { isGuest: boolean; onGoSkin: () => void }) {
@@ -117,7 +138,7 @@ await loadAccess();
 })();
 }, []);
 
-const run = async (file: File | undefined) => {
+const run = async (file: File | undefined, selfie = false) => {
 if (!file) return;
 setError('');
 setReport(null);
@@ -126,7 +147,7 @@ setMaps(null);
 setStatus('reading');
 track('scan_start', { source: 'skin' });
 try {
-const photo = await readPhoto(file);
+const photo = await readPhoto(file, selfie);
 // 1. find the face (on the phone) so the maps only cover skin
 const face = await analyzeFace(photo, gender);
 const faceImg = face.croppedImage ?? photo;
@@ -188,7 +209,7 @@ if (!crop || agingBusy) return;
 setAgingBusy(true);
 setAgingErr('');
 const img = await toAiImage(crop, 1024, 0.9);
-const r = await callAi<{ noCare: string; withCare: string }>('/api/ai/skin-age', { image: img, gender });
+const r = await callAi<{ noCare: string; withCare: string }>('/api/ai/skin-age', { image: img, gender, age: age ?? report?.skin_age ?? null });
 setAgingBusy(false);
 if (!r.ok) {
 return setAgingErr(
@@ -292,7 +313,7 @@ style={{ border: `1px solid ${ROSE}88`, color: 'rgb(var(--muted-hover))' }}
 <ImagePlus className="w-4 h-4" /> {L('Upload', 'Upload')}
 </button>
 </div>
-<input ref={selfieRef} type="file" accept="image/*" capture="user" className="hidden" onChange={e => run(e.target.files?.[0])} />
+<input ref={selfieRef} type="file" accept="image/*" capture="user" className="hidden" onChange={e => run(e.target.files?.[0], true)} />
 <input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={e => run(e.target.files?.[0])} />
 <p className="text-[11px] text-[rgb(var(--muted))] mt-3 leading-relaxed">
 {L(

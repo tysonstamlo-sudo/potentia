@@ -93,21 +93,12 @@ className={`p-2 rounded-full border border-[rgb(var(--muted)/0.3)] text-[rgb(var
 );
 }
 
-/* Ambient lab grid + corner glows, colored by the theme accent.
+/* Soft corner glows, colored by the theme accent (the grid was removed: it looked like a math workbook).
 Replaces the old marble veins — same export name so existing imports
 (e.g. login/page.tsx) keep working untouched. */
 export function MarbleBackground() {
 return (
 <>
-<div
-aria-hidden="true"
-className="fixed inset-0 pointer-events-none"
-style={{
-backgroundImage:
-'linear-gradient(rgb(var(--gold) / 0.05) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--gold) / 0.05) 1px, transparent 1px)',
-backgroundSize: '28px 28px',
-}}
-/>
 <div
 aria-hidden="true"
 className="fixed inset-0 pointer-events-none"
@@ -120,7 +111,7 @@ background:
 );
 }
 
-/* No photographic texture in the Lab theme — the grid above carries it.
+/* No photographic texture in the Lab theme.
 Kept as a real (no-op) component so `<MarbleImage />` in pages you've
 already shipped (like login) doesn't need to be touched or removed. */
 export function MarbleImage() {

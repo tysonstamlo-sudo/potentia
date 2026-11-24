@@ -13,7 +13,7 @@ import { ThemeToggle } from '../../lib/theme';
 import NotificationToggle from './NotificationToggle';
 import { Sheet } from './shopShared';
 import Help from './Help';
-import { Camera, Loader2, Check, LogOut, KeyRound, Trash2, FileText, Shield, ChevronRight, Share2, Percent, Send, HelpCircle } from 'lucide-react';
+import { Camera, Loader2, Check, LogOut, KeyRound, Trash2, FileText, Shield, ChevronRight, Share2, Percent, Send, HelpCircle, Eye, Bell, Users } from 'lucide-react';
 
 const card: React.CSSProperties = {
 background: 'rgb(var(--surface) / 0.5)',
@@ -98,6 +98,49 @@ const [pic, setPic] = useState<string | null>(avatarUrl);
 const [busy, setBusy] = useState<'pic' | 'name' | 'pw' | 'delete' | 'apply' | null>(null);
 const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 const [showHelp, setShowHelp] = useState(false);
+// friends privacy + gender
+const [showScore, setShowScore] = useState(true);
+const [friendAlerts, setFriendAlerts] = useState(true);
+const [gender, setGender] = useState<'male' | 'female' | null>(null);
+const [genderBusy, setGenderBusy] = useState(false);
+useEffect(() => {
+supabase
+.from('profiles')
+.select('show_score_to_friends, friend_alerts, gender')
+.eq('id', userId)
+.single()
+.then(({ data }: { data: { show_score_to_friends?: boolean; friend_alerts?: boolean; gender?: string } | null }) => {
+if (!data) return;
+setShowScore(data.show_score_to_friends !== false);
+setFriendAlerts(data.friend_alerts !== false);
+if (data.gender === 'male' || data.gender === 'female') setGender(data.gender);
+});
+}, [userId]);
+const savePrivacy = async (show: boolean, alerts: boolean) => {
+setShowScore(show);
+setFriendAlerts(alerts);
+const { error } = await supabase.rpc('set_friend_privacy', { p_show: show, p_alerts: alerts });
+if (error) say(false, L('Could not save. Did you run friends.sql?', 'သိမ်းလို့ မရပါ။'));
+};
+const changeGender = async (g: 'male' | 'female') => {
+if (g === gender || genderBusy) return;
+if (
+!confirm(
+L(
+'Change gender? Your tier and ranking will use it. You can change it again after 30 days.',
+'ကျား/မ ပြောင်းမလား? သင့်အဆင့်နဲ့ ranking က ဒါကို သုံးပါမယ်။ ရက် ၃၀ ကြာမှ ပြန်ပြောင်းလို့ ရပါမယ်။'
+)
+)
+)
+return;
+setGenderBusy(true);
+const { error } = await supabase.rpc('set_my_gender', { p_gender: g });
+setGenderBusy(false);
+if (error) return say(false, error.message.includes('change this again') ? error.message : L('Could not change it. Try again.', 'ပြောင်းလို့ မရပါ။ ပြန်ကြိုးစားပါ။'));
+setGender(g);
+say(true, L('Saved. Reloading…', 'သိမ်းပြီးပါပြီ။ ပြန်ဖွင့်နေပါတယ်…'));
+setTimeout(() => window.location.reload(), 900);
+};
 
 const say = (ok: boolean, text: string) => setMsg({ ok, text });
 
@@ -274,6 +317,20 @@ setBusy(null);
 say(false, (e as Error).message);
 }
 };
+
+const Switch = ({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) => (
+<button
+type="button"
+role="switch"
+aria-checked={on}
+aria-label={label}
+onClick={() => onChange(!on)}
+className="relative w-12 h-7 rounded-full flex-shrink-0 transition-colors"
+style={{ background: on ? 'rgb(var(--gold))' : 'rgb(var(--muted) / 0.3)' }}
+>
+<span className="absolute top-1 w-5 h-5 rounded-full transition-all" style={{ left: on ? 26 : 4, background: on ? 'rgb(var(--bg))' : '#fff' }} />
+</button>
+);
 
 const Row = ({ icon, label, onClick, danger, right }: { icon: React.ReactNode; label: string; onClick?: () => void; danger?: boolean; right?: React.ReactNode }) => (
 <button
@@ -526,6 +583,44 @@ style={msg.ok ? { color: 'rgb(var(--gold))', background: 'rgb(var(--gold) / 0.1)
 </div>
 <div className="px-4 py-3" style={{ borderTop: '1px solid rgb(var(--muted) / 0.1)' }}>
 <NotificationToggle userId={userId} />
+</div>
+</div>
+
+{/* friends + gender */}
+<div className="rounded-2xl overflow-hidden" style={card}>
+<div className="flex items-center gap-3 px-4 py-3.5">
+<Eye className="w-4 h-4 text-[rgb(var(--muted-hover))]" />
+<span className="flex-1">
+<span className="block text-sm text-[rgb(var(--muted-hover))]">{L('Friends can see my score', 'သူငယ်ချင်းတွေ ကျွန်ုပ်အမှတ်ကို မြင်နိုင်')}</span>
+<span className="block text-[11px] text-[rgb(var(--muted))]">{L('Score, weekly change and score history. Never your photos.', 'အမှတ်၊ အပတ်စဉ်ပြောင်းလဲမှုနဲ့ မှတ်တမ်း။ ဓာတ်ပုံ ဘယ်တော့မှ မပြပါ။')}</span>
+</span>
+<Switch on={showScore} onChange={v => savePrivacy(v, friendAlerts)} label={L('Friends can see my score', 'သူငယ်ချင်းတွေ ကျွန်ုပ်အမှတ်ကို မြင်နိုင်')} />
+</div>
+<div className="flex items-center gap-3 px-4 py-3.5" style={{ borderTop: '1px solid rgb(var(--muted) / 0.1)' }}>
+<Bell className="w-4 h-4 text-[rgb(var(--muted-hover))]" />
+<span className="flex-1">
+<span className="block text-sm text-[rgb(var(--muted-hover))]">{L('Friend alerts', 'သူငယ်ချင်း အသိပေးချက်')}</span>
+<span className="block text-[11px] text-[rgb(var(--muted))]">{L('When a friend checks you or passes your score.', 'သူငယ်ချင်းက ကြည့်သွားရင် (သို့) အမှတ်ကျော်သွားရင်။')}</span>
+</span>
+<Switch on={friendAlerts} onChange={v => savePrivacy(showScore, v)} label={L('Friend alerts', 'သူငယ်ချင်း အသိပေးချက်')} />
+</div>
+<div className="flex items-center gap-3 px-4 py-3.5" style={{ borderTop: '1px solid rgb(var(--muted) / 0.1)' }}>
+<Users className="w-4 h-4 text-[rgb(var(--muted-hover))]" />
+<span className="flex-1 text-sm text-[rgb(var(--muted-hover))]">{L('Gender', 'ကျား / မ')}</span>
+<div className="flex gap-1 p-1 rounded-lg" style={{ background: 'rgb(var(--muted) / 0.1)' }}>
+{(['male', 'female'] as const).map(g => (
+<button
+key={g}
+type="button"
+onClick={() => changeGender(g)}
+disabled={genderBusy}
+className="px-3.5 py-2 rounded-md text-[12px] font-medium"
+style={{ background: gender === g ? 'rgb(var(--gold))' : 'transparent', color: gender === g ? 'rgb(var(--bg))' : 'rgb(var(--muted-hover))' }}
+>
+{g === 'male' ? L('Male', 'ကျား') : L('Female', 'မ')}
+</button>
+))}
+</div>
 </div>
 </div>
 

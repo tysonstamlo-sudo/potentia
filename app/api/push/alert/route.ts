@@ -1,7 +1,8 @@
 // app/api/push/alert/route.ts — sends the right notification when something happens:
 // new premium payment -> you (admin) · new order -> the seller (or you, for old orders) ·
 // seller confirms / refuses payment -> buyer · order shipped -> buyer · seller approved -> seller ·
-// seller paid their monthly bill -> you.
+// seller paid their monthly bill -> you · you opened a friend's progress -> "X checked you" ·
+// your new scan passed a friend's score -> "X passed you".
 // The server checks the database itself, so nobody can use this to spam people.
 
 import { adminDb, sendTo, ADMIN_USER_ID, type Sub, type Message } from '../../../../lib/pushServer';
@@ -148,6 +149,82 @@ title: '🧾 Seller paid their bill',
 body: `${b.shop_name || 'A seller'} sent ${Number(b.commission_mmk).toLocaleString('en-US')} MMK for ${String(b.month).slice(0, 7)}. Check your bank, then approve in Sellers.`,
 url: '/admin',
 });
+return Response.json({ sent });
+}
+
+// a friend opened your progress page (at most one alert per friend per day)
+if (event === 'friend_viewed') {
+const day = new Date(Date.now() + 6.5 * 3600 * 1000).toISOString().slice(0, 10); // Myanmar date
+const { data: v } = await db
+.from('profile_views')
+.update({ notified: true })
+.eq('viewer', me)
+.eq('viewed', id)
+.eq('day', day)
+.eq('notified', false)
+.select('viewed')
+.maybeSingle();
+if (!v) return Response.json({ sent: 0 }); // already told today, or no real view
+const [{ data: them }, { data: mine }] = await Promise.all([
+db.from('profiles').select('friend_alerts').eq('id', id).single(),
+db.from('profiles').select('username').eq('id', me).single(),
+]);
+if (!them || them.friend_alerts === false) return Response.json({ sent: 0 });
+const name = mine?.username || 'A friend';
+const sent = await pushUser(id, {
+title: `${name} checked your progress 👀`,
+body: `See how you compare.
+${name} က သင့် progress ကို ကြည့်သွားပါတယ်။`,
+url: '/?tab=friends',
+});
+return Response.json({ sent });
+}
+
+// you just scanned: did you pass any friend's score?
+if (event === 'scan_done') {
+const { data: last } = await db
+.from('scans')
+.select('created_at, source')
+.eq('user_id', me)
+.order('created_at', { ascending: false })
+.limit(1)
+.maybeSingle();
+if (!last || last.source === 'upload' || !recent(last.created_at)) return Response.json({ sent: 0 });
+const { data: meRow } = await db.from('profiles').select('username, show_score_to_friends').eq('id', me).single();
+if (!meRow || meRow.show_score_to_friends === false) return Response.json({ sent: 0 });
+const [{ data: before }, { data: after }] = await Promise.all([
+db.rpc('steady_score', { p_uid: me, p_before: last.created_at }),
+db.rpc('steady_score', { p_uid: me }),
+]);
+const b = before == null ? null : Number(before);
+const a = after == null ? null : Number(after);
+if (b == null || a == null || a <= b) return Response.json({ sent: 0 });
+
+const { data: links } = await db
+.from('friendships')
+.select('requester_id, addressee_id')
+.eq('status', 'accepted')
+.or(`requester_id.eq.${me},addressee_id.eq.${me}`);
+const friendIds = ((links ?? []) as { requester_id: string; addressee_id: string }[]).map(l =>
+l.requester_id === me ? l.addressee_id : l.requester_id
+);
+let sent = 0;
+for (const fid of friendIds.slice(0, 200)) {
+const [{ data: fs }, { data: fp }] = await Promise.all([
+db.rpc('steady_score', { p_uid: fid }),
+db.from('profiles').select('friend_alerts').eq('id', fid).single(),
+]);
+const f = fs == null ? null : Number(fs);
+if (f == null || fp?.friend_alerts === false) continue;
+if (b <= f && a > f) {
+sent += await pushUser(fid, {
+title: `${meRow.username || 'A friend'} just passed your score 😤`,
+body: `${a.toFixed(1)} vs your ${f.toFixed(1)}. Scan to take it back.
+${meRow.username || 'သူငယ်ချင်း'} က သင့်အမှတ်ကို ကျော်သွားပြီ။ Scan ပြန်လုပ်ပြီး ပြန်ယူပါ။`,
+url: '/?tab=scan',
+});
+}
+}
 return Response.json({ sent });
 }
 

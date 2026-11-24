@@ -10,7 +10,7 @@ import { toAiImage, callAi, aiErrorText } from '../../lib/aiClient';
 import { Sparkles, Lock, Loader2, Download, Share2, RefreshCw, Crown } from 'lucide-react';
 
 const CONSENT_KEY = 'ptn_morph_ok';
-const STEPS = ['Reading your face...', 'Clearing skin...', 'Leaning out the jawline...', 'Styling hair and brows...', 'Final touches...'];
+const STEPS = ['Reading your face...', 'Clearing skin...', 'Leaning out the jawline...', 'Shaping eyes and brows...', 'Final touches...'];
 
 function Compare({ before, after }: { before: string; after: string }) {
 const { t } = useLang();
@@ -185,7 +185,7 @@ return (
 {t('See yourself at your peak')}
 </p>
 <p className="text-xs text-white/85 mt-1.5 max-w-[240px]" style={{ textShadow: '0 1px 8px rgb(0 0 0 / 0.6)' }}>
-{L('See yourself fully looksmaxxed: lean, sharp jaw, clear skin, styled hair.', 'အပြည့်အဝ looksmax လုပ်ထားတဲ့ သင့်ကိုယ်သင် ကြည့်ပါ: ပိန်သွယ်၊ မေးရိုးထင်ရှား၊ အသားအရေကြည်၊ ဆံပင်လှ။')}
+{L('See yourself fully looksmaxxed: lean face, sharp jaw, hunter eyes, strong brows, clear skin.', 'အပြည့်အဝ looksmax လုပ်ထားတဲ့ သင့်ကိုယ်သင် ကြည့်ပါ: မျက်နှာသွယ်၊ မေးရိုးထင်ရှား၊ hunter eyes၊ မျက်ခုံးထူ၊ အသားအရေကြည်။')}
 </p>
 </div>
 </div>

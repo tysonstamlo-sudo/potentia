@@ -16,7 +16,9 @@ export type AlertEvent =
 | 'bill_paid'
 | 'affiliate_applied'
 | 'affiliate_approved'
-| 'affiliate_rejected';
+| 'affiliate_rejected'
+| 'friend_viewed' // id = the friend whose progress you opened
+| 'scan_done'; // id = 'latest' (checks if you passed a friend)
 
 export async function notify(event: AlertEvent, id: string) {
 try {

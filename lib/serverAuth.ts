@@ -3,11 +3,13 @@
 import { adminDb } from './pushServer';
 
 /** The signed-in user who sent this request, or null. */
-export async function getUser(req: Request): Promise<{ id: string } | null> {
+/** The signed-in person. isGuest = trying the app without an account (Supabase anonymous sign-in). */
+export async function getUser(req: Request): Promise<{ id: string; isGuest: boolean } | null> {
 const token = req.headers.get('authorization')?.replace('Bearer ', '');
 if (!token) return null;
 const { data } = await adminDb().auth.getUser(token);
-return data?.user ? { id: data.user.id as string } : null;
+const u = data?.user as { id: string; is_anonymous?: boolean } | undefined;
+return u ? { id: u.id, isGuest: !!u.is_anonymous } : null;
 }
 
 /** The visitor's real IP address (Vercel puts it first in x-forwarded-for). */

@@ -234,6 +234,33 @@ router.push(nextUrl(true));
 router.refresh();
 };
 
+// Guest mode: try the app without an account (Supabase anonymous sign-in). They can save the account later.
+const [guestBusy, setGuestBusy] = useState(false);
+const startGuest = async (g: 'male' | 'female') => {
+if (guestBusy) return;
+setGuestBusy(true);
+setNotice(null);
+const { error } = await supabase.auth.signInAnonymously({
+options: { data: { username: `guest_${Math.random().toString(36).slice(2, 6)}`, gender: g } },
+});
+setGuestBusy(false);
+if (error) {
+return setNotice({
+kind: 'error',
+text: /anonymous/i.test(error.message)
+? L('Guest mode is not switched on yet. Please sign up.', 'Guest mode မဖွင့်ရသေးပါ။ အကောင့် ဖွင့်ပါ။')
+: friendly(error.message),
+});
+}
+try {
+localStorage.removeItem('potentia_next_tab');
+} catch {
+/* ignore */
+}
+router.push('/?tab=scan');
+router.refresh();
+};
+
 const resendConfirm = async () => {
 setLoading(true);
 const { error } = await supabase.auth.resend({ type: 'signup', email: email.trim().toLowerCase(), options: { emailRedirectTo: `${origin}/` } });
@@ -290,6 +317,31 @@ style={{ height: 96, width: 'auto', filter: 'drop-shadow(0 0 12px rgb(var(--gold
 <h1 className="font-display text-3xl font-semibold text-[rgb(var(--gold))] text-center">{checkEmail ? L('Check your email', 'အီးမေးလ် စစ်ပါ') : title}</h1>
 <p className="font-body text-sm text-[rgb(var(--muted))] mt-2 text-center">{t('Your transformation, guided by AI')}</p>
 </div>
+
+{!checkEmail && mode !== 'forgot' && (
+<div className="rounded-3xl p-5 mb-4 font-body" style={{ ...cardStyle, border: '1px solid rgb(var(--gold) / 0.4)' }}>
+<p className="text-sm font-semibold text-[rgb(var(--gold))]">{L('Try it first, no account', 'အကောင့်မလိုဘဲ အရင် စမ်းကြည့်ပါ')}</p>
+<p className="text-[12px] text-[rgb(var(--muted-hover))] mt-1 mb-3 leading-relaxed">
+{L('Scan your face now. Save your account later if you like it.', 'အခုပဲ မျက်နှာ scan လုပ်ပါ။ ကြိုက်ရင် နောက်မှ အကောင့် သိမ်းပါ။')}
+</p>
+<div className="grid grid-cols-2 gap-2">
+{(['male', 'female'] as const).map(g => (
+<button
+key={g}
+type="button"
+onClick={() => startGuest(g)}
+disabled={guestBusy}
+className="flex items-center justify-center gap-2 rounded-xl py-3 text-[13px] font-semibold disabled:opacity-60"
+style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
+>
+{guestBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ScanFace className="w-4 h-4" />}
+{g === 'male' ? L("I'm a man", 'ယောကျ်ား') : L("I'm a woman", 'မိန်းမ')}
+</button>
+))}
+</div>
+<p className="text-[10px] text-[rgb(var(--muted))] mt-2">{L('18+ only. Paying and adding friends need a saved account.', '၁၈ နှစ်အထက်သာ။ ငွေပေးချေရန်နဲ့ သူငယ်ချင်းထည့်ရန် အကောင့် သိမ်းထားရပါမယ်။')}</p>
+</div>
+)}
 
 <div className="rounded-3xl p-6" style={cardStyle}>
 {checkEmail ? (

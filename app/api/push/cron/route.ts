@@ -42,6 +42,12 @@ await db.rpc('prune_app_events');
 } catch (e) {
 console.error('prune analytics failed', e);
 }
+// remove guest accounts that were never saved and not used for 30 days
+try {
+await db.rpc('delete_old_guests');
+} catch (e) {
+console.error('guest clean-up failed', e);
+}
 
 const { data: subs, error } = await db.from('push_subscriptions').select('id, user_id, endpoint, p256dh, auth');
 if (error) return Response.json({ error: error.message }, { status: 500 });
@@ -160,10 +166,10 @@ url: '/?tab=scan',
 
 // 3. weekly scan 4. streak
 if (!msg && isSunday) {
-msg = {
+msg = (await headToHead(db, p.id)) ?? {
 title: 'Weekly scan day 📸',
 body: 'See what changed this week. Scan your face now.\nဒီအပတ် ဘာပြောင်းလဲလဲ ကြည့်ဖို့ မျက်နှာ စကင်န်ဖတ်ပါ။',
-url: '/',
+url: '/?tab=scan',
 };
 } else if (!msg && p.last_active_date !== today) {
 const streak = p.current_streak ?? 0;
@@ -185,6 +191,35 @@ if (msg && (await sendTo(sub, msg))) sent++;
 }
 
 return Response.json({ sent, total: subs.length, billing });
+}
+
+/* ---------------- Sunday head-to-head with friends ---------------- */
+// "This week: you +0.2, Htoo +0.5. Htoo won the week." Only when the person has friends with a score change.
+async function headToHead(db: ReturnType<typeof adminDb>, uid: string): Promise<Message | null> {
+try {
+const { data } = await db.rpc('friends_week', { p_uid: uid });
+const rows = ((data ?? []) as { username: string; week_change: number | null; is_me: boolean }[]).filter(r => r.week_change != null);
+const me = rows.find(r => r.is_me);
+const others = rows.filter(r => !r.is_me).sort((a, b) => Number(b.week_change) - Number(a.week_change));
+if (!others.length) return null;
+const best = others[0];
+const fmt = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(1)}`;
+const mine = me ? Number(me.week_change) : null;
+if (mine != null && mine > Number(best.week_change)) {
+return {
+title: 'You won the week 🏆',
+body: `You ${fmt(mine)}, best friend ${best.username} ${fmt(Number(best.week_change))}. Scan today to keep the lead.\nဒီအပတ် သူငယ်ချင်းတွေထဲမှာ သင် အတိုးတက်ဆုံးပါ။`,
+url: '/?tab=friends',
+};
+}
+return {
+title: `${best.username} won the week 😤`,
+body: `${best.username} ${fmt(Number(best.week_change))}${mine != null ? `, you ${fmt(mine)}` : ''}. Scan today and fight back.\n${best.username} က ဒီအပတ် အတိုးတက်ဆုံးပါ။ Scan လုပ်ပြီး ပြန်လိုက်ပါ။`,
+url: '/?tab=friends',
+};
+} catch {
+return null;
+}
 }
 
 /* ---------------- monthly shop bills ---------------- */

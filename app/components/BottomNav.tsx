@@ -1,10 +1,9 @@
 'use client';
 
 import React from 'react';
-import { useLang } from '../../lib/i18n';
-import { LayoutGrid, ScanFace, LineChart, Trophy, Users, ShoppingBag } from 'lucide-react';
+import { LayoutGrid, ScanFace, Wand2, Trophy, Users, ShoppingBag } from 'lucide-react';
 
-export type TabKey = 'dashboard' | 'scan' | 'progress' | 'rankings' | 'friends' | 'marketplace';
+export type TabKey = 'dashboard' | 'scan' | 'morph' | 'rankings' | 'friends' | 'marketplace';
 
 type BottomNavProps = {
 activeTab: TabKey;
@@ -14,14 +13,13 @@ onChange: (tab: TabKey) => void;
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
 { key: 'dashboard', label: 'Home', icon: LayoutGrid },
 { key: 'scan', label: 'Scan', icon: ScanFace },
-{ key: 'progress', label: 'Progress', icon: LineChart },
+{ key: 'morph', label: 'Morph', icon: Wand2 },
 { key: 'rankings', label: 'Ranks', icon: Trophy },
 { key: 'friends', label: 'Friends', icon: Users },
 { key: 'marketplace', label: 'Shop', icon: ShoppingBag },
 ];
 
 export default function BottomNav({ activeTab, onChange }: BottomNavProps) {
-const { t, lang } = useLang();
 return (
 <nav
 className="fixed bottom-0 left-0 right-0 z-30 backdrop-blur-xl bottom-nav-safe md:hidden transition-colors"
@@ -53,10 +51,10 @@ style={{ color: active ? 'rgb(var(--gold))' : 'rgb(var(--muted))' }}
 />
 </span>
 <span
-className={`${lang === 'my' ? 'text-[9px]' : 'text-[8px] tracking-wide uppercase'} transition-colors`}
+className="text-[8px] tracking-wide uppercase transition-colors"
 style={{ color: active ? 'rgb(var(--gold))' : 'rgb(var(--muted))' }}
 >
-{t(label)}
+{label}
 </span>
 </button>
 );

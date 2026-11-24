@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabase';
 import { ThemeStyles, MarbleBackground, MarbleImage } from '../lib/theme';
 import { Flame, Trophy, Target, Star, CheckCircle2, ArrowRight, Droplets, Dumbbell, Sparkles, LogOut, Crown, Share2, Gift, Loader2, XCircle, X } from 'lucide-react';
 import FaceScan from './components/FaceScan';
+import MorphStudio from './components/MorphStudio';
+import SaveAccount from './components/SaveAccount';
 import Progress from './components/Progress';
 import Marketplace from './components/Marketplace';
 import PremiumModal from './components/PremiumModal';
@@ -71,6 +73,7 @@ backdropFilter: 'blur(10px)',
 
 export default function Dashboard() {
 const { t, lang } = useLang();
+const L = (en: string, my: string) => (lang === 'my' ? my : en);
 const router = useRouter();
 const [checkingAuth, setCheckingAuth] = useState(true);
 const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
@@ -79,6 +82,9 @@ const [userId, setUserId] = useState<string | null>(null);
 const [email, setEmail] = useState('');
 const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 const [showSettings, setShowSettings] = useState(false);
+// guest mode (tried the app without an account)
+const [isGuest, setIsGuest] = useState(false);
+const [saveAccount, setSaveAccount] = useState<null | { step: 'form' | 'password'; reason?: string }>(null);
 
 const [totalXP, setTotalXP] = useState(0);
 const [level, setLevel] = useState(1);
@@ -122,8 +128,9 @@ try {
 rememberReferral(); // keep ?ref=CODE from an invite link until after sign-up
 rememberAffiliate(); // keep ?aff=CODE from an affiliate's link until after sign-up
 const want = new URLSearchParams(window.location.search).get('tab');
-const ok: TabKey[] = ['dashboard', 'scan', 'progress', 'rankings', 'friends', 'marketplace'];
+const ok: TabKey[] = ['dashboard', 'scan', 'morph', 'rankings', 'friends', 'marketplace'];
 if (want && (ok as string[]).includes(want)) setActiveTab(want as TabKey);
+else if (want === 'progress') setActiveTab('dashboard'); // Progress lives on Home now
 } catch {
 /* ignore */
 }
@@ -142,6 +149,13 @@ return;
 }
 setUserId(session.user.id);
 setEmail(session.user.email ?? '');
+const guest = !!(session.user as { is_anonymous?: boolean }).is_anonymous;
+setIsGuest(guest);
+// back from the "save my account" email link: last step is the password
+if (!guest && new URLSearchParams(window.location.search).get('finish') === 'account') {
+setSaveAccount({ step: 'password' });
+window.history.replaceState(null, '', '/');
+}
 applyReferral(); // links this account to the friend who invited them (only works for new accounts)
 applySavedAffiliate(); // links this account to the affiliate whose link they opened
 
@@ -209,7 +223,7 @@ setCompletedToday(map);
 
 if (!obError && ob) {
 if (ob.onboarding) setOnboarding(ob.onboarding as OnboardingAnswers);
-if (!ob.onboarded_at) setShowOnboarding(true);
+if (!ob.onboarded_at && !(session.user as { is_anonymous?: boolean }).is_anonymous) setShowOnboarding(true);
 }
 
 if (requests && requests.length > 0 && requests[0].status === 'pending') {
@@ -404,6 +418,10 @@ setSaving(false);
 };
 
 const goPremium = async () => {
+if (isGuest) {
+setSaveAccount({ step: 'form', reason: L('To unlock Premium, save your account first. Your scans stay.', 'Premium ဖွင့်ဖို့ အရင် အကောင့် သိမ်းပါ။ သင့် scan တွေ မပျောက်ပါ။') });
+return;
+}
 setShowPremiumModal(true);
 };
 
@@ -426,6 +444,7 @@ device: 'This phone already used its free trial. Go Premium to keep everything u
 network: 'Too many free trials were started on this network today. Try again later on mobile data.',
 used: 'You already used your free trial.',
 member: 'The free trial is for new members.',
+guest: 'Save your account first to start the free trial.',
 already: 'You already have Premium.',
 };
 setStartingTrial(false);
@@ -594,7 +613,7 @@ aria-label="Close"
 )}
 
 {/* Welcome card: only on Home and Progress */}
-{(activeTab === 'dashboard' || activeTab === 'progress') && (
+{activeTab === 'dashboard' && (
 <div
 className="flex flex-col md:flex-row items-start md:items-center justify-between gap-10 mb-10 p-6 sm:p-8 rounded-2xl w-full"
 style={cardStyle}
@@ -662,9 +681,23 @@ className="font-body flex items-center gap-1.5 text-[11px] text-[rgb(var(--muted
 </div>
 )}
 
+{isGuest && (
+<button
+onClick={() => setSaveAccount({ step: 'form' })}
+className="w-full mb-5 rounded-2xl px-4 py-3 flex items-center justify-between gap-3 text-left"
+style={{ background: 'rgb(var(--gold) / 0.1)', border: '1px solid rgb(var(--gold) / 0.4)' }}
+>
+<span>
+<span className="block text-[13px] font-semibold text-[rgb(var(--gold))]">{L("You're trying Potentia as a guest", 'Guest အနေနဲ့ စမ်းသုံးနေပါတယ်')}</span>
+<span className="block text-[11px] text-[rgb(var(--muted-hover))]">{L('Save your account to keep your scans on any phone.', 'ဘယ်ဖုန်းမှာမဆို scan တွေ မပျောက်အောင် အကောင့် သိမ်းပါ။')}</span>
+</span>
+<span className="text-[12px] font-semibold text-[rgb(var(--gold))] whitespace-nowrap">{L('Save', 'သိမ်းမယ်')} →</span>
+</button>
+)}
+
 {/* Top tabs stay for desktop; BottomNav takes over on phone (rendered below, fixed) */}
 <div className="hidden md:flex gap-2 mb-10 p-1.5 rounded-xl" style={cardStyle}>
-{['dashboard', 'scan', 'progress', 'rankings', 'friends', 'marketplace'].map(tab => (
+{['dashboard', 'scan', 'morph', 'rankings', 'friends', 'marketplace'].map(tab => (
 <button
 key={tab}
 onClick={() => setActiveTab(tab as TabKey)}
@@ -683,18 +716,26 @@ background: activeTab === tab ? 'rgb(var(--gold))' : 'transparent',
 <FaceScan
 isPremium={isPremium}
 onGoPremium={goPremium}
-canMorph={isPremium && PAID_TIERS.includes(subTier ?? '')}
-onTrial={onTrial}
+onOpenMorph={() => setActiveTab('morph')}
 />
-) : activeTab === 'progress' ? (
-<Progress totalXP={totalXP} level={level} streak={streak} tierLabel={tierLabel} />
+) : activeTab === 'morph' ? (
+<MorphStudio canMorph={isPremium && PAID_TIERS.includes(subTier ?? '')} onTrial={onTrial} onGoPremium={goPremium} />
 ) : activeTab === 'rankings' ? (
 <Leaderboard />
+) : activeTab === 'friends' && isGuest ? (
+<div className="rounded-2xl p-6 text-center space-y-3" style={cardStyle}>
+<p className="font-display text-lg font-semibold text-[rgb(var(--gold))]">{L('Compete with your friends', 'သူငယ်ချင်းတွေနဲ့ ပြိုင်ပါ')}</p>
+<p className="text-[13px] text-[rgb(var(--muted-hover))]">{L('Save your account to add friends and see who is ahead.', 'သူငယ်ချင်းထည့်ပြီး ဘယ်သူ ရှေ့ရောက်နေလဲ ကြည့်ဖို့ အကောင့် သိမ်းပါ။')}</p>
+<button onClick={() => setSaveAccount({ step: 'form' })} className="font-semibold py-3 px-6 rounded-xl text-sm" style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}>
+{L('Save my account', 'အကောင့် သိမ်းမယ်')}
+</button>
+</div>
 ) : activeTab === 'friends' ? (
 <Friends myStats={{ totalXP, level, streak }} />
 ) : activeTab === 'marketplace' ? (
 <Marketplace />
 ) : (
+<>
 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 <div className="lg:col-span-2 space-y-6">
 {trialMsg && (
@@ -964,6 +1005,11 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 )}
 </div>
 </div>
+{/* Progress lives on Home now (its tab became Morph) */}
+<div className="mt-8">
+<Progress totalXP={totalXP} level={level} streak={streak} tierLabel={tierLabel} />
+</div>
+</>
 )}
 </div>
 </div>
@@ -986,6 +1032,10 @@ setShowOnboarding(false);
 if (goScan) setActiveTab('scan');
 }}
 />
+)}
+
+{saveAccount && userId && (
+<SaveAccount userId={userId} step={saveAccount.step} reason={saveAccount.reason} onClose={() => setSaveAccount(null)} />
 )}
 
 {showPremiumModal && (

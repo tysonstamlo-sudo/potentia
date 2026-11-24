@@ -25,12 +25,12 @@ type GroupKey,
 } from '../../lib/faceAnalysis';
 import { callAi, toAiImage } from '../../lib/aiClient';
 import type { AiRating } from '../api/ai/rate/route';
-import MorphCard from './MorphCard';
 import SideProfileScan from './SideProfileScan';
 import ProgressGallery from './ProgressGallery';
 import ScanPicks from './ScanPicks';
 import { fmtMMK, planMmk, LITE_TIERS } from '../../lib/payments';
 import { track } from '../../lib/track';
+import { notify } from '../../lib/notify';
 import { addPhoto, lastPhoto } from '../../lib/gallery';
 import {
 Camera,
@@ -57,6 +57,8 @@ onGoPremium: () => void;
 /** paid Premium (not the free trial): unlocks the morph */
 canMorph?: boolean;
 onTrial?: boolean;
+/** opens the Morph tab */
+onOpenMorph?: () => void;
 };
 
 const cardStyle: React.CSSProperties = {
@@ -122,7 +124,7 @@ eye: { n: 2, title: 'Eye close-up', how: 'Hold the phone about 15 cm away. One e
 nose: { n: 3, title: 'Nose close-up', how: 'Fill the box with your nose. Good light, no flash, no filter.' },
 };
 
-export default function FaceScan({ isPremium, onGoPremium, canMorph = false, onTrial = false }: FaceScanProps) {
+export default function FaceScan({ isPremium, onGoPremium, onOpenMorph }: FaceScanProps) {
 const [showSide, setShowSide] = useState(false);
 const { t, lang } = useLang();
 const L = (en: string, my: string) => (lang === 'my' ? my : en);
@@ -484,6 +486,8 @@ value: Math.round(m.value * 1000) / 1000,
 score: Math.round(m.score * 10) / 10,
 })),
 });
+// tell friends if this camera scan passed their score
+if (frontBurst.length > 1) notify('scan_done', 'latest');
 }
 } catch {
 /* history save failed — ignore */
@@ -986,9 +990,21 @@ final {result.overall.toFixed(1)} · shown {shownOverall.toFixed(1)} · geo {geo
 </div>
 )}
 
-{/* Your best version (AI morph). Paid Premium only; everyone else sees a blurred teaser. */}
-{isCameraScan && (
-<MorphCard photo={shots.front ?? result.croppedImage ?? null} gender={gender} canMorph={canMorph} onTrial={onTrial} onGoPremium={onGoPremium} />
+{/* The AI morph has its own tab now: a short link to it */}
+{onOpenMorph && (
+<button
+onClick={onOpenMorph}
+className="w-full rounded-2xl p-5 flex items-center justify-between gap-3 text-left"
+style={{ ...cardStyle, border: '1px solid rgb(var(--gold) / 0.35)' }}
+>
+<span>
+<span className="block text-sm font-semibold text-[rgb(var(--gold))]">{L('See your best version', 'သင့်အကောင်းဆုံးပုံစံကို ကြည့်ပါ')}</span>
+<span className="block text-[11px] text-[rgb(var(--muted))] mt-0.5">
+{L('AI morph of this scan: leaner face, sharper jaw, hunter eyes.', 'ဒီ scan ရဲ့ AI morph: မျက်နှာ ပိုသွယ်၊ မေးရိုး ပိုထက်၊ hunter eyes။')}
+</span>
+</span>
+<span className="text-[rgb(var(--gold))]">→</span>
+</button>
 )}
 
 <button

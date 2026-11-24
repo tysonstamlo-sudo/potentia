@@ -19,7 +19,7 @@ if (fwd) return fwd.split(',')[0].trim();
 return req.headers.get('x-real-ip') ?? '';
 }
 
-export type AiKind = 'morph' | 'profile' | 'food' | 'rate';
+export type AiKind = 'morph' | 'profile' | 'food' | 'rate' | 'skin' | 'skin_age';
 
 // Plans that include the AI morph. The 24-Hour Pass and 1 Week are taster plans and do not.
 export const PAID_TIERS = ['1month', '6months', '1year'];

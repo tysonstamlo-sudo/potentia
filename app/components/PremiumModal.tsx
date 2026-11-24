@@ -11,6 +11,8 @@ import {
 PLANS,
 PLAN_IDS,
 LITE_TIERS,
+SKIN_PLAN_IDS,
+isSkinPlan,
 PLAN_LENGTH,
 planName,
 BANKS,
@@ -40,6 +42,8 @@ submitting: boolean;
 /** Shown only to people who have never used their free trial */
 onStartTrial?: () => void;
 startingTrial?: boolean;
+/** show the Potentia Skin packages instead of Premium */
+skin?: boolean;
 };
 
 const primaryBtn: React.CSSProperties = { background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' };
@@ -87,7 +91,9 @@ fontWeight: active ? 600 : 400,
 );
 }
 
-export default function PremiumModal({ onClose, onConfirm, submitting, onStartTrial, startingTrial, offer = false }: PremiumModalProps) {
+export default function PremiumModal({ onClose, onConfirm, submitting, onStartTrial: trialFn, startingTrial, offer: offerIn = false, skin = false }: PremiumModalProps) {
+const onStartTrial = skin ? undefined : trialFn;
+const offer = skin ? false : offerIn;
 const rate = useThbRate();
 const { t, lang } = useLang();
 const L = (en: string, my: string) => (lang === 'my' ? my : en);
@@ -96,11 +102,11 @@ const [selectedPlan, setSelectedPlan] = useState(() => {
 try {
 const want = sessionStorage.getItem('potentia_plan');
 sessionStorage.removeItem('potentia_plan');
-if (want && PLANS[want]) return want;
+if (want && PLANS[want] && isSkinPlan(want) === skin) return want;
 } catch {
 /* ignore */
 }
-return '1month';
+return skin ? 'skin_1month' : '1month';
 });
 // affiliate code (optional). Pre-filled if they opened an affiliate's link.
 const [affCode, setAffCode] = useState(savedAffiliate());
@@ -169,7 +175,7 @@ style={{ background: 'rgb(var(--muted) / 0.12)' }}
 <span className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgb(var(--gold) / 0.14)' }}>
 <Crown className="w-4 h-4 text-[rgb(var(--gold))]" />
 </span>
-<span className="font-display text-sm tracking-[0.15em] text-[rgb(var(--gold))] uppercase">{t('Go Premium')}</span>
+<span className="font-display text-sm tracking-[0.15em] text-[rgb(var(--gold))] uppercase">{skin ? 'Potentia Skin' : t('Go Premium')}</span>
 </div>
 
 {step === 'select' ? (
@@ -205,7 +211,7 @@ style={{ background: 'linear-gradient(135deg, rgb(var(--gold) / 0.25), rgb(var(-
 </span>
 </div>
 )}
-{promoActive() && !offer && (
+{promoActive() && !offer && !skin && (
 <div
 className="rounded-2xl px-4 py-3 mb-5 flex items-center justify-between gap-3"
 style={{ background: 'linear-gradient(135deg, rgb(var(--gold) / 0.22), rgb(var(--gold) / 0.05))', border: '1px solid rgb(var(--gold) / 0.6)' }}
@@ -217,10 +223,12 @@ style={{ background: 'linear-gradient(135deg, rgb(var(--gold) / 0.22), rgb(var(-
 </div>
 )}
 <p className="text-sm text-[rgb(var(--muted-hover))] mb-5 leading-relaxed">
-{t('Unlimited scans, full measurement tables and all weak-point reports. Choose your plan.')}
+{skin
+? L('Skin maps on your own face, skin age, your skin in 10 years, weekly progress and your routine. Choose your plan.', 'သင့်မျက်နှာပေါ်က အသားအရေ မြေပုံ၊ အသားအရေ အသက်၊ ၁၀ နှစ်နောက် သင့်အသားအရေ၊ အပတ်စဉ် တိုးတက်မှုနဲ့ သင့် routine။ Plan ရွေးပါ။')
+: t('Unlimited scans, full measurement tables and all weak-point reports. Choose your plan.')}
 </p>
 <div className="space-y-3 mb-7">
-{PLAN_IDS.map(id => {
+{(skin ? SKIN_PLAN_IDS : PLAN_IDS).map(id => {
 const p = PLANS[id];
 const active = selectedPlan === id;
 const was = regularMmk(id);
@@ -243,7 +251,7 @@ boxShadow: active ? '0 0 16px rgb(var(--gold) / 0.15)' : 'none',
 <div>
 <div className="flex items-center gap-2 mb-0.5">
 <span className="text-sm text-[rgb(var(--gold))] font-medium">{planName(id)}</span>
-{id !== '1day' && (
+{id !== '1day' && id !== 'skin_report' && (
 <span className="text-[10px] text-[rgb(var(--muted))]">· {L(PLAN_LENGTH[id][0], PLAN_LENGTH[id][1])}</span>
 )}
 {id === '1day' && (
@@ -278,7 +286,11 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 </span>
 )}
 <span className="block text-[10px] text-[rgb(var(--muted))] mt-0.5 leading-relaxed">
-{LITE_TIERS.includes(id)
+{isSkinPlan(id)
+? id === 'skin_report'
+? L('One full skin report: all maps, skin age and your skin in 10 years.', 'အသားအရေ report တစ်ခု အပြည့်အစုံ: မြေပုံအားလုံး၊ အသားအရေ အသက်နဲ့ ၁၀ နှစ်နောက် သင့်အသားအရေ။')
+: L('Unlimited skin scans, all maps, skin age, weekly progress, your routine, 10-year preview (2 a day).', 'Skin scan အကန့်အသတ်မရှိ၊ မြေပုံအားလုံး၊ အသားအရေ အသက်၊ အပတ်စဉ် တိုးတက်မှု၊ routine၊ ၁၀ နှစ် preview (တစ်ရက် ၂ ကြိမ်)။')
+: LITE_TIERS.includes(id)
 ? L(
 'A taste: unlimited scans, all weak points, skin results, potential score. No plan, no progress photos, no AI morph.',
 'အစမ်း: scan အကန့်အသတ်မရှိ၊ အားနည်းချက်အားလုံး၊ အသားအရေ ရလဒ်၊ potential အမှတ်။ Plan၊ တိုးတက်မှု ဓာတ်ပုံနဲ့ AI morph မပါပါ။'

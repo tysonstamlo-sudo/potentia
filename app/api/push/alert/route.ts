@@ -74,11 +74,21 @@ if (me !== ADMIN_USER_ID) return new Response('Forbidden', { status: 403 });
 const { data: r } = await db.from('premium_requests').select('user_id, plan, status, reject_reason').eq('id', id).single();
 if (!r) return Response.json({ sent: 0 });
 if (event === 'premium_approved' && r.status === 'approved') {
-const sent = await pushUser(r.user_id, {
+const skin = String(r.plan).startsWith('skin_');
+const sent = await pushUser(
+r.user_id,
+skin
+? {
+title: 'Potentia Skin is on ✨',
+body: 'Your payment is confirmed. Open Scan → Skin to see your skin maps.\nငွေလက်ခံရရှိပါပြီ။ Scan → Skin မှာ သင့်အသားအရေ မြေပုံကို ကြည့်ပါ။',
+url: '/?tab=scan&mode=skin',
+}
+: {
 title: 'Premium is on 👑',
 body: 'Your payment is confirmed. Everything is unlocked.\nငွေလက်ခံရရှိပါပြီ။ Premium ဖွင့်ပေးလိုက်ပါပြီ။',
 url: '/',
-});
+}
+);
 return Response.json({ sent });
 }
 if (event === 'premium_rejected' && r.status === 'rejected') {

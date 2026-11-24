@@ -14,7 +14,15 @@ export const PLANS: Record<string, { label: string; months: number; days?: numbe
 '1month': { label: 'Silver (1 Month)', months: 1, mmk: 60000 },
 '6months': { label: 'Gold (6 Months)', months: 6, mmk: 299000 },
 '1year': { label: 'Platinum (1 Year)', months: 12, mmk: 499000 },
+// Potentia Skin (separate package; Gold and Platinum include it)
+skin_report: { label: 'Skin Report (one-time)', months: 0, mmk: 7900 },
+skin_1week: { label: 'Potentia Skin (1 Week)', months: 0, days: 7, mmk: 14900 },
+skin_1month: { label: 'Potentia Skin (1 Month)', months: 1, mmk: 39000 },
+skin_6months: { label: 'Potentia Skin (6 Months)', months: 6, mmk: 179000 },
 };
+/** The skin analyzer plans (keep in sync with plan_mmk() in skin.sql). */
+export const SKIN_PLAN_IDS = ['skin_report', 'skin_1week', 'skin_1month', 'skin_6months'];
+export const isSkinPlan = (planId: string) => planId.startsWith('skin_');
 /** The plan names people see when they choose what to pay for. */
 export const PLAN_NAME: Record<string, string> = {
 '1day': '24-Hour Pass',
@@ -22,6 +30,10 @@ export const PLAN_NAME: Record<string, string> = {
 '1month': 'Silver',
 '6months': 'Gold',
 '1year': 'Platinum',
+skin_report: 'Skin Report',
+skin_1week: 'Potentia Skin',
+skin_1month: 'Potentia Skin',
+skin_6months: 'Potentia Skin',
 };
 /** How long each plan lasts: [English, Burmese]. */
 export const PLAN_LENGTH: Record<string, [string, string]> = {
@@ -30,6 +42,10 @@ export const PLAN_LENGTH: Record<string, [string, string]> = {
 '1month': ['1 month', '၁ လ'],
 '6months': ['6 months', '၆ လ'],
 '1year': ['1 year', '၁ နှစ်'],
+skin_report: ['one-time', 'တစ်ကြိမ်'],
+skin_1week: ['1 week', '၁ ပတ်'],
+skin_1month: ['1 month', '၁ လ'],
+skin_6months: ['6 months', '၆ လ'],
 };
 export const planName = (planId: string) => PLAN_NAME[planId] ?? planId;
 export const PLAN_IDS = ['1day', '1week', '1month', '6months', '1year'];

@@ -288,6 +288,24 @@ init();
 const approve = async (req: PremiumRequest) => {
 setBusyId(req.id);
 setMsg('');
+// Potentia Skin payments: the database adds the skin time (or one report) for us
+if (req.plan.startsWith('skin_')) {
+try {
+const { data, error } = await supabase.rpc('approve_skin_plan', { p_request: req.id });
+if (error) throw error;
+notify('premium_approved', req.id);
+setMsg(
+`Approved ${req.profiles?.username ?? 'user'}: ${PLANS[req.plan]?.label ?? req.plan}${data ? ` until ${new Date(data as string).toLocaleDateString()}` : ''}`
+);
+await loadAll();
+} catch (err) {
+console.error('Skin approve failed:', err);
+setMsg('Approve failed. Did you run skin.sql?');
+} finally {
+setBusyId(null);
+}
+return;
+}
 try {
 const plan = PLANS[req.plan] ?? PLANS['1month'];
 const cur = curOf(req);

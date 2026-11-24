@@ -8,6 +8,7 @@ import { Flame, Trophy, Target, Star, CheckCircle2, ArrowRight, Droplets, Dumbbe
 import FaceScan from './components/FaceScan';
 import MorphStudio from './components/MorphStudio';
 import SaveAccount from './components/SaveAccount';
+import SkinStudio from './components/SkinStudio';
 import Progress from './components/Progress';
 import Marketplace from './components/Marketplace';
 import PremiumModal from './components/PremiumModal';
@@ -100,6 +101,8 @@ const [premiumStatus, setPremiumStatus] = useState<'none' | 'pending'>('none');
 // last Premium payment you (admin) rejected, with the reason, shown once on Home
 const [rejected, setRejected] = useState<{ id: string; reason: string } | null>(null);
 const [showPremiumModal, setShowPremiumModal] = useState(false);
+const [skinModal, setSkinModal] = useState(false); // Potentia Skin packages
+const [scanMode, setScanMode] = useState<'face' | 'skin'>('face');
 const [showPlan, setShowPlan] = useState(false);
 const [showOnboarding, setShowOnboarding] = useState(false);
 const [tierLabel, setTierLabel] = useState<string | null>(null);
@@ -131,6 +134,7 @@ const want = new URLSearchParams(window.location.search).get('tab');
 const ok: TabKey[] = ['dashboard', 'scan', 'morph', 'rankings', 'friends', 'marketplace'];
 if (want && (ok as string[]).includes(want)) setActiveTab(want as TabKey);
 else if (want === 'progress') setActiveTab('dashboard'); // Progress lives on Home now
+if (new URLSearchParams(window.location.search).get('mode') === 'skin') setScanMode('skin');
 } catch {
 /* ignore */
 }
@@ -713,11 +717,41 @@ background: activeTab === tab ? 'rgb(var(--gold))' : 'transparent',
 </div>
 
 {activeTab === 'scan' ? (
-<FaceScan
-isPremium={isPremium}
-onGoPremium={goPremium}
-onOpenMorph={() => setActiveTab('morph')}
+<div className="space-y-5">
+{/* Face scan or Potentia Skin */}
+<div className="grid grid-cols-2 gap-1 p-1 rounded-xl max-w-xl mx-auto" style={cardStyle}>
+{(
+[
+['face', L('Face', 'မျက်နှာ')],
+['skin', L('Skin ✨', 'အသားအရေ ✨')],
+] as const
+).map(([k, label]) => (
+<button
+key={k}
+onClick={() => setScanMode(k)}
+className="py-2.5 rounded-lg text-[13px] font-semibold"
+style={{
+background: scanMode === k ? (k === 'skin' ? '#F2A6BC' : 'rgb(var(--gold))') : 'transparent',
+color: scanMode === k ? (k === 'skin' ? '#2B1220' : 'rgb(var(--bg))') : 'rgb(var(--muted-hover))',
+}}
+>
+{label}
+</button>
+))}
+</div>
+{scanMode === 'skin' ? (
+<SkinStudio
+isGuest={isGuest}
+onGoSkin={() =>
+isGuest
+? setSaveAccount({ step: 'form', reason: L('To unlock Potentia Skin, save your account first.', 'Potentia Skin ဖွင့်ဖို့ အရင် အကောင့် သိမ်းပါ။') })
+: setSkinModal(true)
+}
 />
+) : (
+<FaceScan isPremium={isPremium} onGoPremium={goPremium} onOpenMorph={() => setActiveTab('morph')} />
+)}
+</div>
 ) : activeTab === 'morph' ? (
 <MorphStudio canMorph={isPremium && PAID_TIERS.includes(subTier ?? '')} onTrial={onTrial} onGoPremium={goPremium} />
 ) : activeTab === 'rankings' ? (
@@ -1005,6 +1039,23 @@ style={{ background: 'rgb(var(--gold))', color: 'rgb(var(--bg))' }}
 )}
 </div>
 </div>
+{/* Potentia Skin entry */}
+<button
+onClick={() => {
+setScanMode('skin');
+setActiveTab('scan');
+}}
+className="w-full mt-8 rounded-2xl p-5 flex items-center justify-between gap-4 text-left"
+style={{ border: '1px solid #F2A6BC66', background: 'linear-gradient(160deg, rgba(242,166,188,0.12), rgb(var(--surface) / 0.45))' }}
+>
+<span>
+<span className="block text-[10px] tracking-[0.3em] uppercase" style={{ color: '#F2A6BC' }}>Potentia Skin</span>
+<span className="block font-display text-lg font-semibold text-[rgb(var(--gold))] mt-1">{L('Map your skin. See it in 10 years.', 'သင့်အသားအရေ မြေပုံ။ ၁၀ နှစ်နောက်ကို ကြည့်ပါ။')}</span>
+<span className="block text-[12px] text-[rgb(var(--muted-hover))] mt-1">{L('Dark spots, redness, oil, pores, skin age and your routine.', 'အမည်းစက်၊ အနီကွက်၊ အဆီ၊ ချွေးပေါက်၊ အသားအရေ အသက်နဲ့ routine။')}</span>
+</span>
+<span className="text-xl" style={{ color: '#F2A6BC' }}>→</span>
+</button>
+
 {/* Progress lives on Home now (its tab became Morph) */}
 <div className="mt-8">
 <Progress totalXP={totalXP} level={level} streak={streak} tierLabel={tierLabel} />
@@ -1036,6 +1087,10 @@ if (goScan) setActiveTab('scan');
 
 {saveAccount && userId && (
 <SaveAccount userId={userId} step={saveAccount.step} reason={saveAccount.reason} onClose={() => setSaveAccount(null)} />
+)}
+
+{skinModal && (
+<PremiumModal skin onClose={() => setSkinModal(false)} onConfirm={(...a) => { setSkinModal(false); submitPaymentClaim(...a); }} submitting={submittingPayment} />
 )}
 
 {showPremiumModal && (

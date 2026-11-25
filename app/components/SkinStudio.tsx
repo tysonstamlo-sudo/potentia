@@ -3,6 +3,7 @@
 // app/components/SkinStudio.tsx — Potentia Skin: skin maps on your own selfie, skin age, your skin in 10 years,
 // weekly progress and a routine with Shop products.
 // Free: the dark-spot map (made on the phone). Potentia Skin (a skin plan or a one-time report): everything.
+// Extras for women (mom mode, budget routine, sun alert, dark-patch tracker, Glow Challenge) live in SkinExtras.tsx.
 // Selfies use the app's own mirrored camera (like the face scan), so the photo never flips.
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -15,6 +16,9 @@ import { toAiImage, callAi, aiErrorText } from '../../lib/aiClient';
 import { fmtMMK, planMmk } from '../../lib/payments';
 import { track } from '../../lib/track';
 import ScanPicks from './ScanPicks';
+import { SkinPrefs, ShopRoutine, PigmentTracker, GlowChallenge, type SkinAccess } from './SkinExtras';
+import { addSkinPhoto, listSkinPhotos } from '../../lib/skinPhotos';
+import { MOM_AVOID } from '../../lib/recommend';
 import type { SkinReport } from '../api/ai/skin/route';
 import { Camera, ImagePlus, Loader2, Lock, Sparkles, Sun, Moon, Clock, TrendingDown, TrendingUp, RefreshCw, X } from 'lucide-react';
 
@@ -28,7 +32,7 @@ backdropFilter: 'blur(10px)',
 };
 const accCard: React.CSSProperties = { ...card, border: '1px solid rgb(var(--gold) / 0.4)', background: 'linear-gradient(160deg, rgb(var(--gold) / 0.08), rgb(var(--surface) / 0.45))' };
 
-type Access = { access: 'none' | 'plan' | 'premium' | 'report'; until: string | null; reports: number; birth_year: number | null };
+type Access = SkinAccess;
 type PrevScan = { created_at: string; maps: Partial<Record<MapKey, number>>; skin_age: number | null; score: number | null };
 
 const MAP_NAME: Record<MapKey | 'all', [string, string]> = {
@@ -93,6 +97,7 @@ const galleryRef = useRef<HTMLInputElement | null>(null);
 const videoRef = useRef<HTMLVideoElement | null>(null);
 const streamRef = useRef<MediaStream | null>(null);
 const [camOn, setCamOn] = useState(false);
+const [tick, setTick] = useState(0); // bumps after each scan so the tracker and challenge reload
 
 const stopCam = () => {
 streamRef.current?.getTracks().forEach(t => t.stop());
@@ -250,7 +255,16 @@ let rep: SkinReport | null = null;
 if (paid) {
 setStatus('ai');
 const img = await toAiImage(faceImg, 1024, 0.9);
-const r = await callAi<{ report?: SkinReport; usable?: boolean; reason?: string; minor?: boolean }>('/api/ai/skin', { image: img, gender, age });
+// the "before" photo to compare with: the first one of the Glow Challenge, or the first in the last 120 days
+const challengeAt = acc?.challenge_at ? Date.parse(acc.challenge_at) : 0;
+const since = challengeAt && Date.now() - challengeAt < 45 * 24 * 3600 * 1000 ? challengeAt - 60 * 1000 : Date.now() - 120 * 24 * 3600 * 1000;
+const base = (await listSkinPhotos()).find(p => p.at >= since && p.at < Date.now() - 3 * 24 * 3600 * 1000) ?? null;
+const r = await callAi<{ report?: SkinReport; usable?: boolean; reason?: string; minor?: boolean }>('/api/ai/skin', {
+image: img,
+gender,
+age,
+...(base ? { before: base.img, before_at: base.at } : {}),
+});
 if (!r.ok) {
 setError(r.code === 'skin' ? L('Potentia Skin has ended. Renew to see the full report.', 'Potentia Skin ကုန်သွားပါပြီ။ Report အပြည့်ကြည့်ဖို့ ပြန်ဝယ်ပါ။') : L(aiErrorText(r.code), 'တစ်ခုခု မှားသွားပါတယ်။ ပြန်ကြိုးစားပါ။'));
 } else if (r.data.minor) {
@@ -264,7 +278,8 @@ setReport(rep);
 loadAccess(); // a one-time report is used up now
 }
 
-// 3. save the numbers (never the photo) for next week's comparison
+// 3. keep the photo on this phone for before/after, and the numbers (never the photo) in the account
+await addSkinPhoto(m.base);
 if (uid) {
 await supabase.from('skin_scans').insert({
 user_id: uid,
@@ -274,6 +289,7 @@ skin_age: rep?.skin_age ?? null,
 report: rep,
 });
 }
+setTick(t => t + 1);
 setStatus('done');
 } catch (e) {
 const code = e instanceof FaceAnalysisError ? e.code : 'IMAGE_FAILED';
@@ -360,6 +376,11 @@ Potentia Skin
 )}
 </div>
 
+{/* 30-day Glow Challenge */}
+{uid && acc && !isGuest && (
+<GlowChallenge acc={acc} uid={uid} paid={paid} refreshKey={tick} onGoSkin={onGoSkin} onStarted={at => setAcc(a => (a ? { ...a, challenge_at: at } : a))} />
+)}
+
 {/* birth year for skin age */}
 {paid && !acc?.birth_year && (
 <label className="block rounded-2xl p-4" style={card}>
@@ -379,6 +400,9 @@ style={{ background: 'rgb(var(--surface) / 0.6)', border: '1px solid rgb(var(--m
 </select>
 </label>
 )}
+
+{/* mom mode, budget, sun alert */}
+{acc && !isGuest && <SkinPrefs acc={acc} onChange={setAcc} />}
 
 {/* take a photo */}
 {camOn &&
@@ -561,7 +585,9 @@ L('Your skin age vs your real age', 'သင့်အသားအရေ အသက
 L('All 4 skin maps, scored by area', 'အသားအရေ မြေပုံ ၄ ခုလုံး၊ နေရာအလိုက် အမှတ်'),
 L('Your skin in 10 years: with and without care', '၁၀ နှစ်နောက် သင့်အသားအရေ: ဂရုစိုက်ရင် နဲ့ မစိုက်ရင်'),
 L('Your morning and night routine, with products', 'မနက်နဲ့ ည routine၊ ပစ္စည်းများနဲ့'),
-L('Weekly progress on the same maps', 'မြေပုံတူတူပေါ်မှာ အပတ်စဉ် တိုးတက်မှု'),
+L('Dark-patch tracker: see them fade, before & after', 'တင်းကွက် စောင့်ကြည့်: ပျော့သွားတာ မြင်ရ၊ before & after'),
+L('30-day Glow Challenge with a card to share', 'Share လို့ရတဲ့ ကတ်နဲ့ ၃၀ ရက် Glow Challenge'),
+L('Pregnancy-safe and budget routines', 'ကိုယ်ဝန်ဆောင်အတွက် ဘေးကင်းပြီး ချွေတာတဲ့ routine'),
 ].map(x => (
 <li key={x} className="flex gap-2">
 <Lock className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: ACC }} /> {x}
@@ -664,9 +690,13 @@ steps.length ? (
 </div>
 )}
 
-{pickScan && <ScanPicks scan={pickScan} />}
+<ShopRoutine am={report.am} pm={report.pm} avoid={acc?.mom ? MOM_AVOID : undefined} budget={!!acc?.budget} />
+{pickScan && <ScanPicks scan={pickScan} skin avoid={acc?.mom ? MOM_AVOID : undefined} />}
 </>
 )}
+
+{/* dark patches fading over time */}
+{paid && uid && (status === 'done' || status === 'idle') && <PigmentTracker uid={uid} refreshKey={tick} />}
 
 {/* your skin in 10 years */}
 {maps && (

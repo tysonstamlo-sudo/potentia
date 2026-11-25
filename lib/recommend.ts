@@ -81,11 +81,11 @@ type ProductLike = { id: string; name: string; description: string; concerns?: s
 const SKIN_CONCERNS: Concern[] = ['dark_circles', 'oily', 'pores', 'redness', 'uneven', 'eye_area', 'skin_general'];
 const SKIN_CATEGORIES = ['skincare', 'grooming', 'other'];
 const HAIR_WORDS = [
-'hair', 'pomade', 'wax', 'texture powder', 'texturizing', 'texturising', 'styling', 'hairspray', 'hair spray', 'gel',
+'hair', 'pomade', 'wax', 'texture powder', 'texturizing', 'texturising', 'styling', 'hairspray', 'hair spray', 'hair gel', 'styling gel',
 'shampoo', 'conditioner', 'beard', 'scalp', 'hold', 'sea salt', 'deodorant', 'body wash', 'perfume', 'cologne',
 'ဆံပင်', 'ခေါင်းလျှော်', 'မုတ်ဆိတ်',
 ];
-function notForFace(p: ProductLike) {
+export function notForFace(p: ProductLike) {
 const text = `${p.name} ${p.description}`.toLowerCase();
 if (HAIR_WORDS.some(w => text.includes(w))) return true;
 // a "clay" that is not a clay mask is a hair clay
@@ -104,8 +104,17 @@ const text = `${p.name} ${p.description}`.toLowerCase();
 return WORDS[c].some(w => text.includes(w)) ? 1 : 0;
 }
 
-/** For each concern, the best matching products (no product shown twice). */
-export function picksFor<P extends ProductLike>(products: P[], concerns: Concern[], perConcern = 2): { concern: Concern; products: P[] }[] {
+/** Not for pregnancy / breastfeeding (mom mode). Low-dose salicylic washes are often fine, but we stay safe. */
+export const MOM_AVOID = ['retinol', 'retinal', 'retinoid', 'tretinoin', 'adapalene', 'differin', 'isotretinoin', 'accutane', 'hydroquinone', 'salicylic', 'bha', 'benzoyl', 'peel', 'tazarotene'];
+export const hasAny = (p: ProductLike, words?: string[]) => {
+if (!words?.length) return false;
+const text = `${p.name} ${p.description}`.toLowerCase();
+return words.some(w => text.includes(w));
+};
+
+/** For each concern, the best matching products (no product shown twice). `avoid`: words that rule a product out. */
+export function picksFor<P extends ProductLike>(products: P[], concerns: Concern[], perConcern = 2, avoid?: string[]): { concern: Concern; products: P[] }[] {
+if (avoid?.length) products = products.filter(p => !hasAny(p, avoid));
 const used = new Set<string>();
 const out: { concern: Concern; products: P[] }[] = [];
 for (const c of concerns) {
@@ -121,3 +130,58 @@ if (best.length) out.push({ concern: c, products: best });
 }
 return out;
 }
+
+/* ---------- the routine, built from Shop products ---------- */
+
+export type StepType = 'cleanser' | 'toner' | 'serum' | 'treatment' | 'moisturizer' | 'sunscreen' | 'eye' | 'mask';
+const STEP_WORDS: Record<StepType, string[]> = {
+cleanser: ['cleanser', 'face wash', 'facial wash', 'facial foam', 'cleansing', 'micellar', 'မျက်နှာသစ်'],
+toner: ['toner', 'tonic', 'mist'],
+serum: ['serum', 'essence', 'ampoule', 'niacinamide', 'vitamin c'],
+treatment: ['azelaic', 'spot treatment', 'acne gel', 'retinol', 'tranexamic', 'arbutin', 'dark spot'],
+moisturizer: ['moisturi', 'moisture cream', 'face cream', 'gel cream', 'lotion', 'အစိုဓာတ်'],
+sunscreen: ['sunscreen', 'sun screen', 'sunblock', 'sun block', 'spf', 'uv protect', 'နေလောင်', 'နေကာ'],
+eye: ['eye cream', 'eye serum', 'eye gel', 'under eye'],
+mask: ['mask', 'sleeping pack'],
+};
+
+/** Guess a step's type from its name when the AI didn't say. */
+export function stepType(name: string): StepType | null {
+const t = name.toLowerCase();
+if (/sunscreen|spf|sun/.test(t)) return 'sunscreen';
+if (/clean|wash|foam/.test(t)) return 'cleanser';
+if (/moistur|cream|lotion/.test(t)) return 'moisturizer';
+if (/toner/.test(t)) return 'toner';
+if (/eye/.test(t)) return 'eye';
+if (/mask/.test(t)) return 'mask';
+if (/serum|vitamin c|niacinamide|essence/.test(t)) return 'serum';
+return t ? 'treatment' : null;
+}
+
+/**
+* For each routine step type, the cheapest Shop product that fits (face products only, mom-safe if asked).
+* Returns the steps in routine order with the product (or null) and the total price.
+*/
+export function routineFromShop<P extends ProductLike & { price_mmk: number }>(
+types: StepType[],
+products: P[],
+avoid?: string[]
+): { picks: { type: StepType; product: P | null }[]; total: number } {
+const usable = products.filter(p => {
+const cat = (p.category ?? '').toLowerCase();
+return (!cat || SKIN_CATEGORIES.includes(cat)) && !notForFace(p) && !hasAny(p, avoid);
+});
+const used = new Set<string>();
+const picks = Array.from(new Set(types)).map(type => {
+const fit = usable
+.filter(p => !used.has(p.id) && hasAny(p, STEP_WORDS[type]))
+// a sunscreen must not be picked as a moisturizer etc.
+.filter(p => type === 'sunscreen' || !hasAny(p, STEP_WORDS.sunscreen))
+.sort((a, b) => a.price_mmk - b.price_mmk);
+const product = fit[0] ?? null;
+if (product) used.add(product.id);
+return { type, product };
+});
+return { picks, total: picks.reduce((a, x) => a + (x.product?.price_mmk ?? 0), 0) };
+}
+

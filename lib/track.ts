@@ -21,7 +21,11 @@ export type AppEvent =
 | 'picks_seen'
 | 'pick_open'
 | 'gallery_locked'
-| 'morph_try';
+| 'morph_try'
+| 'skin_prefs'
+| 'glow_start'
+| 'glow_checkin'
+| 'glow_share';
 
 type Props = Record<string, string | number | boolean | null>;
 

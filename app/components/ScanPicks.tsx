@@ -21,6 +21,8 @@ export default function ScanPicks({
 scan,
 products: given,
 onOpen,
+avoid,
+skin = false,
 }: {
 /** the scan to use. Leave out to use the person's last saved scan. */
 scan?: Scan;
@@ -28,6 +30,10 @@ scan?: Scan;
 products?: Product[];
 /** the Shop opens the product itself. Leave out and this card opens it. */
 onOpen?: (p: Product) => void;
+/** words that rule a product out (mom mode passes MOM_AVOID) */
+avoid?: string[];
+/** on Potentia Skin: says "skin" instead of "face" */
+skin?: boolean;
 }) {
 const { lang } = useLang();
 const L = (en: string, my: string) => (lang === 'my' ? my : en);
@@ -76,8 +82,9 @@ const products = given ?? loaded;
 const picks = useMemo(() => {
 if (!src) return [];
 const concerns = concernsFromScan(src.skin as Parameters<typeof concernsFromScan>[0], src.ai as Parameters<typeof concernsFromScan>[1]);
-return picksFor(products.filter(p => p.seller_id !== uid), concerns);
-}, [src, products, uid]);
+return picksFor(products.filter(p => p.seller_id !== uid), concerns, 2, avoid);
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [src, products, uid, avoid?.length]);
 
 // Count who sees product picks (once per screen)
 const where = scan ? 'scan' : 'shop';
@@ -92,10 +99,12 @@ return (
 <div className="p-5 rounded-2xl" style={{ ...cardStyle, border: '1px solid rgb(var(--gold) / 0.3)' }}>
 <div className="flex items-center gap-2 mb-1">
 <Sparkles className="w-3.5 h-3.5 text-[rgb(var(--gold))]" />
-<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">{L('Picked for your face', 'သင့်မျက်နှာအတွက် ရွေးထားသည်')}</span>
+<span className="text-[10px] tracking-[0.2em] text-[rgb(var(--muted))] uppercase">{skin ? L('Picked for your skin', 'သင့်အသားအရေအတွက် ရွေးထားသည်') : L('Picked for your face', 'သင့်မျက်နှာအတွက် ရွေးထားသည်')}</span>
 </div>
 <p className="text-xs text-[rgb(var(--muted-hover))] leading-relaxed mb-4">
-{L('Based on your scan, these can help most.', 'သင့် scan ရလဒ်အရ ဒါတွေက အကူညီဆုံး ဖြစ်နိုင်ပါတယ်။')}
+{avoid?.length
+? L('Based on your scan. Pregnancy-unsafe ingredients left out.', 'သင့် scan ရလဒ်အရ။ ကိုယ်ဝန်ဆောင်/နို့တိုက်မိခင်အတွက် မသင့်တဲ့ ပါဝင်ပစ္စည်းများ ဖယ်ထားပါတယ်။')
+: L('Based on your scan, these can help most.', 'သင့် scan ရလဒ်အရ ဒါတွေက အကူညီဆုံး ဖြစ်နိုင်ပါတယ်။')}
 </p>
 
 <div className="space-y-4">

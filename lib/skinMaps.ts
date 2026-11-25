@@ -106,7 +106,7 @@ z = g3(z);
 return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
 }
 
-export async function makeSkinMaps(photo: string, opts: { landmarks?: Pt[]; faceBox?: FaceBox } = {}, maxSide = 640): Promise<SkinMaps> {
+export async function makeSkinMaps(photo: string, opts: { landmarks?: Pt[]; faceBox?: FaceBox } = {}, maxSide = 720): Promise<SkinMaps> {
 const faceBox = opts.faceBox;
 const img = await load(photo);
 const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
@@ -237,6 +237,29 @@ texture: new Float32Array(N),
 };
 const hits: Record<MapKey, number> = { spots: 0, redness: 0, oil: 0, texture: 0 };
 
+// How grainy is this photo? Dim light and cheap cameras add noise that looks like pores and spots.
+// Measure the typical fine detail on the skin and only flag what clearly stands out from it.
+const hist = new Uint32Array(200);
+let lapN = 0;
+for (let y = 1; y < H - 1; y++)
+for (let x = 1; x < W - 1; x++) {
+const i = y * W + x;
+if (!skin[i]) continue;
+const lap = Math.abs(4 * L[i] - L[i - 1] - L[i + 1] - L[i - W] - L[i + W]);
+hist[Math.min(199, Math.floor(lap * 4))]++;
+lapN++;
+}
+let acc = 0, median = 2;
+for (let k = 0; k < 200; k++) {
+acc += hist[k];
+if (acc >= lapN / 2) {
+median = k / 4;
+break;
+}
+}
+const texT = Math.max(9, median * 3.2); // texture: well above this photo's normal grain
+const spotT = Math.max(6, median * 1.6); // spots: darker than the grain could explain
+
 for (let y = 1; y < H - 1; y++) {
 for (let x = 1; x < W - 1; x++) {
 const i = y * W + x;
@@ -246,8 +269,8 @@ const l = L[i];
 // dark spots / pigment: clearly darker than the skin around it
 if (!feature) {
 const d = localMean(x, y) - l;
-if (d > 6) {
-strength.spots[i] = Math.min(1, (d - 6) / 12);
+if (d > spotT) {
+strength.spots[i] = Math.min(1, (d - spotT) / 12);
 hits.spots++;
 }
 }
@@ -266,8 +289,8 @@ hits.oil++;
 // rough texture / pores: strong fine detail in the skin
 if (!feature) {
 const lap = Math.abs(4 * l - L[i - 1] - L[i + 1] - L[i - W] - L[i + W]);
-if (lap > 9) {
-strength.texture[i] = Math.min(1, (lap - 9) / 14);
+if (lap > texT) {
+strength.texture[i] = Math.min(1, (lap - texT) / 14);
 hits.texture++;
 }
 }

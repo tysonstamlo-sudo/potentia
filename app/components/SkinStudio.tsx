@@ -6,6 +6,7 @@
 // Selfies use the app's own mirrored camera (like the face scan), so the photo never flips.
 
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { supabase } from '../../lib/supabase';
 import { useLang } from '../../lib/i18n';
 import { analyzeFace, FaceAnalysisError } from '../../lib/faceAnalysis';
@@ -114,18 +115,89 @@ selfieRef.current?.click(); // no camera permission: fall back to the phone came
 }
 };
 
-const snap = () => {
-const v = videoRef.current;
-if (!v || !v.videoWidth) return;
+// live light check: skin can't be read in the dark (noise looks like spots and pores)
+const [light, setLight] = useState<'ok' | 'dim' | 'dark' | 'bright'>('ok');
+const [snapping, setSnapping] = useState(false);
+useEffect(() => {
+if (!camOn) return;
 const c = document.createElement('canvas');
-c.width = v.videoWidth;
-c.height = v.videoHeight;
-const x = c.getContext('2d');
-if (!x) return;
+c.width = 48;
+c.height = 48;
+const x = c.getContext('2d', { willReadFrequently: true });
+const t = setInterval(() => {
+const v = videoRef.current;
+if (!v || !v.videoWidth || !x) return;
+const s = Math.min(v.videoWidth, v.videoHeight) * 0.4;
+x.drawImage(v, (v.videoWidth - s) / 2, (v.videoHeight - s) / 2, s, s, 0, 0, 48, 48);
+const d = x.getImageData(0, 0, 48, 48).data;
+let sum = 0;
+for (let i = 0; i < d.length; i += 4) sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+const m = sum / (d.length / 4);
+setLight(m < 55 ? 'dark' : m < 85 ? 'dim' : m > 225 ? 'bright' : 'ok');
+}, 400);
+return () => clearInterval(t);
+}, [camOn]);
+
+// what is on screen: the preview fills the screen (object-cover), so only the middle of the camera picture shows
+const visibleRect = (v: HTMLVideoElement) => {
+const r = v.getBoundingClientRect();
+const sc = Math.max(r.width / v.videoWidth, r.height / v.videoHeight);
+const sw = r.width / sc, sh = r.height / sc;
+return { sx: (v.videoWidth - sw) / 2, sy: (v.videoHeight - sh) / 2, sw, sh };
+};
+
+// one mirrored frame of exactly what you see
+const grab = (v: HTMLVideoElement) => {
+const { sx, sy, sw, sh } = visibleRect(v);
+const c = document.createElement('canvas');
+c.width = Math.round(sw);
+c.height = Math.round(sh);
+const x = c.getContext('2d', { willReadFrequently: true })!;
 x.translate(c.width, 0);
 x.scale(-1, 1);
-x.drawImage(v, 0, 0);
-const shot = c.toDataURL('image/jpeg', 0.92);
+x.drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
+return c;
+};
+
+// sharpness of the middle of a frame (higher = less blur)
+const sharpness = (c: HTMLCanvasElement) => {
+const w = 160, h = Math.round((160 * c.height) / c.width);
+const t = document.createElement('canvas');
+t.width = w;
+t.height = h;
+const x = t.getContext('2d', { willReadFrequently: true })!;
+x.drawImage(c, 0, 0, w, h);
+const d = x.getImageData(0, 0, w, h).data;
+const g = (i: number) => 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
+let s = 0, n = 0;
+for (let y = Math.round(h * 0.25); y < h * 0.75; y++)
+for (let xx = Math.round(w * 0.25); xx < w * 0.75; xx++) {
+const i = y * w + xx;
+const l = 4 * g(i) - g(i - 1) - g(i + 1) - g(i - w) - g(i + w);
+s += l * l;
+n++;
+}
+return n ? s / n : 0;
+};
+
+// take 4 quick frames and keep the sharpest one (a shaky hand blurs pores and spots)
+const snap = async () => {
+const v = videoRef.current;
+if (!v || !v.videoWidth || snapping || light === 'dark') return;
+setSnapping(true);
+let best: HTMLCanvasElement | null = null, bestS = -1;
+for (let i = 0; i < 4; i++) {
+const c = grab(v);
+const sh = sharpness(c);
+if (sh > bestS) {
+bestS = sh;
+best = c;
+}
+await new Promise(r => setTimeout(r, 90));
+}
+setSnapping(false);
+if (!best) return;
+const shot = best.toDataURL('image/jpeg', 0.95);
 stopCam();
 run(shot);
 };
@@ -309,32 +381,55 @@ style={{ background: 'rgb(var(--surface) / 0.6)', border: '1px solid rgb(var(--m
 )}
 
 {/* take a photo */}
-{camOn && (
-<div className="fixed inset-0 z-[60] bg-black flex flex-col">
+{camOn &&
+typeof document !== 'undefined' &&
+createPortal(
+<div className="fixed inset-0 bg-black flex flex-col" style={{ zIndex: 9999 }}>
 <div className="relative flex-1 overflow-hidden">
 <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
 <div
-className="absolute left-1/2 top-[45%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] pointer-events-none"
-style={{ width: '62%', aspectRatio: '3 / 4', border: '2px solid rgb(var(--gold))', boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)' }}
+className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-[50%] pointer-events-none"
+style={{
+width: 'min(68%, 340px)',
+aspectRatio: '3 / 4',
+border: `2px solid ${light === 'ok' ? 'rgb(var(--gold))' : light === 'dark' ? 'rgb(var(--err))' : '#F5B942'}`,
+boxShadow: '0 0 0 9999px rgba(0,0,0,0.4)',
+}}
 />
-<p className="absolute top-[max(env(safe-area-inset-top),16px)] inset-x-0 text-center text-white text-[13px] px-6 pt-2">
-{L('Face in the oval, facing a window. No filter.', 'မျက်နှာကို ဘဲဥပုံထဲထား၊ ပြတင်းပေါက်ဘက် လှည့်ပါ။ Filter မသုံးပါနဲ့။')}
+<div className="absolute inset-x-0 px-6 text-center" style={{ top: 'max(env(safe-area-inset-top), 16px)', paddingTop: 44 }}>
+<p className="text-white text-[14px] font-medium">
+{light === 'dark'
+? L('Too dark — face a window or a bright light', 'မှောင်လွန်းတယ် — ပြတင်းပေါက် ဒါမှမဟုတ် အလင်းရောင်ဘက် လှည့်ပါ')
+: light === 'dim'
+? L('A bit dark — more light = more accurate', 'နည်းနည်း မှောင်တယ် — အလင်းများရင် ပိုတိကျတယ်')
+: light === 'bright'
+? L('Too bright — move out of direct sun', 'လင်းလွန်းတယ် — နေရောင်တိုက်ရိုက်ကနေ ရှောင်ပါ')
+: L('Face in the oval, hold still. No filter.', 'မျက်နှာကို ဘဲဥပုံထဲထား၊ မလှုပ်ပါနဲ့။ Filter မသုံးပါနဲ့။')}
 </p>
-<button onClick={stopCam} aria-label={L('Close camera', 'ကင်မရာ ပိတ်')} className="absolute right-4 top-[max(env(safe-area-inset-top),16px)] mt-8 rounded-full p-2 bg-black/50 text-white">
+</div>
+<button
+onClick={stopCam}
+aria-label={L('Close camera', 'ကင်မရာ ပိတ်')}
+className="absolute right-4 rounded-full p-2.5 bg-black/55 text-white"
+style={{ top: 'max(env(safe-area-inset-top), 16px)' }}
+>
 <X className="w-5 h-5" />
 </button>
 </div>
-<div className="flex justify-center py-6 pb-[max(env(safe-area-inset-bottom),24px)]">
+<div className="flex flex-col items-center gap-2 pt-5 bg-black" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 24px)' }}>
 <button
 onClick={snap}
+disabled={snapping || light === 'dark'}
 aria-label={L('Take photo', 'ဓာတ်ပုံ ရိုက်')}
-className="w-[72px] h-[72px] rounded-full border-4 flex items-center justify-center"
-style={{ borderColor: ACC }}
+className="w-[76px] h-[76px] rounded-full border-4 flex items-center justify-center disabled:opacity-40"
+style={{ borderColor: 'rgb(var(--gold))' }}
 >
-<span className="w-[56px] h-[56px] rounded-full" style={{ background: ACC }} />
+{snapping ? <Loader2 className="w-7 h-7 animate-spin text-white" /> : <span className="w-[58px] h-[58px] rounded-full" style={{ background: 'rgb(var(--gold))' }} />}
 </button>
+<span className="text-[11px] text-white/60">{L('Hold still for a second', 'တစ်စက္ကန့် မလှုပ်ပါနဲ့')}</span>
 </div>
-</div>
+</div>,
+document.body
 )}
 
 <div className="rounded-2xl p-5" style={card}>

@@ -2,7 +2,8 @@
 
 // app/components/SkinStudio.tsx — Potentia Skin: skin maps on your own selfie, skin age, your skin in 10 years,
 // weekly progress and a routine with Shop products.
-// Free: the dark-spot map (made on the phone). Potentia Skin (a skin plan, Gold/Platinum, or a one-time report): everything.
+// Free: the dark-spot map (made on the phone). Potentia Skin (a skin plan or a one-time report): everything.
+// Selfies use the app's own mirrored camera (like the face scan), so the photo never flips.
 
 import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
@@ -14,7 +15,7 @@ import { fmtMMK, planMmk } from '../../lib/payments';
 import { track } from '../../lib/track';
 import ScanPicks from './ScanPicks';
 import type { SkinReport } from '../api/ai/skin/route';
-import { Camera, ImagePlus, Loader2, Lock, Sparkles, Sun, Moon, Clock, TrendingDown, TrendingUp, RefreshCw } from 'lucide-react';
+import { Camera, ImagePlus, Loader2, Lock, Sparkles, Sun, Moon, Clock, TrendingDown, TrendingUp, RefreshCw, X } from 'lucide-react';
 
 const ROSE = '#F2A6BC';
 const ROSE_INK = '#2B1220';
@@ -68,31 +69,6 @@ acne: 'pores',
 wrinkles: 'eye_texture',
 };
 
-async function readPhoto(file: File, mirror: boolean): Promise<string> {
-const url = await toAiImage(file, 1400, 0.92);
-return mirror ? flipX(url) : url;
-}
-
-/** The phone camera saves selfies un-mirrored, so they look flipped next to the preview you saw.
-* Mirror them back so the result matches what you saw on screen. */
-function flipX(src: string): Promise<string> {
-return new Promise(res => {
-const i = new Image();
-i.onload = () => {
-const c = document.createElement('canvas');
-c.width = i.width;
-c.height = i.height;
-const x = c.getContext('2d')!;
-x.translate(i.width, 0);
-x.scale(-1, 1);
-x.drawImage(i, 0, 0);
-res(c.toDataURL('image/jpeg', 0.92));
-};
-i.onerror = () => res(src);
-i.src = src;
-});
-}
-
 export default function SkinStudio({ isGuest, onGoSkin }: { isGuest: boolean; onGoSkin: () => void }) {
 const { lang } = useLang();
 const L = (en: string, my: string) => (lang === 'my' ? my : en);
@@ -112,6 +88,46 @@ const [agingBusy, setAgingBusy] = useState(false);
 const [agingErr, setAgingErr] = useState('');
 const selfieRef = useRef<HTMLInputElement | null>(null);
 const galleryRef = useRef<HTMLInputElement | null>(null);
+const videoRef = useRef<HTMLVideoElement | null>(null);
+const streamRef = useRef<MediaStream | null>(null);
+const [camOn, setCamOn] = useState(false);
+
+const stopCam = () => {
+streamRef.current?.getTracks().forEach(t => t.stop());
+streamRef.current = null;
+setCamOn(false);
+};
+useEffect(() => () => streamRef.current?.getTracks().forEach(t => t.stop()), []);
+
+// the app's own front camera, shown mirrored like a mirror; the photo is saved the same way
+const openCam = async () => {
+try {
+const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1440 }, height: { ideal: 1440 } }, audio: false });
+streamRef.current = stream;
+setCamOn(true);
+setTimeout(() => {
+if (videoRef.current) videoRef.current.srcObject = stream;
+}, 50);
+} catch {
+selfieRef.current?.click(); // no camera permission: fall back to the phone camera
+}
+};
+
+const snap = () => {
+const v = videoRef.current;
+if (!v || !v.videoWidth) return;
+const c = document.createElement('canvas');
+c.width = v.videoWidth;
+c.height = v.videoHeight;
+const x = c.getContext('2d');
+if (!x) return;
+x.translate(c.width, 0);
+x.scale(-1, 1);
+x.drawImage(v, 0, 0);
+const shot = c.toDataURL('image/jpeg', 0.92);
+stopCam();
+run(shot);
+};
 
 const paid = !!acc && acc.access !== 'none';
 const age = acc?.birth_year ? new Date().getFullYear() - acc.birth_year : null;
@@ -138,8 +154,8 @@ await loadAccess();
 })();
 }, []);
 
-const run = async (file: File | undefined, selfie = false) => {
-if (!file) return;
+const run = async (input: File | string | undefined) => {
+if (!input) return;
 setError('');
 setReport(null);
 setAging(null);
@@ -147,7 +163,7 @@ setMaps(null);
 setStatus('reading');
 track('scan_start', { source: 'skin' });
 try {
-const photo = await readPhoto(file, selfie);
+const photo = typeof input === 'string' ? input : await toAiImage(input, 1400, 0.92);
 // 1. find the face (on the phone) so the maps only cover skin
 const face = await analyzeFace(photo, gender);
 const faceImg = face.croppedImage ?? photo;
@@ -292,11 +308,39 @@ style={{ background: 'rgb(var(--surface) / 0.6)', border: '1px solid rgb(var(--m
 )}
 
 {/* take a photo */}
+{camOn && (
+<div className="fixed inset-0 z-[60] bg-black flex flex-col">
+<div className="relative flex-1 overflow-hidden">
+<video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
+<div
+className="absolute left-1/2 top-[45%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] pointer-events-none"
+style={{ width: '62%', aspectRatio: '3 / 4', border: `2px solid ${ROSE}`, boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)' }}
+/>
+<p className="absolute top-[max(env(safe-area-inset-top),16px)] inset-x-0 text-center text-white text-[13px] px-6 pt-2">
+{L('Face in the oval, facing a window. No filter.', 'မျက်နှာကို ဘဲဥပုံထဲထား၊ ပြတင်းပေါက်ဘက် လှည့်ပါ။ Filter မသုံးပါနဲ့။')}
+</p>
+<button onClick={stopCam} aria-label={L('Close camera', 'ကင်မရာ ပိတ်')} className="absolute right-4 top-[max(env(safe-area-inset-top),16px)] mt-8 rounded-full p-2 bg-black/50 text-white">
+<X className="w-5 h-5" />
+</button>
+</div>
+<div className="flex justify-center py-6 pb-[max(env(safe-area-inset-bottom),24px)]">
+<button
+onClick={snap}
+aria-label={L('Take photo', 'ဓာတ်ပုံ ရိုက်')}
+className="w-[72px] h-[72px] rounded-full border-4 flex items-center justify-center"
+style={{ borderColor: ROSE }}
+>
+<span className="w-[56px] h-[56px] rounded-full" style={{ background: ROSE }} />
+</button>
+</div>
+</div>
+)}
+
 <div className="rounded-2xl p-5" style={card}>
 <div className="grid grid-cols-2 gap-2">
 <button
 type="button"
-onClick={() => selfieRef.current?.click()}
+onClick={openCam}
 disabled={status === 'reading' || status === 'ai'}
 className="flex items-center justify-center gap-2 rounded-xl py-3.5 text-[13px] font-semibold disabled:opacity-60"
 style={{ background: ROSE, color: ROSE_INK }}
@@ -313,8 +357,14 @@ style={{ border: `1px solid ${ROSE}88`, color: 'rgb(var(--muted-hover))' }}
 <ImagePlus className="w-4 h-4" /> {L('Upload', 'Upload')}
 </button>
 </div>
-<input ref={selfieRef} type="file" accept="image/*" capture="user" className="hidden" onChange={e => run(e.target.files?.[0], true)} />
-<input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={e => run(e.target.files?.[0])} />
+<input ref={selfieRef} type="file" accept="image/*" capture="user" className="hidden" onChange={e => {
+run(e.target.files?.[0]);
+e.target.value = '';
+}} />
+<input ref={galleryRef} type="file" accept="image/*" className="hidden" onChange={e => {
+run(e.target.files?.[0]);
+e.target.value = '';
+}} />
 <p className="text-[11px] text-[rgb(var(--muted))] mt-3 leading-relaxed">
 {L(
 'Daylight from a window, no makeup, no filter or beauty mode, hair off your face. Use the same light every week to compare.',

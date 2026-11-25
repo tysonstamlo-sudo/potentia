@@ -17,14 +17,15 @@ import ScanPicks from './ScanPicks';
 import type { SkinReport } from '../api/ai/skin/route';
 import { Camera, ImagePlus, Loader2, Lock, Sparkles, Sun, Moon, Clock, TrendingDown, TrendingUp, RefreshCw, X } from 'lucide-react';
 
-const ROSE = '#F2A6BC';
-const ROSE_INK = '#2B1220';
+// follows the app colour the user picks in Settings
+const ACC = 'rgb(var(--gold))';
+const ACC_INK = 'rgb(var(--bg))';
 const card: React.CSSProperties = {
 background: 'rgb(var(--surface) / 0.5)',
 border: '1px solid rgb(var(--muted) / 0.14)',
 backdropFilter: 'blur(10px)',
 };
-const roseCard: React.CSSProperties = { ...card, border: `1px solid ${ROSE}66`, background: 'linear-gradient(160deg, rgba(242,166,188,0.10), rgb(var(--surface) / 0.45))' };
+const accCard: React.CSSProperties = { ...card, border: '1px solid rgb(var(--gold) / 0.4)', background: 'linear-gradient(160deg, rgb(var(--gold) / 0.08), rgb(var(--surface) / 0.45))' };
 
 type Access = { access: 'none' | 'plan' | 'premium' | 'report'; until: string | null; reports: number; birth_year: number | null };
 type PrevScan = { created_at: string; maps: Partial<Record<MapKey, number>>; skin_age: number | null; score: number | null };
@@ -262,10 +263,10 @@ ai: { sub: { skin: report.score } },
 return (
 <div className="space-y-5 font-body max-w-xl mx-auto">
 {/* header */}
-<div className="p-5 rounded-2xl" style={roseCard}>
+<div className="p-5 rounded-2xl" style={accCard}>
 <div className="flex items-center gap-2 mb-1.5">
-<Sparkles className="w-4 h-4" style={{ color: ROSE }} />
-<span className="text-[10px] tracking-[0.3em] uppercase" style={{ color: ROSE }}>
+<Sparkles className="w-4 h-4" style={{ color: ACC }} />
+<span className="text-[10px] tracking-[0.3em] uppercase" style={{ color: ACC }}>
 Potentia Skin
 </span>
 </div>
@@ -277,7 +278,7 @@ Potentia Skin
 )}
 </p>
 {acc && acc.access !== 'none' && (
-<p className="text-[11px] mt-3" style={{ color: ROSE }}>
+<p className="text-[11px] mt-3" style={{ color: ACC }}>
 {acc.access === 'premium'
 ? L('Included with your Premium plan', 'သင့် Premium plan မှာ ပါဝင်ပါတယ်')
 : acc.access === 'report'
@@ -314,7 +315,7 @@ style={{ background: 'rgb(var(--surface) / 0.6)', border: '1px solid rgb(var(--m
 <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
 <div
 className="absolute left-1/2 top-[45%] -translate-x-1/2 -translate-y-1/2 rounded-[50%] pointer-events-none"
-style={{ width: '62%', aspectRatio: '3 / 4', border: `2px solid ${ROSE}`, boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)' }}
+style={{ width: '62%', aspectRatio: '3 / 4', border: '2px solid rgb(var(--gold))', boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)' }}
 />
 <p className="absolute top-[max(env(safe-area-inset-top),16px)] inset-x-0 text-center text-white text-[13px] px-6 pt-2">
 {L('Face in the oval, facing a window. No filter.', 'မျက်နှာကို ဘဲဥပုံထဲထား၊ ပြတင်းပေါက်ဘက် လှည့်ပါ။ Filter မသုံးပါနဲ့။')}
@@ -328,9 +329,9 @@ style={{ width: '62%', aspectRatio: '3 / 4', border: `2px solid ${ROSE}`, boxSha
 onClick={snap}
 aria-label={L('Take photo', 'ဓာတ်ပုံ ရိုက်')}
 className="w-[72px] h-[72px] rounded-full border-4 flex items-center justify-center"
-style={{ borderColor: ROSE }}
+style={{ borderColor: ACC }}
 >
-<span className="w-[56px] h-[56px] rounded-full" style={{ background: ROSE }} />
+<span className="w-[56px] h-[56px] rounded-full" style={{ background: ACC }} />
 </button>
 </div>
 </div>
@@ -343,7 +344,7 @@ type="button"
 onClick={openCam}
 disabled={status === 'reading' || status === 'ai'}
 className="flex items-center justify-center gap-2 rounded-xl py-3.5 text-[13px] font-semibold disabled:opacity-60"
-style={{ background: ROSE, color: ROSE_INK }}
+style={{ background: ACC, color: ACC_INK }}
 >
 <Camera className="w-4 h-4" /> {status === 'done' ? L('Scan again', 'ပြန် scan') : L('Take selfie', 'Selfie ရိုက်မယ်')}
 </button>
@@ -352,7 +353,7 @@ type="button"
 onClick={() => galleryRef.current?.click()}
 disabled={status === 'reading' || status === 'ai'}
 className="flex items-center justify-center gap-2 rounded-xl py-3.5 text-[13px] font-medium disabled:opacity-60"
-style={{ border: `1px solid ${ROSE}88`, color: 'rgb(var(--muted-hover))' }}
+style={{ border: '1px solid rgb(var(--gold) / 0.53)', color: 'rgb(var(--muted-hover))' }}
 >
 <ImagePlus className="w-4 h-4" /> {L('Upload', 'Upload')}
 </button>
@@ -372,7 +373,7 @@ e.target.value = '';
 )}
 </p>
 {(status === 'reading' || status === 'ai') && (
-<p className="flex items-center gap-2 text-[13px] mt-3" style={{ color: ROSE }}>
+<p className="flex items-center gap-2 text-[13px] mt-3" style={{ color: ACC }}>
 <Loader2 className="w-4 h-4 animate-spin" />
 {status === 'reading' ? L('Mapping your skin…', 'အသားအရေ မြေပုံ ဆွဲနေပါတယ်…') : L('Reading your skin in detail…', 'အသေးစိတ် စစ်ဆေးနေပါတယ်…')}
 </p>
@@ -406,7 +407,7 @@ style={!paid && view !== 'spots' ? { filter: 'blur(14px)' } : undefined}
 {(['all', ...MAP_KEYS] as (MapKey | 'all')[]).map(k => {
 const on = view === k;
 const locked = !paid && k !== 'spots';
-const col = k === 'all' ? ROSE : `rgb(${MAP_COLORS[k as MapKey].join(',')})`;
+const col = k === 'all' ? ACC : `rgb(${MAP_COLORS[k as MapKey].join(',')})`;
 return (
 <button
 key={k}
@@ -457,7 +458,7 @@ return (
 
 {/* locked teaser */}
 {maps && !paid && (
-<div className="rounded-2xl p-5 space-y-3" style={roseCard}>
+<div className="rounded-2xl p-5 space-y-3" style={accCard}>
 <p className="font-display text-lg font-semibold text-[rgb(var(--gold))]">{L('See your full skin report', 'အသားအရေ report အပြည့်ကို ကြည့်ပါ')}</p>
 <ul className="space-y-1.5 text-[13px] text-[rgb(var(--muted-hover))]">
 {[
@@ -468,11 +469,11 @@ L('Your morning and night routine, with products', 'မနက်နဲ့ ည ro
 L('Weekly progress on the same maps', 'မြေပုံတူတူပေါ်မှာ အပတ်စဉ် တိုးတက်မှု'),
 ].map(x => (
 <li key={x} className="flex gap-2">
-<Lock className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: ROSE }} /> {x}
+<Lock className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: ACC }} /> {x}
 </li>
 ))}
 </ul>
-<button onClick={onGoSkin} className="w-full font-semibold py-3.5 rounded-xl text-sm" style={{ background: ROSE, color: ROSE_INK }}>
+<button onClick={onGoSkin} className="w-full font-semibold py-3.5 rounded-xl text-sm" style={{ background: ACC, color: ACC_INK }}>
 {isGuest
 ? L('Save your account to unlock', 'ဖွင့်ရန် အကောင့် သိမ်းပါ')
 : L(`Get my full report · from ${fmtMMK(planMmk('skin_report'))}`, `Report အပြည့် ရယူရန် · ${fmtMMK(planMmk('skin_report'))} မှ`)}
@@ -483,7 +484,7 @@ L('Weekly progress on the same maps', 'မြေပုံတူတူပေါ�
 {/* the AI report */}
 {report && (
 <>
-<div className="rounded-2xl p-5" style={roseCard}>
+<div className="rounded-2xl p-5" style={accCard}>
 <div className="grid grid-cols-2 gap-4 text-center">
 <div>
 <p className="text-[11px] text-[rgb(var(--muted))] uppercase tracking-wide">{L('Skin score', 'အသားအရေ အမှတ်')}</p>
@@ -493,7 +494,7 @@ L('Weekly progress on the same maps', 'မြေပုံတူတူပေါ�
 <p className="text-[11px] text-[rgb(var(--muted))] uppercase tracking-wide">{L('Skin age', 'အသားအရေ အသက်')}</p>
 <p className="font-display text-4xl font-semibold text-[rgb(var(--gold))]">{report.skin_age}</p>
 {age != null && (
-<p className="text-[11px]" style={{ color: report.skin_age <= age ? '#5BD69A' : ROSE }}>
+<p className="text-[11px]" style={{ color: report.skin_age <= age ? '#5BD69A' : 'rgb(var(--err))' }}>
 {report.skin_age < age
 ? L(`${age - report.skin_age} years younger than you`, `သင့်အသက်ထက် ${age - report.skin_age} နှစ် ငယ်`)
 : report.skin_age > age
@@ -518,12 +519,12 @@ L('Weekly progress on the same maps', 'မြေပုံတူတူပေါ�
 <div key={c.key}>
 <div className="flex justify-between text-[13px] mb-1">
 <span className="text-[rgb(var(--muted-hover))]">{N(CONCERN_NAME[c.key] ?? [c.key, c.key])}</span>
-<span style={{ color: c.severity >= 6 ? ROSE : 'rgb(var(--gold))' }}>
+<span style={{ color: c.severity >= 6 ? 'rgb(var(--err))' : ACC }}>
 {c.severity >= 7 ? L('Strong', 'များ') : c.severity >= 4 ? L('Medium', 'အလယ်အလတ်') : L('Mild', 'နည်း')}
 </span>
 </div>
 <div className="h-1.5 rounded-full" style={{ background: 'rgb(var(--muted) / 0.15)' }}>
-<div className="h-1.5 rounded-full" style={{ width: `${c.severity * 10}%`, background: c.severity >= 6 ? ROSE : 'rgb(var(--gold))' }} />
+<div className="h-1.5 rounded-full" style={{ width: `${c.severity * 10}%`, background: c.severity >= 6 ? 'rgb(var(--err))' : ACC }} />
 </div>
 {c.zones.length > 0 && <p className="text-[11px] text-[rgb(var(--muted))] mt-1">{c.zones.map(z => N(ZONE_NAME[z] ?? [z, z])).join(', ')}</p>}
 </div>
@@ -549,7 +550,7 @@ steps.length ? (
 <ol className="space-y-2">
 {steps.map((s, i) => (
 <li key={i} className="flex gap-3">
-<span className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-semibold" style={{ background: `${ROSE}33`, color: ROSE }}>
+<span className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-semibold" style={{ background: 'rgb(var(--gold) / 0.2)', color: ACC }}>
 {i + 1}
 </span>
 <span>
@@ -574,9 +575,9 @@ steps.length ? (
 
 {/* your skin in 10 years */}
 {maps && (
-<div className="rounded-2xl p-5 space-y-3" style={roseCard}>
+<div className="rounded-2xl p-5 space-y-3" style={accCard}>
 <div className="flex items-center gap-2">
-<Clock className="w-4 h-4" style={{ color: ROSE }} />
+<Clock className="w-4 h-4" style={{ color: ACC }} />
 <span className="font-display text-base font-semibold text-[rgb(var(--gold))]">{L('Your skin in 10 years', '၁၀ နှစ်နောက် သင့်အသားအရေ')}</span>
 </div>
 {aging ? (
@@ -600,7 +601,7 @@ steps.length ? (
 ) : paid ? (
 <>
 <p className="text-[12px] text-[rgb(var(--muted-hover))]">{L('See how your skin could look in 10 years without care, and with a good routine.', '၁၀ နှစ်နောက် ဂရုမစိုက်ရင် နဲ့ routine ကောင်းကောင်းနဲ့ဆိုရင် သင့်အသားအရေ ဘယ်လိုဖြစ်မလဲ ကြည့်ပါ။')}</p>
-<button onClick={runAging} disabled={agingBusy} className="w-full flex items-center justify-center gap-2 font-semibold py-3.5 rounded-xl text-sm disabled:opacity-60" style={{ background: ROSE, color: ROSE_INK }}>
+<button onClick={runAging} disabled={agingBusy} className="w-full flex items-center justify-center gap-2 font-semibold py-3.5 rounded-xl text-sm disabled:opacity-60" style={{ background: ACC, color: ACC_INK }}>
 {agingBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
 {agingBusy ? L('Creating… about 30 seconds', 'ဖန်တီးနေပါတယ်… စက္ကန့် ၃၀ ခန့်') : L('Show my skin in 10 years', '၁၀ နှစ်နောက် အသားအရေ ပြပါ')}
 </button>
@@ -608,7 +609,7 @@ steps.length ? (
 <p className="text-[10px] text-[rgb(var(--muted))]">{L('Your photo is sent to Google’s AI to make this and is not stored by Potentia.', 'ဒီပုံဖန်တီးဖို့ သင့်ဓာတ်ပုံကို Google AI ဆီ ပို့ပါတယ်။ Potentia က မသိမ်းပါ။')}</p>
 </>
 ) : (
-<button onClick={onGoSkin} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-[13px] font-medium" style={{ border: `1px solid ${ROSE}88`, color: ROSE }}>
+<button onClick={onGoSkin} className="w-full flex items-center justify-center gap-2 rounded-xl py-3 text-[13px] font-medium" style={{ border: '1px solid rgb(var(--gold) / 0.53)', color: ACC }}>
 <Lock className="w-4 h-4" /> {L('Included in Potentia Skin', 'Potentia Skin မှာ ပါဝင်ပါတယ်')}
 </button>
 )}

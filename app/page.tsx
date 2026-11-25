@@ -731,8 +731,8 @@ key={k}
 onClick={() => setScanMode(k)}
 className="py-2.5 rounded-lg text-[13px] font-semibold"
 style={{
-background: scanMode === k ? (k === 'skin' ? '#F2A6BC' : 'rgb(var(--gold))') : 'transparent',
-color: scanMode === k ? (k === 'skin' ? '#2B1220' : 'rgb(var(--bg))') : 'rgb(var(--muted-hover))',
+background: scanMode === k ? 'rgb(var(--gold))' : 'transparent',
+color: scanMode === k ? 'rgb(var(--bg))' : 'rgb(var(--muted-hover))',
 }}
 >
 {label}
@@ -1046,14 +1046,14 @@ setScanMode('skin');
 setActiveTab('scan');
 }}
 className="w-full mt-8 rounded-2xl p-5 flex items-center justify-between gap-4 text-left"
-style={{ border: '1px solid #F2A6BC66', background: 'linear-gradient(160deg, rgba(242,166,188,0.12), rgb(var(--surface) / 0.45))' }}
+style={{ border: '1px solid rgb(var(--gold) / 0.4)', background: 'linear-gradient(160deg, rgb(var(--gold) / 0.1), rgb(var(--surface) / 0.45))' }}
 >
 <span>
-<span className="block text-[10px] tracking-[0.3em] uppercase" style={{ color: '#F2A6BC' }}>Potentia Skin</span>
+<span className="block text-[10px] tracking-[0.3em] uppercase" style={{ color: 'rgb(var(--gold))' }}>Potentia Skin</span>
 <span className="block font-display text-lg font-semibold text-[rgb(var(--gold))] mt-1">{L('Map your skin. See it in 10 years.', 'သင့်အသားအရေ မြေပုံ။ ၁၀ နှစ်နောက်ကို ကြည့်ပါ။')}</span>
 <span className="block text-[12px] text-[rgb(var(--muted-hover))] mt-1">{L('Dark spots, redness, oil, pores, skin age and your routine.', 'အမည်းစက်၊ အနီကွက်၊ အဆီ၊ ချွေးပေါက်၊ အသားအရေ အသက်နဲ့ routine။')}</span>
 </span>
-<span className="text-xl" style={{ color: '#F2A6BC' }}>→</span>
+<span className="text-xl" style={{ color: 'rgb(var(--gold))' }}>→</span>
 </button>
 
 {/* Progress lives on Home now (its tab became Morph) */}

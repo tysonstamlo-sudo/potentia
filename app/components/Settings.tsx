@@ -9,7 +9,7 @@ import { notify } from '../../lib/notify';
 import { fmtMMK } from '../../lib/payments';
 import { supabase } from '../../lib/supabase';
 import { useLang, LanguageToggle } from '../../lib/i18n';
-import { ThemeToggle } from '../../lib/theme';
+import { ThemeToggle, AccentPicker } from '../../lib/theme';
 import NotificationToggle from './NotificationToggle';
 import { Sheet } from './shopShared';
 import Help from './Help';
@@ -578,8 +578,12 @@ style={msg.ok ? { color: 'rgb(var(--gold))', background: 'rgb(var(--gold) / 0.1)
 <LanguageToggle />
 </div>
 <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '1px solid rgb(var(--muted) / 0.1)' }}>
-<span className="text-sm text-[rgb(var(--muted-hover))]">{L('Theme', 'အရောင်')}</span>
+<span className="text-sm text-[rgb(var(--muted-hover))]">{L('Light / dark', 'အလင်း / အမှောင်')}</span>
 <ThemeToggle />
+</div>
+<div className="px-4 py-3" style={{ borderTop: '1px solid rgb(var(--muted) / 0.1)' }}>
+<span className="block text-sm text-[rgb(var(--muted-hover))] mb-2.5">{L('App colour', 'App အရောင်')}</span>
+<AccentPicker lang={lang} />
 </div>
 <div className="px-4 py-3" style={{ borderTop: '1px solid rgb(var(--muted) / 0.1)' }}>
 <NotificationToggle userId={userId} />

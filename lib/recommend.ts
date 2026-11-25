@@ -34,7 +34,7 @@ return f ? (lang === 'my' ? f.my : f.en) : c;
 // words that mean "this product helps with X" when the seller has not tagged it
 const WORDS: Record<Concern, string[]> = {
 dark_circles: ['dark circle', 'under eye', 'under-eye', 'eye cream', 'caffeine', 'မျက်ကွင်း'],
-oily: ['oil control', 'oily', 'matte', 'niacinamide', 'salicylic', 'clay', 'bha', 'အဆီပြန်'],
+oily: ['oil control', 'oily skin', 'mattifying', 'niacinamide', 'salicylic', 'clay mask', 'bha', 'အဆီပြန်'],
 pores: ['pore', 'blackhead', 'salicylic', 'bha', 'clay mask', 'ချွေးပေါက်', 'ဆားဝက်ခြံ'],
 redness: ['redness', 'sensitive', 'soothing', 'cica', 'centella', 'aloe', 'calming', 'အနီ'],
 uneven: ['vitamin c', 'brighten', 'dark spot', 'even tone', 'sunscreen', 'spf', 'အမည်းစက်', 'နေလောင်'],
@@ -74,9 +74,31 @@ if (sub?.jaw != null && sub.jaw < 5.5) add('jawline', 10 - sub.jaw - 0.5);
 return [...sev.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(e => e[0]);
 }
 
-type ProductLike = { id: string; name: string; description: string; concerns?: string[] | null };
+type ProductLike = { id: string; name: string; description: string; concerns?: string[] | null; category?: string | null };
+
+// Skin concerns only get products that go on the face. Hair, styling and body products never count,
+// even if a seller tagged them (a hair clay "for oily hair" is not for oily skin).
+const SKIN_CONCERNS: Concern[] = ['dark_circles', 'oily', 'pores', 'redness', 'uneven', 'eye_area', 'skin_general'];
+const SKIN_CATEGORIES = ['skincare', 'grooming', 'other'];
+const HAIR_WORDS = [
+'hair', 'pomade', 'wax', 'texture powder', 'texturizing', 'texturising', 'styling', 'hairspray', 'hair spray', 'gel',
+'shampoo', 'conditioner', 'beard', 'scalp', 'hold', 'sea salt', 'deodorant', 'body wash', 'perfume', 'cologne',
+'ဆံပင်', 'ခေါင်းလျှော်', 'မုတ်ဆိတ်',
+];
+function notForFace(p: ProductLike) {
+const text = `${p.name} ${p.description}`.toLowerCase();
+if (HAIR_WORDS.some(w => text.includes(w))) return true;
+// a "clay" that is not a clay mask is a hair clay
+if (/\bclay\b/.test(text) && !/mask|cleanser|face wash/.test(text)) return true;
+return false;
+}
 
 function strength(p: ProductLike, c: Concern) {
+if (SKIN_CONCERNS.includes(c)) {
+const cat = (p.category ?? '').toLowerCase();
+if (cat && !SKIN_CATEGORIES.includes(cat)) return 0;
+if (notForFace(p)) return 0;
+}
 if (p.concerns?.includes(c)) return 3; // the seller said so
 const text = `${p.name} ${p.description}`.toLowerCase();
 return WORDS[c].some(w => text.includes(w)) ? 1 : 0;
@@ -99,4 +121,3 @@ if (best.length) out.push({ concern: c, products: best });
 }
 return out;
 }
-
